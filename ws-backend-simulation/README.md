@@ -8,6 +8,10 @@ What happens inside this service is not important as long as it returns JSON and
 
 # Request Arguments
 
+### id
+
+Number used to generate a 'responseKey' for the ws-client to assert correct implementation and flow of requests.
+
 ### delay
 
 The delay in milliseconds to add to the server side response to simulate server-side latency.
@@ -30,16 +34,17 @@ Default: 128
 Example Requests:
 
 ```
-http://hostname/ws-backend-simulation/mock.json
-http://hostname/ws-backend-simulation/mock.json?delay=500
-http://hostname/ws-backend-simulation/mock.json?numItems=25&itemSize=256
-http://hostname/ws-backend-simulation/mock.json?numItems=25&itemSize=256&delay=400
+http://hostname/ws-backend-simulation/mock.json?id=123
+http://hostname/ws-backend-simulation/mock.json?id=123&delay=500
+http://hostname/ws-backend-simulation/mock.json?id=123&numItems=25&itemSize=256
+http://hostname/ws-backend-simulation/mock.json?id=123&numItems=25&itemSize=256&delay=400
 ```
 
 Example Response:
 
 ```json
 {
+  "responseKey":41262963,
   "delay": 50,
   "itemSize": 128,
   "numItems": 10,
