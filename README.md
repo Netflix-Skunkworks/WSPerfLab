@@ -40,7 +40,9 @@ An HTTP GET will request /test which is expected to perform the following:
 - D) GET http://hostname:port/mock.json?numItems=1&itemSize=1000&delay=1
 - E) GET http://hostname:port/mock.json?numItems=100&itemSize=30&delay=150
 
+The conditional flow of requests is demonstrated in this diagram:
 
+<img src="https://raw.github.com/wiki/benjchristensen/WSPerfLab/images/requests.png" width="860" height="260">
 
 The expected response will look like this (without pretty print):
 
