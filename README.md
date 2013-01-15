@@ -21,7 +21,7 @@ The various test implementations are intended to each implement the same logic w
 - <a href="WSPerfLab/tree/master/ws-python-gevent">ws-python-gevent</a>
 
 
-The <a href="WSPerftLab/tree/master/ws-client">ws-client</a> will drive the traffic and capture performance metrics.
+The <a href="WSPerfLab/tree/master/ws-client">ws-client</a> will drive the traffic and capture performance metrics.
 
 Metrics to be captured are:
 
