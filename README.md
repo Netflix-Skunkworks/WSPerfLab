@@ -3,6 +3,18 @@
 
 Project for testing web-service implementations.
 
+The intent of the test design is to simulate behavior typical of real-world web service applications.
+
+This includes things such as:
+
+- parallel network execution to backend services
+- multiple (5 in this case) backend services
+- conditional request flows (C and D require data from A, E requires data from B)
+- JSON deserialization and serialization
+- work such as math, iteration, string manipulation (not just proxying a stream of bytes)
+
+# Structure
+
 The test setup will consist of the following:
 
 <img src="https://raw.github.com/wiki/benjchristensen/WSPerfLab/images/overview.png" width="860" height="300">
@@ -25,7 +37,6 @@ The <a href="WSPerfLab/tree/master/ws-client">ws-client</a> will drive the traff
 
 Metrics to be captured are:
 
-- server-side end-to-end latency as returned in response headers
 - client-side end-to-end latency for entire trip including network
 - response payload size
 
@@ -68,6 +79,14 @@ The expected response will look like this (without pretty print):
   ]
 }
 ```
+
+# Validation
+
+The 'responseKey' in the returned JSON will be asserted for correctness to validate that the 5 backend service requests were performed in the correct order.
+
+JSON payload size and elements will also be checked for containing the expected results.
+
+This will not be asserted on every invocation of ws-client during load testing, but will be a validation step done during development to confirm an implementation complies.
 
 
 # Statistics and Report
