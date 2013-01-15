@@ -1,4 +1,4 @@
-package org.wsperflab.backend;
+package perf.backend;
 
 import static org.junit.Assert.*;
 
@@ -28,7 +28,6 @@ public class MockJsonResponse extends HttpServlet {
     private static final long serialVersionUID = 6905727859944036525L;
     private final static JsonFactory jsonFactory = new JsonFactory();
 
-    // long String made of repeating characters 48 to 125 (77 characters)
     private static String RAW_ITEM_LONG;
     private static int MAX_ITEM_LENGTH = 1024 * 50;
 

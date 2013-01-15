@@ -6,14 +6,14 @@
 
 	<servlet>
 		<description></description>
-		<display-name>MockJsonResponse</display-name>
-		<servlet-name>MockJsonResponse</servlet-name>
-		<servlet-class>perf.backend.MockJsonResponse</servlet-class>
+		<display-name>TestImpl</display-name>
+		<servlet-name>TestImpl</servlet-name>
+		<servlet-class>perf.test.TestServlet</servlet-class>
 	</servlet>
 
 	<servlet-mapping>
-		<servlet-name>MockJsonResponse</servlet-name>
-		<url-pattern>/mock.json</url-pattern>
+		<servlet-name>TestImpl</servlet-name>
+		<url-pattern>/test</url-pattern>
 	</servlet-mapping>
 
 </web-app>
