@@ -32,7 +32,7 @@ Metrics to be captured are:
 
 # Request Use Case
 
-An HTTP GET will request /test which is expected to perform the following:
+An HTTP GET will request /test?id={uuid} which is expected to perform the following:
 
 - A) GET http://hostname:port/mock.json?numItems=2&itemSize=50&delay=50
 - B) GET http://hostname:port/mock.json?numItems=25&itemSize=30&delay=90
@@ -48,6 +48,7 @@ The expected response will look like this (without pretty print):
 
 ```json
 {
+  "responseKey":6502981934456555896, 
   "delay": [ { "a": 50 },{ "b": 90 },{ "c": 1 },{ "d": 1 },{ "e": 150 } ],
   "itemSize": [ { "a": 50 },{ "b": 30 },{ "c": 5000 },{ "d": 1000 },{ "e": 30 } ],
   "numItems": [ { "a": 2 },{ "b": 25 },{ "c": 1 },{ "d": 1 },{ "e": 100 } ],
