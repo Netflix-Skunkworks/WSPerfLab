@@ -1,0 +1,23 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'war'
+apply plugin: 'jetty'
+
+dependencies {
+    compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
+    compile 'org.slf4j:slf4j-api:1.7.0'
+    provided 'junit:junit-dep:4.10'
+    provided 'javax.servlet:servlet-api:2.5'
+}
+
+eclipse {
+  classpath {
+    plusConfigurations += configurations.provided
+    downloadSources = true
+    downloadJavadoc = true
+  }
+}
+
+jettyRun {
+        httpPort = 8989
+}
