@@ -34,15 +34,21 @@ Metrics to be captured are:
 
 An HTTP GET will request /test?id={uuid} which is expected to perform the following:
 
-- A) GET http://hostname:port/mock.json?numItems=2&itemSize=50&delay=50
-- B) GET http://hostname:port/mock.json?numItems=25&itemSize=30&delay=90
-- C) GET http://hostname:port/mock.json?numItems=1&itemSize=5000&delay=1
-- D) GET http://hostname:port/mock.json?numItems=1&itemSize=1000&delay=1
-- E) GET http://hostname:port/mock.json?numItems=100&itemSize=30&delay=150
+- A) GET http://hostname:port/mock.json?numItems=2&itemSize=50&delay=50&id={uuid}
+- B) GET http://hostname:port/mock.json?numItems=25&itemSize=30&delay=90&id={uuid}
+- C) GET http://hostname:port/mock.json?numItems=1&itemSize=5000&delay=1&id={a.responseKey}
+- D) GET http://hostname:port/mock.json?numItems=1&itemSize=1000&delay=1id={a.responseKey}
+- E) GET http://hostname:port/mock.json?numItems=100&itemSize=30&delay=150id={b.responseKey}
 
 The conditional flow of requests is demonstrated in this diagram:
 
 <img src="https://raw.github.com/wiki/benjchristensen/WSPerfLab/images/requests.png" width="860" height="260">
+
+The JSON response will include a 'responseKey' value which is generated via:
+
+```
+c.responseKey * d.responseKey * e.responseKey
+```
 
 The expected response will look like this (without pretty print):
 
