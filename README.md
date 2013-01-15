@@ -30,7 +30,35 @@ Metrics to be captured are:
 - response payload size
 
 
-# Request Use Cases
+# Request Use Case
+
+An HTTP GET will request /test which is expected to perform the following:
+
+- A) GET http://hostname:port/mock.json?numItems=2&itemSize=50&delay=50
+- B) GET http://hostname:port/mock.json?numItems=25&itemSize=30&delay=90
+- C) GET http://hostname:port/mock.json?numItems=1&itemSize=5000&delay=1
+- D) GET http://hostname:port/mock.json?numItems=1&itemSize=1000&delay=1
+- E) GET http://hostname:port/mock.json?numItems=100&itemSize=30&delay=150
+
+
+
+The expected response will look like this (without pretty print):
+
+```json
+{
+  "delay": [ { "a": 50 },{ "b": 90 },{ "c": 1 },{ "d": 1 },{ "e": 150 } ],
+  "itemSize": [ { "a": 50 },{ "b": 30 },{ "c": 5000 },{ "d": 1000 },{ "e": 30 } ],
+  "numItems": [ { "a": 2 },{ "b": 25 },{ "c": 1 },{ "d": 1 },{ "e": 100 } ],
+  "items": [
+    "Lorem ipsum dolor sit amet, consectetur adipisicin",
+    "Lorem ipsum dolor sit amet, consectetur adipisicin",
+    "Lorem ipsum dolor sit amet, co",
+    "Lorem ipsum dolor sit amet, co",
+    "... aggregate items from each of the 5 backend requests ...",
+    "Lorem ipsum dolor sit amet, co"
+  ]
+}
+```
 
 
 # Statistics and Report
