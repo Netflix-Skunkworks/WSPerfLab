@@ -42,7 +42,7 @@ Metrics to be captured are:
 
 # Test Implementations
 
-Information about test cases and implementation requirements can be found in the - <a href="WSPerfLab/tree/master/ws-impls">ws-impls README</a>.
+Information about test cases and implementation requirements can be found in the <a href="WSPerfLab/tree/master/ws-impls">ws-impls README</a>.
 
 
 # Statistics and Report
