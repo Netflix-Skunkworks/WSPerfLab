@@ -23,14 +23,14 @@ The <a href="WSPerfLab/tree/master/ws-backend-mock">ws-backend-mock</a> is a sim
 
 The various test implementations are intended to each implement the same logic with different architectures, languages and frameworks.
 
-- <a href="WSPerfLab/tree/master/ws-java-servlet-blocking">ws-java-servlet-blocking</a>
-- <a href="WSPerfLab/tree/master/ws-java-servlet-nonblocking">ws-java-servlet-nonblocking</a>
-- <a href="WSPerfLab/tree/master/ws-java-vertx">ws-java-vertx</a>
-- <a href="WSPerfLab/tree/master/ws-java-netty">ws-java-netty</a>
-- <a href="WSPerfLab/tree/master/ws-clojure-noir">ws-clojure-noir</a>
-- <a href="WSPerfLab/tree/master/ws-clojure-vertx">ws-clojure-vertx</a>
-- <a href="WSPerfLab/tree/master/ws-nodejs">ws-nodejs</a>
-- <a href="WSPerfLab/tree/master/ws-python-gevent">ws-python-gevent</a>
+- <a href="WSPerfLab/tree/master/ws-impls/ws-java-servlet-blocking">ws-java-servlet-blocking</a>
+- <a href="WSPerfLab/tree/master/ws-impls/ws-java-servlet-nonblocking">ws-java-servlet-nonblocking</a>
+- <a href="WSPerfLab/tree/master/ws-impls/ws-java-vertx">ws-java-vertx</a>
+- <a href="WSPerfLab/tree/master/ws-impls/ws-java-netty">ws-java-netty</a>
+- <a href="WSPerfLab/tree/master/ws-impls/ws-clojure-noir">ws-clojure-noir</a>
+- <a href="WSPerfLab/tree/master/ws-impls/ws-clojure-vertx">ws-clojure-vertx</a>
+- <a href="WSPerfLab/tree/master/ws-impls/ws-nodejs">ws-nodejs</a>
+- <a href="WSPerfLab/tree/master/ws-impls/ws-python-gevent">ws-python-gevent</a>
 
 
 The <a href="WSPerfLab/tree/master/ws-client">ws-client</a> will drive the traffic and capture performance metrics.
