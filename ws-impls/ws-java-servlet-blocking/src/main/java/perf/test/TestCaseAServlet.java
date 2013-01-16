@@ -86,40 +86,41 @@ public class TestCaseAServlet extends HttpServlet {
 
             /* When response A received perform C & D */
             // spawned in another thread so we don't block the ability to B/E to proceed in parallel
-            Future<String[]> aGroupResponses = executor.submit(new Callable<String[]>() {
+            Future<ResponseObject[]> aGroupResponses = executor.submit(new Callable<ResponseObject[]>() {
 
                 @Override
-                public String[] call() throws Exception {
+                public ResponseObject[] call() throws Exception {
                     String aValue = aResponse.get();
-                    final Future<String> cResponse = queueGet("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + id);
-                    final Future<String> dResponse = queueGet("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + id);
-                    return new String[] { aValue, cResponse.get(), dResponse.get() };
+                    ResponseObject aResponse = ResponseObject.fromJson(aValue);
+                    final Future<String> cResponse = queueGet("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + aResponse.responseKey);
+                    final Future<String> dResponse = queueGet("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + aResponse.responseKey);
+                    return new ResponseObject[] { aResponse, ResponseObject.fromJson(cResponse.get()), ResponseObject.fromJson(dResponse.get()) };
                 }
 
             });
 
             /* When response B is received perform E */
             String bValue = bResponse.get();
-            String eValue = get("/mock.json?numItems=100&itemSize=30&delay=40&id=" + id);
+            ResponseObject b = ResponseObject.fromJson(bValue);
+            String eValue = get("/mock.json?numItems=100&itemSize=30&delay=40&id=" + b.responseKey);
+
+            ResponseObject e = ResponseObject.fromJson(eValue);
 
             /*
              * Parse JSON so we can extract data and combine data into a single response.
              * 
              * This simulates what real web-services do most of the time.
              */
-            ResponseObject a = ResponseObject.fromJson(aGroupResponses.get()[0]);
-            ResponseObject c = ResponseObject.fromJson(aGroupResponses.get()[1]);
-            ResponseObject d = ResponseObject.fromJson(aGroupResponses.get()[2]);
-            ResponseObject b = ResponseObject.fromJson(bValue);
-            ResponseObject e = ResponseObject.fromJson(eValue);
+            ResponseObject a = aGroupResponses.get()[0];
+            ResponseObject c = aGroupResponses.get()[1];
+            ResponseObject d = aGroupResponses.get()[2];
 
-            System.out.println("-----------");
             /*
              * Compose into JSON:
              */
             json.writeStartObject();
             // multiplication of C, D, E responseKey
-            json.writeNumberField("responseKey", c.responseKey * d.responseKey * e.responseKey);
+            json.writeNumberField("responseKey", c.responseKey + d.responseKey + e.responseKey);
 
             // delay values of each response
             json.writeArrayFieldStart("delay");
