@@ -6,13 +6,13 @@
 
 	<servlet>
 		<description></description>
-		<display-name>TestCaseAImpl</display-name>
-		<servlet-name>TestCaseAImpl</servlet-name>
-		<servlet-class>perf.test.TestCaseAImpl</servlet-class>
+		<display-name>TestCaseAServlet</display-name>
+		<servlet-name>TestCaseAServlet</servlet-name>
+		<servlet-class>perf.test.TestCaseAServlet</servlet-class>
 	</servlet>
 
 	<servlet-mapping>
-		<servlet-name>TestCaseAImpl</servlet-name>
+		<servlet-name>TestCaseAServlet</servlet-name>
 		<url-pattern>/testA</url-pattern>
 	</servlet-mapping>
 
