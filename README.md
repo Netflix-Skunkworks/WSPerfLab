@@ -89,7 +89,7 @@ JSON payload size and elements will also be checked for containing the expected 
 This will not be asserted on every invocation of ws-client during load testing, but will be a validation step done during development to confirm an implementation complies.
 
 
-# Request Use Case: A
+# Request Use Case: B
 
 Less network, add ThreadLocal, ConcurrentHashMap, volatile, AtomicReference type behavior.
 
