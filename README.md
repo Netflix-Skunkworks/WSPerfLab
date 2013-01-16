@@ -19,7 +19,7 @@ The test setup will consist of the following:
 
 <img src="https://raw.github.com/wiki/benjchristensen/WSPerfLab/images/overview.png" width="860" height="300">
 
-The <a href="WSPerfLab/tree/master/ws-backend-simulation">ws-backend-simulation</a> is a simple Java backend app accepting request arguments to affect its response size and latency.
+The <a href="WSPerfLab/tree/master/ws-backend-mock">ws-backend-mock</a> is a simple Java backend app accepting request arguments to affect its response size and latency.
 
 The various test implementations are intended to each implement the same logic with different architectures, languages and frameworks.
 
