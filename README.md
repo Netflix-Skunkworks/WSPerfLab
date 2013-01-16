@@ -41,15 +41,15 @@ Metrics to be captured are:
 - response payload size
 
 
-# Request Use Case
+# Request Use Case: A
 
 An HTTP GET will request /test?id={uuid} which is expected to perform the following:
 
 - A) GET http://hostname:port/mock.json?numItems=2&itemSize=50&delay=50&id={uuid}
-- B) GET http://hostname:port/mock.json?numItems=25&itemSize=30&delay=90&id={uuid}
-- C) GET http://hostname:port/mock.json?numItems=1&itemSize=5000&delay=1&id={a.responseKey}
-- D) GET http://hostname:port/mock.json?numItems=1&itemSize=1000&delay=1id={a.responseKey}
-- E) GET http://hostname:port/mock.json?numItems=100&itemSize=30&delay=150id={b.responseKey}
+- B) GET http://hostname:port/mock.json?numItems=25&itemSize=30&delay=150&id={uuid}
+- C) GET http://hostname:port/mock.json?numItems=1&itemSize=5000&delay=80&id={a.responseKey}
+- D) GET http://hostname:port/mock.json?numItems=1&itemSize=1000&delay=1&id={a.responseKey}
+- E) GET http://hostname:port/mock.json?numItems=100&itemSize=30&delay=4&id={b.responseKey}
 
 The conditional flow of requests is demonstrated in this diagram:
 
@@ -88,6 +88,10 @@ JSON payload size and elements will also be checked for containing the expected 
 
 This will not be asserted on every invocation of ws-client during load testing, but will be a validation step done during development to confirm an implementation complies.
 
+
+# Request Use Case: A
+
+Less network, add ThreadLocal, ConcurrentHashMap, volatile, AtomicReference type behavior.
 
 # Statistics and Report
 
