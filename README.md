@@ -40,6 +40,10 @@ Metrics to be captured are:
 - client-side end-to-end latency for entire trip including network
 - response payload size
 
+# Test Implementations
+
+Information about test cases and implementation requirements can be found in the - <a href="WSPerfLab/tree/master/ws-impls">ws-impls README</a>.
+
 
 # Statistics and Report
 
