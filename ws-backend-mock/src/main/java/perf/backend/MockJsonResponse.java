@@ -43,6 +43,14 @@ public class MockJsonResponse extends HttpServlet {
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        Object _id = request.getParameter("id");
+        if (_id == null) {
+            response.getWriter().println("Please provide a numerical 'id' value. It can be a random number (uuid).");
+            response.setStatus(500);
+            return;
+        }
+        long id = Long.parseLong(String.valueOf(_id));
+
         int delay = getParameter(request, "delay", 50); // default to 50ms server-side delay
         int itemSize = getParameter(request, "itemSize", 128); // default to 128 bytes item size (assuming ascii text)
         int numItems = getParameter(request, "numItems", 10); // default to 10 items in a list
@@ -68,7 +76,7 @@ public class MockJsonResponse extends HttpServlet {
             return;
         }
 
-        String json = generateJson(delay, itemSize, numItems);
+        String json = generateJson(id, delay, itemSize, numItems);
 
         try {
             Thread.sleep(delay);
@@ -79,11 +87,17 @@ public class MockJsonResponse extends HttpServlet {
         response.getWriter().write(json);
     }
 
-    protected static String generateJson(int delay, int itemSize, int numItems) throws IOException, JsonGenerationException {
+    protected static String generateJson(long id, int delay, int itemSize, int numItems) throws IOException, JsonGenerationException {
         StringWriter jsonString = new StringWriter();
         JsonGenerator json = jsonFactory.createJsonGenerator(jsonString);
 
         json.writeStartObject();
+
+        // manipulate the ID such that we can know the response is from the server (ws-client will know the logic)
+        long responseKey = getResponseKey(id);
+
+        json.writeNumberField("responseKey", responseKey);
+
         json.writeNumberField("delay", delay);
         if (itemSize > MAX_ITEM_LENGTH) {
             throw new IllegalArgumentException("itemSize can not be larger than: " + MAX_ITEM_LENGTH);
@@ -102,6 +116,10 @@ public class MockJsonResponse extends HttpServlet {
         return jsonString.toString();
     }
 
+    protected static long getResponseKey(long id) {
+        return ((id / 37) + 5739375) * 7;
+    }
+
     private static int getParameter(HttpServletRequest request, String key, int defaultValue) {
         Object v = request.getParameter(key);
         if (v == null) {
@@ -115,8 +133,8 @@ public class MockJsonResponse extends HttpServlet {
 
         @Test
         public void testJson() throws Exception {
-            String json = generateJson(1, 1000, 5);
-            assertTrue(json.startsWith("{\"delay\":1,\"itemSize\":1000,\"numItems\":5,\"items\""));
+            String json = generateJson(736L, 1, 1000, 5);
+            assertTrue(json.startsWith("{\"responseKey\":" + getResponseKey(736L) + ",\"delay\":1,\"itemSize\":1000,\"numItems\":5,\"items\""));
             System.out.println("json: " + json);
         }
     }
