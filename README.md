@@ -58,7 +58,7 @@ The conditional flow of requests is demonstrated in this diagram:
 The JSON response will include a 'responseKey' value which is generated via:
 
 ```
-c.responseKey * d.responseKey * e.responseKey
+c.responseKey + d.responseKey + e.responseKey
 ```
 
 The expected response will look like this (without pretty print):
@@ -87,6 +87,8 @@ The 'responseKey' in the returned JSON will be asserted for correctness to valid
 JSON payload size and elements will also be checked for containing the expected results.
 
 This will not be asserted on every invocation of ws-client during load testing, but will be a validation step done during development to confirm an implementation complies.
+
+More information about validation can be found in <a href="WSPerfLab/tree/master/ws-impls">ws-impls</a>.
 
 
 # Request Use Case: B
