@@ -62,3 +62,11 @@ Example Response:
   ]
 }
 ```
+
+# Run
+
+To run from command line:
+
+```
+../gradlew jettyRun
+```
