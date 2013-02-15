@@ -6,7 +6,7 @@
 (declare send-requests)
 
 (defn run-load-test
-  "Execute load test against given URL
+  "Execute load test against given URL. Blocks while performing test.
 
   Examples:
     (run-load-test \"http://localhost:8888/ws-java-servlet-blocking/testA\") ; to use the number of CPUs for numThreads
