@@ -67,107 +67,112 @@ public class TestCaseAServlet extends HttpServlet {
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        StringWriter jsonString = new StringWriter();
-        JsonGenerator json = jsonFactory.createJsonGenerator(jsonString);
-
-        Object _id = request.getParameter("id");
-        if (_id == null) {
-            response.getWriter().println("Please provide a numerical 'id' value. It can be a random number (uuid).");
-            response.setStatus(500);
-            return;
-        }
-        final long id = Long.parseLong(String.valueOf(_id));
-
+        long startTime = System.currentTimeMillis();
         try {
+            StringWriter jsonString = new StringWriter();
+            JsonGenerator json = jsonFactory.createJsonGenerator(jsonString);
 
-            /* First 2 requests (A, B) in parallel */
-            final Future<String> aResponse = queueGet("/mock.json?numItems=2&itemSize=50&delay=50&id=" + id);
-            final Future<String> bResponse = queueGet("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id);
+            Object _id = request.getParameter("id");
+            if (_id == null) {
+                response.getWriter().println("Please provide a numerical 'id' value. It can be a random number (uuid).");
+                response.setStatus(500);
+                return;
+            }
+            final long id = Long.parseLong(String.valueOf(_id));
 
-            /* When response A received perform C & D */
-            // spawned in another thread so we don't block the ability to B/E to proceed in parallel
-            Future<ResponseObject[]> aGroupResponses = executor.submit(new Callable<ResponseObject[]>() {
+            try {
 
-                @Override
-                public ResponseObject[] call() throws Exception {
-                    String aValue = aResponse.get();
-                    ResponseObject aResponse = ResponseObject.fromJson(aValue);
-                    final Future<String> cResponse = queueGet("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + aResponse.responseKey);
-                    final Future<String> dResponse = queueGet("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + aResponse.responseKey);
-                    return new ResponseObject[] { aResponse, ResponseObject.fromJson(cResponse.get()), ResponseObject.fromJson(dResponse.get()) };
-                }
+                /* First 2 requests (A, B) in parallel */
+                final Future<String> aResponse = queueGet("/mock.json?numItems=2&itemSize=50&delay=50&id=" + id);
+                final Future<String> bResponse = queueGet("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id);
 
-            });
+                /* When response A received perform C & D */
+                // spawned in another thread so we don't block the ability to B/E to proceed in parallel
+                Future<ResponseObject[]> aGroupResponses = executor.submit(new Callable<ResponseObject[]>() {
 
-            /* When response B is received perform E */
-            String bValue = bResponse.get();
-            ResponseObject b = ResponseObject.fromJson(bValue);
-            String eValue = get("/mock.json?numItems=100&itemSize=30&delay=40&id=" + b.responseKey);
+                    @Override
+                    public ResponseObject[] call() throws Exception {
+                        String aValue = aResponse.get();
+                        ResponseObject aResponse = ResponseObject.fromJson(aValue);
+                        final Future<String> cResponse = queueGet("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + aResponse.responseKey);
+                        final Future<String> dResponse = queueGet("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + aResponse.responseKey);
+                        return new ResponseObject[] { aResponse, ResponseObject.fromJson(cResponse.get()), ResponseObject.fromJson(dResponse.get()) };
+                    }
 
-            ResponseObject e = ResponseObject.fromJson(eValue);
+                });
 
-            /*
-             * Parse JSON so we can extract data and combine data into a single response.
-             * 
-             * This simulates what real web-services do most of the time.
-             */
-            ResponseObject a = aGroupResponses.get()[0];
-            ResponseObject c = aGroupResponses.get()[1];
-            ResponseObject d = aGroupResponses.get()[2];
+                /* When response B is received perform E */
+                String bValue = bResponse.get();
+                ResponseObject b = ResponseObject.fromJson(bValue);
+                String eValue = get("/mock.json?numItems=100&itemSize=30&delay=40&id=" + b.responseKey);
 
-            /*
-             * Compose into JSON:
-             */
-            json.writeStartObject();
-            // multiplication of C, D, E responseKey
-            json.writeNumberField("responseKey", c.responseKey + d.responseKey + e.responseKey);
+                ResponseObject e = ResponseObject.fromJson(eValue);
 
-            // delay values of each response
-            json.writeArrayFieldStart("delay");
-            writeTuple(json, "a", a.delay);
-            writeTuple(json, "b", b.delay);
-            writeTuple(json, "c", c.delay);
-            writeTuple(json, "d", d.delay);
-            writeTuple(json, "e", e.delay);
-            json.writeEndArray();
+                /*
+                 * Parse JSON so we can extract data and combine data into a single response.
+                 * 
+                 * This simulates what real web-services do most of the time.
+                 */
+                ResponseObject a = aGroupResponses.get()[0];
+                ResponseObject c = aGroupResponses.get()[1];
+                ResponseObject d = aGroupResponses.get()[2];
 
-            // itemSize values of each response
-            json.writeArrayFieldStart("itemSize");
-            writeTuple(json, "a", a.itemSize);
-            writeTuple(json, "b", b.itemSize);
-            writeTuple(json, "c", c.itemSize);
-            writeTuple(json, "d", d.itemSize);
-            writeTuple(json, "e", e.itemSize);
-            json.writeEndArray();
+                /*
+                 * Compose into JSON:
+                 */
+                json.writeStartObject();
+                // multiplication of C, D, E responseKey
+                json.writeNumberField("responseKey", c.responseKey + d.responseKey + e.responseKey);
 
-            // numItems values of each response
-            json.writeArrayFieldStart("numItems");
-            writeTuple(json, "a", a.numItems);
-            writeTuple(json, "b", b.numItems);
-            writeTuple(json, "c", c.numItems);
-            writeTuple(json, "d", d.numItems);
-            writeTuple(json, "e", e.numItems);
-            json.writeEndArray();
+                // delay values of each response
+                json.writeArrayFieldStart("delay");
+                writeTuple(json, "a", a.delay);
+                writeTuple(json, "b", b.delay);
+                writeTuple(json, "c", c.delay);
+                writeTuple(json, "d", d.delay);
+                writeTuple(json, "e", e.delay);
+                json.writeEndArray();
 
-            // all items from responses
-            json.writeArrayFieldStart("items");
-            addItemsFromResponse(json, a);
-            addItemsFromResponse(json, b);
-            addItemsFromResponse(json, c);
-            addItemsFromResponse(json, d);
-            addItemsFromResponse(json, e);
-            json.writeEndArray();
+                // itemSize values of each response
+                json.writeArrayFieldStart("itemSize");
+                writeTuple(json, "a", a.itemSize);
+                writeTuple(json, "b", b.itemSize);
+                writeTuple(json, "c", c.itemSize);
+                writeTuple(json, "d", d.itemSize);
+                writeTuple(json, "e", e.itemSize);
+                json.writeEndArray();
 
-            json.writeEndObject();
-            json.close();
+                // numItems values of each response
+                json.writeArrayFieldStart("numItems");
+                writeTuple(json, "a", a.numItems);
+                writeTuple(json, "b", b.numItems);
+                writeTuple(json, "c", c.numItems);
+                writeTuple(json, "d", d.numItems);
+                writeTuple(json, "e", e.numItems);
+                json.writeEndArray();
 
-            // output to stream
-            response.getWriter().write(jsonString.toString());
-        } catch (Exception e) {
-            // error that needs to be returned
-            response.setStatus(500);
-            response.getWriter().println("Error: " + e.getMessage());
-            e.printStackTrace();
+                // all items from responses
+                json.writeArrayFieldStart("items");
+                addItemsFromResponse(json, a);
+                addItemsFromResponse(json, b);
+                addItemsFromResponse(json, c);
+                addItemsFromResponse(json, d);
+                addItemsFromResponse(json, e);
+                json.writeEndArray();
+
+                json.writeEndObject();
+                json.close();
+
+                // output to stream
+                response.getWriter().write(jsonString.toString());
+            } catch (Exception e) {
+                // error that needs to be returned
+                response.setStatus(500);
+                response.getWriter().println("Error: " + e.getMessage());
+                e.printStackTrace();
+            }
+        } finally {
+            response.addHeader("server_response_time", String.valueOf((System.currentTimeMillis() - startTime)));
         }
     }
 
