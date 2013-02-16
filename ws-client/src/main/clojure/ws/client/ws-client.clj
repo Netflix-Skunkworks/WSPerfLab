@@ -56,17 +56,16 @@
 
 (defmacro duration-in-millis
   "Evaluates expr and records the time it took in millis.
-   Passes the time as the first argument to 'on-complete' then returns the expression response."
-  [expr on-complete]
+   Returns a tuple of expression response and time in millis."
+  [expr]
   `(let [start# (. System (nanoTime))
          ret# ~expr]
-     (~on-complete (/ (double (- (. System (nanoTime)) start#)) 1000000.0))
-     ret#))
+     [ret# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]))
 
 (defn- send-response-log
   "Function that will 'send-off' for asynchronously logging response metrics.
    This function itself should not nothing blocking."
-  [time-in-millis response-log-agent log-writer num-threads]
+  [total-time server-time response-log-agent log-writer num-threads]
   (send-off response-log-agent (fn [count]
               (let [prefix 
                     (if (= -1 count)
@@ -74,7 +73,7 @@
                       (do (inc count) "\t\t")
                       ; all other executions (comma, newline and tabs)
                       ",\n\t\t")]
-                (.write log-writer (str prefix "{\"timestamp\" : " (System/currentTimeMillis) ", \"total_time\" : " time-in-millis ", \"server_time\" : " time-in-millis "}"))
+                (.write log-writer (str prefix "{\"timestamp\" : " (System/currentTimeMillis) ", \"total_time\" : " total-time ", \"server_time\" : " server-time "}"))
                 (if (= 10 count) 
                   (do 
                     (.flush log-writer); flush writer every 10 log entries
@@ -90,9 +89,12 @@
       (let
         ; we generate a random id to seed the request with a different arg each request
         [url (str url "?id=" (rand-int 999999))]
-        ; perform http/get inside duration-in-millis macro which passes the
-        ; duration of the http/get function to the following function 
-        (duration-in-millis (http/get url) #(send-response-log % response-log-agent log-writer num-threads))
+        ; perform http/get inside duration-in-millis macro that returns [response time-in-millis] 
+        (let [r (duration-in-millis (http/get url))]
+          ; send the time-in-millis and server_response_time
+          (send-response-log (r 1) (get-header (r 0) "server_response_time") response-log-agent log-writer num-threads))
         )))
 
-
+(defn- get-header
+  [response header-name]
+  (get (:headers response) header-name))
