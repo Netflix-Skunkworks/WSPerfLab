@@ -4,6 +4,7 @@
             [clojure.java.io :as io]))
 
 (declare send-requests)
+(declare get-formatted-date)
 
 (defn run-load-test
   "Execute load test against given URL. Blocks while performing test.
@@ -39,7 +40,7 @@
            ; wait for all response-logs to be written
            (await response-log-agent)
            ; finish the JSON log file
-           (.write log-writer (str "]"))
+           (.write log-writer (str "],"))
            (.write log-writer (str "\n\t\"end_time\" : \"" (get-formatted-date (new java.util.Date)) "\""))
            (.write log-writer (str "\n}\n"))
 	          (println "Done load test.")))))))
@@ -82,6 +83,10 @@
                   ))
               )))
 
+(defn- get-header
+  [response header-name]
+  (get (:headers response) header-name))
+
 (defn- send-requests
   "Send an HTTP request 'count' times and log metrics after each response."
   [url count log-writer response-log-agent num-threads]
@@ -94,7 +99,3 @@
           ; send the time-in-millis and server_response_time
           (send-response-log (r 1) (get-header (r 0) "server_response_time") response-log-agent log-writer num-threads))
         )))
-
-(defn- get-header
-  [response header-name]
-  (get (:headers response) header-name))
