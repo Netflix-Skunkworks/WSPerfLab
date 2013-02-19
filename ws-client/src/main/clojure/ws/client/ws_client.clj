@@ -16,11 +16,13 @@
 (defn run-load-test
   "Execute load test against given URL. Blocks while performing test."
   ([url num-threads requests-per-thread log-path]
-    (println "Starting load test => log:" log-path "  threads:" num-threads "  requests-per-thread:" requests-per-thread " url:" url)
+    (println "\tStarting load test => " url)
+    (println "\t\t => log:" log-path)
+    (println "\t\t => threads:" num-threads)
+    (println "\t\t => requests-per-thread:" requests-per-thread)
     ; response-log-agent: used for sending response logs to and serializing them to output
     (let [response-log-agent (agent -1)]
 	    (with-open [log-writer (io/writer log-path)]
-	      (println "Log file opened")
         ; hand write some JSON 
         (.write log-writer (str "{"))
         (.write log-writer (str "\n\t\"request\" : \"" url "\","))
@@ -32,9 +34,9 @@
 	      (http/with-connection-pool {:timeout 500 :threads 20 :insecure? false :default-per-route 20}
 	        (let [futures (doall (for [i (range num-threads)]
 	                             (future
-	                               (println "send-requests starting in thread: " (Thread/currentThread))
+	                               ;(println "send-requests starting in thread: " (Thread/currentThread))
 	                               (send-requests url requests-per-thread log-writer response-log-agent num-threads))))]
-	          (println "starting")
+	          ;(println "starting")
 	          (doseq [f futures]
 	            ; wait for each future to complete
 	            (deref f))
@@ -45,11 +47,12 @@
            (.write log-writer (str "],"))
            (.write log-writer (str "\n\t\"end_time\" : \"" (get-formatted-date (new java.util.Date)) "\""))
            (.write log-writer (str "\n}\n"))
-	          (println "Done load test.")))))))
+	          (println "\tDone load test.")))))))
 	  
 ; run load test against default server with 2 threads
 (comment (run-load-test "http://localhost:8888/ws-java-servlet-blocking/testA" 2 10 "/tmp/testA1.log"))
 (comment (run-load-test "http://ec2-50-19-75-61.compute-1.amazonaws.com:8080/ws-java-servlet-blocking/testA" 4 20 "/tmp/testA2.log"))
+(comment (run-load-test "http://ec2-50-19-75-61.compute-1.amazonaws.com:8080/ws-java-servlet-blocking/testA" 4 200 "/tmp/testA2.log"))
 
 ; format dates like "Fri, 15 Feb 2013 15:13:41"
 (def date-format (new java.text.SimpleDateFormat "EEE, dd MMM yyyy HH:MM:SS"))
@@ -83,7 +86,9 @@
                                         ", \"server_time\" : " server-time
                                         ", \"load-avg-per-core\" : " load-avg-per-core
                                         "}"))
-                (if (= 10 count) 
+                (print ".") ; show progress
+                (flush) ; so we see the dot
+                (if (= 10 count)
                   (do 
                     (.flush log-writer); flush writer every 10 log entries
                     0) ; return 0 as the value to reset count
