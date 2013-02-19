@@ -14,6 +14,13 @@ def validateWsPerfLabImplementation(baseUrl):
         print "Validating WsPerfLab Implementation at URL: " + url
         print ""
         data = executeRequest(createRequest(url, 'GET'))
+        
+        # assert response header with int: server_response_time
+        meta = data[1]
+        server_response_time = meta.getheader('server_response_time')
+        if(server_response_time is None):
+            raise Exception("Validation Failed! => missing 'server_response_time' response header.")
+        
         # print data[0]
         jsonData = json.loads(data[0])
         #print "ResponseKey: " + str(jsonData['responseKey'])

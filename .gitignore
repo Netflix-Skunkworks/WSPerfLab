@@ -43,6 +43,8 @@ Thumbs.db
 # Build output directies
 target/
 build/
+# eclipse /bin/ output folders
+bin/
 
 # IntelliJ specific files/directories
 out

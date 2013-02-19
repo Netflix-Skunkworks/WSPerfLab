@@ -61,64 +61,67 @@ public class TestCaseAServlet extends HttpServlet {
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
-        Object _id = request.getParameter("id");
-        if (_id == null) {
-            response.getWriter().println("Please provide a numerical 'id' value. It can be a random number (uuid).");
-            response.setStatus(500);
-            return;
-        }
-        final long id = Long.parseLong(String.valueOf(_id));
-
+        long startTime = System.currentTimeMillis();
         try {
+            Object _id = request.getParameter("id");
+            if (_id == null) {
+                response.getWriter().println("Please provide a numerical 'id' value. It can be a random number (uuid).");
+                response.setStatus(500);
+                return;
+            }
+            final long id = Long.parseLong(String.valueOf(_id));
 
-            /* First 2 requests (A, B) in parallel */
-            final Future<String> aResponse = queueGet("/mock.json?numItems=2&itemSize=50&delay=50&id=" + id);
-            final Future<String> bResponse = queueGet("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id);
+            try {
 
-            /* When response A received perform C & D */
-            // spawned in another thread so we don't block the ability to B/E to proceed in parallel
-            Future<BackendResponse[]> aGroupResponses = executor.submit(new Callable<BackendResponse[]>() {
+                /* First 2 requests (A, B) in parallel */
+                final Future<String> aResponse = queueGet("/mock.json?numItems=2&itemSize=50&delay=50&id=" + id);
+                final Future<String> bResponse = queueGet("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id);
 
-                @Override
-                public BackendResponse[] call() throws Exception {
-                    String aValue = aResponse.get();
-                    BackendResponse aResponse = BackendResponse.fromJson(jsonFactory, aValue);
-                    final Future<String> cResponse = queueGet("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + aResponse.getResponseKey());
-                    final Future<String> dResponse = queueGet("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + aResponse.getResponseKey());
-                    return new BackendResponse[] { aResponse, BackendResponse.fromJson(jsonFactory, cResponse.get()),
-                                                   BackendResponse.fromJson(jsonFactory, dResponse.get()) };
-                }
+                /* When response A received perform C & D */
+                // spawned in another thread so we don't block the ability to B/E to proceed in parallel
+                Future<BackendResponse[]> aGroupResponses = executor.submit(new Callable<BackendResponse[]>() {
 
-            });
+                    @Override
+                    public BackendResponse[] call() throws Exception {
+                        String aValue = aResponse.get();
+                        BackendResponse aResponse = BackendResponse.fromJson(jsonFactory, aValue);
+                        final Future<String> cResponse = queueGet("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + aResponse.getResponseKey());
+                        final Future<String> dResponse = queueGet("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + aResponse.getResponseKey());
+                        return new BackendResponse[] { aResponse, BackendResponse.fromJson(jsonFactory, cResponse.get()),
+                                BackendResponse.fromJson(jsonFactory, dResponse.get()) };
+                    }
 
-            /* When response B is received perform E */
-            String bValue = bResponse.get();
-            BackendResponse b = BackendResponse.fromJson(jsonFactory, bValue);
-            String eValue = get("/mock.json?numItems=100&itemSize=30&delay=40&id=" + b.getResponseKey());
+                });
 
-            BackendResponse e = BackendResponse.fromJson(jsonFactory, eValue);
+                /* When response B is received perform E */
+                String bValue = bResponse.get();
+                BackendResponse b = BackendResponse.fromJson(jsonFactory, bValue);
+                String eValue = get("/mock.json?numItems=100&itemSize=30&delay=40&id=" + b.getResponseKey());
 
-            /*
-             * Parse JSON so we can extract data and combine data into a single response.
-             *
-             * This simulates what real web-services do most of the time.
-             */
-            BackendResponse a = aGroupResponses.get()[0];
-            BackendResponse c = aGroupResponses.get()[1];
-            BackendResponse d = aGroupResponses.get()[2];
+                BackendResponse e = BackendResponse.fromJson(jsonFactory, eValue);
 
-            ByteArrayOutputStream bos = ServiceResponeBuilder.buildTestAResponse(jsonFactory, a, b, c, d, e);
-            // output to stream
-            response.getWriter().write(bos.toString());
-        } catch (Exception e) {
-            // error that needs to be returned
-            response.setStatus(500);
-            response.getWriter().println("Error: " + e.getMessage());
-            e.printStackTrace();
+                /*
+                 * Parse JSON so we can extract data and combine data into a single response.
+                 * 
+                 * This simulates what real web-services do most of the time.
+                 */
+                BackendResponse a = aGroupResponses.get()[0];
+                BackendResponse c = aGroupResponses.get()[1];
+                BackendResponse d = aGroupResponses.get()[2];
+
+                ByteArrayOutputStream bos = ServiceResponeBuilder.buildTestAResponse(jsonFactory, a, b, c, d, e);
+                // output to stream
+                response.getWriter().write(bos.toString());
+            } catch (Exception e) {
+                // error that needs to be returned
+                response.setStatus(500);
+                response.getWriter().println("Error: " + e.getMessage());
+                e.printStackTrace();
+            }
+        } finally {
+            response.addHeader("server_response_time", String.valueOf((System.currentTimeMillis() - startTime)));
         }
     }
-
 
     public Future<String> queueGet(final String url) {
         return executor.submit(new Callable<String>() {

@@ -1,15 +1,48 @@
-apply plugin: 'java'
-apply plugin: 'eclipse'
+apply plugin: "clojure"
+/*
+ * template derived from https://github.com/adrnai/clojure-gradle-bootstrap
+ */ 
+apply plugin: "eclipse"
+apply plugin: "idea"
 
-dependencies {
-    compile 'org.slf4j:slf4j-api:1.7.0'
-    provided 'junit:junit-dep:4.10'
+aotCompile = true
+warnOnReflection = true
+
+repositories {
+  mavenCentral()
+  clojarsRepo()
 }
 
+jar {
+    manifest.attributes("Main-Class": "ws.client.ws_client")
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+}
+
+dependencies {
+  compile "org.clojure:clojure:1.4.0"
+  compile "clj-http:clj-http:0.6.3" // https://clojars.org/clj-http
+}
+
+/* 
+ * Add Counterclockwise and include 'provided' dependencies
+ */
 eclipse {
+  project {
+    natures "ccw.nature"
+  }
   classpath {
     plusConfigurations += configurations.provided
     downloadSources = true
     downloadJavadoc = true
   }
 }
+
+/* 
+ * Adds clojuresque to the (build) classpath
+ */
+buildscript {
+  repositories { maven { url "http://clojars.org/repo" } }
+  dependencies { classpath "clojuresque:clojuresque:1.5.4" }
+}
+
+
