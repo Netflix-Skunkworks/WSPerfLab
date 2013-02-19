@@ -8,38 +8,32 @@
 (declare get-formatted-date)
 
 (defn -main
-  [url numThreads]
-  (println (str "Running load test => Threads: " numThreads  " URL: " url))
-  (run-load-test url (Integer/parseInt numThreads))
+  [url numThreads requests-per-thread log-path]
+  (run-load-test url (Integer/parseInt numThreads) (Integer/parseInt requests-per-thread) log-path)
   (System/exit 0))
 
 
 (defn run-load-test
-  "Execute load test against given URL. Blocks while performing test.
-
-  Examples:
-    (run-load-test \"http://localhost:8888/ws-java-servlet-blocking/testA\") ; to use the number of CPUs for numThreads
-    (run-load-test \"http://localhost:8888/ws-java-servlet-blocking/testA\" 2) ; to run with 2 threads
-  "
-  ([url] (run-load-test url (-> (Runtime/getRuntime) .availableProcessors)))
-  ([url num-threads]
-    (println "Starting load test")
+  "Execute load test against given URL. Blocks while performing test."
+  ([url num-threads requests-per-thread log-path]
+    (println "Starting load test => log:" log-path "  threads:" num-threads "  requests-per-thread:" requests-per-thread " url:" url)
     ; response-log-agent: used for sending response logs to and serializing them to output
     (let [response-log-agent (agent -1)]
-	    (with-open [log-writer (io/writer "/tmp/test2.txt")]
+	    (with-open [log-writer (io/writer log-path)]
 	      (println "Log file opened")
         ; hand write some JSON 
         (.write log-writer (str "{"))
         (.write log-writer (str "\n\t\"request\" : \"" url "\","))
         (.write log-writer (str "\n\t\"start_time\" : \"" (get-formatted-date (new java.util.Date)) "\","))
         (.write log-writer (str "\n\t\"num_threads\" : " num-threads ","))
+        (.write log-writer (str "\n\t\"requests-per-thread\" : " requests-per-thread ","))
         (.write log-writer (str "\n\t\"requests\" : [\n"))
         ; start the load test and output logs into the JSON
 	      (http/with-connection-pool {:timeout 500 :threads 20 :insecure? false :default-per-route 20}
 	        (let [futures (doall (for [i (range num-threads)]
 	                             (future
 	                               (println "send-requests starting in thread: " (Thread/currentThread))
-	                               (send-requests url 10 log-writer response-log-agent num-threads))))]
+	                               (send-requests url requests-per-thread log-writer response-log-agent num-threads))))]
 	          (println "starting")
 	          (doseq [f futures]
 	            ; wait for each future to complete
@@ -54,7 +48,8 @@
 	          (println "Done load test.")))))))
 	  
 ; run load test against default server with 2 threads
-(comment (run-load-test "http://localhost:8888/ws-java-servlet-blocking/testA" 2))
+(comment (run-load-test "http://localhost:8888/ws-java-servlet-blocking/testA" 2 10 "/tmp/testA1.log"))
+(comment (run-load-test "http://ec2-50-19-75-61.compute-1.amazonaws.com:8080/ws-java-servlet-blocking/testA" 4 20 "/tmp/testA2.log"))
 
 ; format dates like "Fri, 15 Feb 2013 15:13:41"
 (def date-format (new java.text.SimpleDateFormat "EEE, dd MMM yyyy HH:MM:SS"))
@@ -74,7 +69,7 @@
 (defn- send-response-log
   "Function that will 'send-off' for asynchronously logging response metrics.
    This function itself should not nothing blocking."
-  [total-time server-time response-log-agent log-writer num-threads]
+  [total-time server-time load-avg-per-core response-log-agent log-writer num-threads]
   (send-off response-log-agent (fn [count]
               (let [prefix 
                     (if (= -1 count)
@@ -82,7 +77,12 @@
                       (do (inc count) "\t\t")
                       ; all other executions (comma, newline and tabs)
                       ",\n\t\t")]
-                (.write log-writer (str prefix "{\"timestamp\" : " (System/currentTimeMillis) ", \"total_time\" : " total-time ", \"server_time\" : " server-time "}"))
+                (.write log-writer (str prefix 
+                                        "{\"timestamp\" : " (System/currentTimeMillis) 
+                                        ", \"total_time\" : " total-time 
+                                        ", \"server_time\" : " server-time
+                                        ", \"load-avg-per-core\" : " load-avg-per-core
+                                        "}"))
                 (if (= 10 count) 
                   (do 
                     (.flush log-writer); flush writer every 10 log entries
@@ -105,5 +105,5 @@
         ; perform http/get inside duration-in-millis macro that returns [response time-in-millis] 
         (let [r (duration-in-millis (http/get url))]
           ; send the time-in-millis and server_response_time
-          (send-response-log (r 1) (get-header (r 0) "server_response_time") response-log-agent log-writer num-threads))
+          (send-response-log (r 1) (get-header (r 0) "server_response_time") (get-header (r 0) "load_avg_per_core") response-log-agent log-writer num-threads))
         )))

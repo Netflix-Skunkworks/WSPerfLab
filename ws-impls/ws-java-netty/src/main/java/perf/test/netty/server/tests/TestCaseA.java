@@ -4,7 +4,7 @@ import com.google.common.base.Throwables;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import perf.test.utils.BackendResponse;
-import perf.test.utils.ServiceResponeBuilder;
+import perf.test.utils.ServiceResponseBuilder;
 
 import java.io.ByteArrayOutputStream;
 import java.util.concurrent.Callable;
@@ -72,7 +72,7 @@ public class TestCaseA extends TestCaseHandler {
         BackendResponse c = aGroupResponses.get(timeout, TimeUnit.MILLISECONDS)[1];
         BackendResponse d = aGroupResponses.get(timeout, TimeUnit.MILLISECONDS)[2];
 
-        ByteArrayOutputStream outputStream = ServiceResponeBuilder.buildTestAResponse(jsonFactory, a, b, c, d, e);
+        ByteArrayOutputStream outputStream = ServiceResponseBuilder.buildTestAResponse(jsonFactory, a, b, c, d, e);
 
         // output to stream
         response.setContent(ChannelBuffers.copiedBuffer(outputStream.toByteArray()));

@@ -1,5 +1,18 @@
 package perf.test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -8,20 +21,9 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.PoolingClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.JsonFactory;
-import perf.test.utils.BackendResponse;
-import perf.test.utils.ServiceResponeBuilder;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import perf.test.utils.BackendResponse;
+import perf.test.utils.ServiceResponseBuilder;
 
 /**
  * Servlet implementation class TestServlet
@@ -109,7 +111,7 @@ public class TestCaseAServlet extends HttpServlet {
                 BackendResponse c = aGroupResponses.get()[1];
                 BackendResponse d = aGroupResponses.get()[2];
 
-                ByteArrayOutputStream bos = ServiceResponeBuilder.buildTestAResponse(jsonFactory, a, b, c, d, e);
+                ByteArrayOutputStream bos = ServiceResponseBuilder.buildTestAResponse(jsonFactory, a, b, c, d, e);
                 // output to stream
                 response.getWriter().write(bos.toString());
             } catch (Exception e) {
@@ -119,7 +121,7 @@ public class TestCaseAServlet extends HttpServlet {
                 e.printStackTrace();
             }
         } finally {
-            response.addHeader("server_response_time", String.valueOf((System.currentTimeMillis() - startTime)));
+            ServiceResponseBuilder.addResponseHeaders(response, startTime);
         }
     }
 

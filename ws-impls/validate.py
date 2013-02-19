@@ -17,9 +17,21 @@ def validateWsPerfLabImplementation(baseUrl):
         
         # assert response header with int: server_response_time
         meta = data[1]
-        server_response_time = meta.getheader('server_response_time')
-        if(server_response_time is None):
+
+        if(meta.getheader('server_response_time') is None):
             raise Exception("Validation Failed! => missing 'server_response_time' response header.")
+        
+        if(meta.getheader('load_avg_per_core') is None):
+            raise Exception("Validation Failed! => missing 'load_avg_per_core' response header.")
+        
+        if(meta.getheader('os_arch') is None):
+            raise Exception("Validation Failed! => missing 'os_arch' response header.")
+        
+        if(meta.getheader('os_name') is None):
+            raise Exception("Validation Failed! => missing 'os_name' response header.")
+        
+        if(meta.getheader('os_version') is None):
+            raise Exception("Validation Failed! => missing 'os_version' response header.")
         
         # print data[0]
         jsonData = json.loads(data[0])

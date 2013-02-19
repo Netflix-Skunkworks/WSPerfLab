@@ -5,6 +5,7 @@ dependencies {
     compile 'org.slf4j:slf4j-api:1.7.0'
     compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
     compile 'junit:junit-dep:4.10'
+    provided 'javax.servlet:servlet-api:2.5'
 }
 
 eclipse {
