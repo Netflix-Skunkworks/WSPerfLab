@@ -11,7 +11,7 @@
   [url numThreads]
   (println (str "Running load test => Threads: " numThreads  " URL: " url))
   (run-load-test url (Integer/parseInt numThreads))
-  (System/exit))
+  (System/exit 0))
 
 
 (defn run-load-test
