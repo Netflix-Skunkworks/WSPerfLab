@@ -56,6 +56,7 @@ public class TestCaseAServlet extends HttpServlet {
         cm = new PoolingClientConnectionManager();
         // set the limit high so this isn't throttling us while we push to the limit
         cm.setMaxTotal(1000);
+        cm.setDefaultMaxPerRoute(1000);
         httpclient = new DefaultHttpClient(cm);
 
         // used for parallel execution
