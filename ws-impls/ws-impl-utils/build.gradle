@@ -1,15 +1,10 @@
 apply plugin: 'java'
 apply plugin: 'eclipse'
-apply plugin: 'application'
 
 dependencies {
     compile 'org.slf4j:slf4j-api:1.7.0'
-    runtime 'org.slf4j:slf4j-simple:1.7.0'
-    compile 'io.netty:netty:3.6.2.Final'
     compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
-    compile 'com.google.guava:guava:r05'
-    provided 'junit:junit-dep:4.10'
-    compile project(':ws-impls:ws-impl-utils')
+    compile 'junit:junit-dep:4.10'
 }
 
 eclipse {
@@ -19,5 +14,3 @@ eclipse {
     downloadJavadoc = true
   }
 }
-
-mainClassName = "perf.test.netty.server.ServerBootstrap"
