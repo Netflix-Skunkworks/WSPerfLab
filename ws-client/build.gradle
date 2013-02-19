@@ -14,7 +14,8 @@ repositories {
 }
 
 jar {
-    manifest.attributes("Main-Class": "ws.client.WSClient")
+    manifest.attributes("Main-Class": "ws.client.ws_client")
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
 }
 
 dependencies {
