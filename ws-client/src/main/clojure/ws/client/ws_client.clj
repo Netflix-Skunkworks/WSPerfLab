@@ -1,10 +1,18 @@
-(ns ws.client.ws-client
+(ns ws.client.ws_client
   (:gen-class)
   (:require [clj-http.client :as http]
             [clojure.java.io :as io]))
 
+(declare run-load-test)
 (declare send-requests)
 (declare get-formatted-date)
+
+(defn -main
+  [url numThreads]
+  (println (str "Running load test => Threads: " numThreads  " URL: " url))
+  (run-load-test url (Integer/parseInt numThreads))
+  (System/exit))
+
 
 (defn run-load-test
   "Execute load test against given URL. Blocks while performing test.
