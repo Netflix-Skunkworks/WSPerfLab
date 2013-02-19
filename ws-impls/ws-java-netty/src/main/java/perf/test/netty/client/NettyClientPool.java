@@ -1,6 +1,5 @@
 package perf.test.netty.client;
 
-import com.google.common.base.Throwables;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -10,13 +9,23 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
+ * A pool of {@link NettyClient}s. This is an aggressively initialized client pool, the max connections of which are
+ * initialized & connected on startup. The initialization of this pool awaits till all the connection attempts have
+ * completed either with an error or success.<br/>
+ * A {@link ClientBootstrap} instance is shared across all clients in this pool. <br/>
+ * After startup, all new client connections are done in async mode and no method calls to this pool blocks.
+ * The pool fails fast on exhaustion of connections since all connect attempts are async. <br/>
+ * This pool attempts to bootstrap the connections (upto the max connections) whenever it finds on a connection attempt
+ * that there are no valid connections in the pool. This will happen when the backend was down on the last connection
+ * attempt. So, in most cases, this pool will be resilient to backend servers which come and go frequently.
+ *
  * @author Nitesh Kant (nkant@netflix.com)
  */
 public class NettyClientPool {
@@ -25,40 +34,24 @@ public class NettyClientPool {
 
     private LinkedBlockingQueue<NettyClient> pool;
     private final String host;
+    private int maxConnections;
     private final int port;
     private ClientBootstrap bootstrap;
-    private ThreadPoolExecutor connectExecutor;
     private volatile boolean shutdown;
+    private final AtomicInteger connectionsInUse = new AtomicInteger();
+    private final ReentrantLock poolBootstrapLock = new ReentrantLock();
 
     public NettyClientPool(int maxConnections, final int port, final String host) throws InterruptedException {
+        this.maxConnections = maxConnections;
         this.port = port;
         this.host = host;
         bootstrap();
         pool = new LinkedBlockingQueue<NettyClient>(maxConnections);
-        connectExecutor = new ThreadPoolExecutor(Math.min(10, maxConnections), maxConnections, 10, TimeUnit.MINUTES,
-                                                 new LinkedBlockingQueue<Runnable>(10));
         List<ChannelFuture> connectFutures = new ArrayList<ChannelFuture>(maxConnections);
         for (int i = 0; i < maxConnections; i++) {
-            final NettyClient nettyClient = newClient(new NettyClient.ClientCloseListener() {
-                @Override
-                public void onClose(NettyClient closedClient) {
-                    pool.offer(closedClient);
-                }
-            });
-            try {
-                ChannelFuture connect = nettyClient.connect();
-                connect.addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture future) throws Exception {
-                        if (future.isSuccess()) {
-                            logger.info(String.format("A client connected to host %s at port %s", host, port));
-                            pool.offer(nettyClient);
-                        }
-                    }
-                });
-                connectFutures.add(connect);
-            } catch (Throwable throwable) {
-                logger.error(String.format("Connect failed for host: %s and port: %s", host, port), throwable);
+            ChannelFuture connectFuture = connectNewClientAsync();
+            if (null != connectFuture) {
+                connectFutures.add(connectFuture);
             }
         }
         for (ChannelFuture connectFuture : connectFutures) {
@@ -84,35 +77,57 @@ public class NettyClientPool {
         if (null != client) {
             if (!client.isConnected()) {
                 // Async connect & use next available.
-                connectExecutor.submit(new Callable<ChannelFuture>() {
-                    @Override
-                    public ChannelFuture call() throws Exception {
-                        try {
-                            ChannelFuture connect = client.connect();
-                            connect.addListener(new ChannelFutureListener() {
-                                @Override
-                                public void operationComplete(ChannelFuture future) throws Exception {
-                                    if (future.isSuccess()) {
-                                        pool.offer(client);
-                                    }
-                                }
-                            });
-                            return connect;
-                        } catch (Throwable throwable) {
-                            logger.error(String.format("Connect failed for host: %s and port: %s", host, port),
-                                    throwable);
-                            throw Throwables.propagate(throwable);
-                        }
-                    }
-                });
+                connectNewClientAsync();
                 return getNextAvailableClient();
+            } else {
+                connectionsInUse.incrementAndGet();
             }
+        } else {
+            bootstrapPoolIfNeeded();
         }
         return client;
     }
 
-    private NettyClient newClient(NettyClient.ClientCloseListener closeListener) {
-        return new NettyClient(bootstrap, closeListener, host, port);
+    private void bootstrapPoolIfNeeded() {
+        if (connectionsInUse.get() > 0) {
+            return;
+        }
+
+        if (poolBootstrapLock.tryLock()) {
+            try {
+                for (int i = 0; i < maxConnections; i++) {
+                    connectNewClientAsync();
+                }
+            } finally {
+                if (poolBootstrapLock.isHeldByCurrentThread()) {
+                    poolBootstrapLock.unlock();
+                }
+            }
+        }
+    }
+
+    private ChannelFuture connectNewClientAsync() {
+        final NettyClient clientToUse = newClient(new ClientStateChangeListenerImpl());
+        ChannelFuture connect = null;
+        try {
+            connect = clientToUse.connect();
+            connect.addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+                    if (future.isSuccess()) {
+                        logger.info(String.format("A client connected to host %s at port %s", host, port));
+                        pool.offer(clientToUse);
+                    }
+                }
+            });
+        } catch (Throwable throwable) {
+            logger.error(String.format("Connect failed for host: %s and port: %s", host, port), throwable);
+        }
+        return connect;
+    }
+
+    private NettyClient newClient(NettyClient.ClientStateChangeListener stateChangeListener) {
+        return new NettyClient(bootstrap, stateChangeListener, host, port);
     }
 
     private void bootstrap() {
@@ -120,5 +135,14 @@ public class NettyClientPool {
                 new ClientBootstrap(new NioClientSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool()));
         bootstrap.setPipelineFactory(new ClientPipelineFactory());
 
+    }
+
+    private class ClientStateChangeListenerImpl implements NettyClient.ClientStateChangeListener {
+
+        @Override
+        public void onClose(NettyClient client) {
+            connectionsInUse.decrementAndGet();
+            pool.offer(client);
+        }
     }
 }

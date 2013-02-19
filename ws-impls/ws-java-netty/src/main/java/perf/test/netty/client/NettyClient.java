@@ -21,6 +21,21 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * A client abstraction for non-blocking clients. <br/>
+ * <b> This client only allows one request processing at any time.</b> <br/>
+ *
+ * The client is deemed in use till the time, the current request is completed, specifically till the time,
+ * {@link ClientHandler#messageReceived(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.MessageEvent)}
+ * is not called. As soon as this method is invoked (which marks the completion of response reading), the client is
+ * released for further use. Any user of this client is free to use it for as many sequential request processing as
+ * required. <p/>
+ * Since, every request is processed using a new pipeline (created by {@link ClientPipelineFactory} and hence a new
+ * {@link ClientHandler}, the state of the request processing, is stored in the handler. <br/>
+ * The future associated with a request processing, stores a reference to the handler and hence can get the state of
+ * the request processing anytime. <br/>
+ * {@link ClientHandler} releases the client for reuse so the user of this client, need not do any explicity client
+ * release.
+ *
  * @author Nitesh Kant (nkant@netflix.com)
  */
 public class NettyClient {
@@ -28,19 +43,28 @@ public class NettyClient {
     private Logger logger = LoggerFactory.getLogger(NettyClient.class);
 
     private Channel channel;
-    private final ClientCloseListener closeListener;
+    private final ClientStateChangeListener stateChangeListener;
     private final String host;
     private final int port;
     private final ClientBootstrap bootstrap;
     private AtomicBoolean inUse = new AtomicBoolean();
 
-    NettyClient(ClientBootstrap bootstrap, ClientCloseListener closeListener, String host, int port) {
+    NettyClient(ClientBootstrap bootstrap, ClientStateChangeListener stateChangeListener, String host, int port) {
         this.bootstrap = bootstrap;
-        this.closeListener = closeListener;
+        this.stateChangeListener = stateChangeListener;
         this.host = host;
         this.port = port;
     }
 
+    /**
+     * Executes an HTTP get request for the passed uri.
+     * <b>The host, port & scheme information in the passed URI, if any, is ignored. This information is taken from the
+     * associated {@link NettyClientPool}</b>
+     *
+     * @param uri URI for the request.
+     *
+     * @return The future to retrieve the result.
+     */
     public Future<String> get(URI uri) {
         validateIfInUse(); // Throws an exception if in use.
         ClientHandler handler = (ClientHandler) channel.getPipeline().get("handler");
@@ -59,10 +83,9 @@ public class NettyClient {
 
     void release() {
         inUse.set(false);
-        if (null != closeListener) {
-            closeListener.onClose(this);
+        if (null != stateChangeListener) {
+            stateChangeListener.onClose(this);
         }
-
     }
 
     ChannelFuture connect() throws Throwable {
@@ -85,16 +108,18 @@ public class NettyClient {
     }
 
     void dispose() {
-        channel.getCloseFuture().awaitUninterruptibly();
+        if (null != channel) {
+            channel.getCloseFuture().awaitUninterruptibly();
+        }
     }
 
-    public boolean isConnected() {
+    boolean isConnected() {
         return (null != channel && channel.isConnected());
     }
 
-    interface ClientCloseListener {
+    interface ClientStateChangeListener {
 
-        void onClose(NettyClient closedClient);
+        void onClose(NettyClient client);
     }
 
     private class RequestFuture implements Future<String> {
