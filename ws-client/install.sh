@@ -43,9 +43,6 @@ else
 	eval "$sshCommand $hostname 'sudo killall java'"
 	echo "--- Git clone WSPerfLab"
 	eval "$sshCommand $hostname 'git clone git://github.com/benjchristensen/WSPerfLab.git'"
-	echo "--- Update python libs"
-	eval "$sshCommand $hostname 'sudo yum install -y python-setuptools'"
-	eval "$sshCommand $hostname 'sudo easy_install argparse'"
 fi
 
 echo "--- Build WSPerfLab"
