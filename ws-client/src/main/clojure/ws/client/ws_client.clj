@@ -55,7 +55,7 @@
 (comment (run-load-test "http://ec2-50-19-75-61.compute-1.amazonaws.com:8080/ws-java-servlet-blocking/testA" 4 200 "/tmp/testA2.log"))
 
 ; format dates like "Fri, 15 Feb 2013 15:13:41"
-(def date-format (new java.text.SimpleDateFormat "EEE, dd MMM yyyy HH:MM:ss"))
+(def date-format (new java.text.SimpleDateFormat "EEE, dd MMM yyyy HH:mm:ss"))
 
 (defn get-formatted-date
   [date]
