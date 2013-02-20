@@ -31,7 +31,7 @@
         (.write log-writer (str "\n\t\"requests-per-thread\" : " requests-per-thread ","))
         (.write log-writer (str "\n\t\"requests\" : [\n"))
         ; start the load test and output logs into the JSON
-	      (http/with-connection-pool {:timeout 500 :threads 20 :insecure? false :default-per-route 20}
+	      (http/with-connection-pool {:timeout 500 :threads num-threads :insecure? false :default-per-route num-threads}
 	        (let [futures (doall (for [i (range num-threads)]
 	                             (future
 	                               ;(println "send-requests starting in thread: " (Thread/currentThread))
