@@ -83,9 +83,16 @@ public class ServerHandler extends SimpleChannelUpstreamHandler {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
+        Throwable cause = e.getCause();
+
+        if (cause instanceof Error) {
+            logger.error("Error during server handling", cause);
+            return;
+        }
+
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
 
-        NettyUtils.createErrorResponse(jsonFactory, response, e.getCause().getMessage());
+        NettyUtils.createErrorResponse(jsonFactory, response, cause.getMessage());
 
         ChannelFuture writeFuture = e.getChannel().write(response);
 

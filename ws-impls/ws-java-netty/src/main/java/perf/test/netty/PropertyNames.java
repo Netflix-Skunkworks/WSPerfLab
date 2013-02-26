@@ -10,7 +10,7 @@ package perf.test.netty;
 public enum PropertyNames {
 
     ServerContextPath("http.server.context.path", "/ws-java-netty/"),
-    ServerPort("http.server.port", "8888"),
+    ServerPort("http.server.port", "8798"),
     ServerLoggingEnable("server.log.enable", "false"),
     ServerChunkSize("server.chunk.size", "1048576"),
     ServerCloseConnectionOnError("server.close.conn.on.error", "false"), // Since we always serve HTTP - 1.1., we assume its keep alive.
