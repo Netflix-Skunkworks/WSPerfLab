@@ -52,4 +52,4 @@ eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-netty/; ../../gradlew
 echo "--- Copy distribution"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-netty/build/distributions/ws-java-netty-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-netty-*-SNAPSHOT.zip'"
 echo "--- Start Netty impl"
-eval "$sshCommand $hostname 'cd ws-java-netty*/bin/; nohup ./startWithLog.sh &'"
+eval "$sshCommand $hostname 'cd ws-java-netty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"
