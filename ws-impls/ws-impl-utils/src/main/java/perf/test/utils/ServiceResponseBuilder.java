@@ -1,15 +1,15 @@
 package perf.test.utils;
 
+import org.codehaus.jackson.JsonFactory;
+import org.codehaus.jackson.JsonGenerator;
+
+import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
-import java.lang.management.RuntimeMXBean;
-
-import javax.servlet.http.HttpServletResponse;
-
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonGenerator;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
@@ -83,22 +83,25 @@ public class ServiceResponseBuilder {
     }
 
     private static final OperatingSystemMXBean osStats = ManagementFactory.getOperatingSystemMXBean();
-    private static final RuntimeMXBean runtimeStats = ManagementFactory.getRuntimeMXBean();
 
     /**
      * Add various headers used for logging and statistics.
-     * 
-     * @param response
-     * @param startTime
      */
     public static void addResponseHeaders(HttpServletResponse response, long startTime) {
-        response.addHeader("server_response_time", String.valueOf((System.currentTimeMillis() - startTime)));
+        Map<String, String> perfResponseHeaders = getPerfResponseHeaders(startTime);
+        for (Map.Entry<String, String> entry : perfResponseHeaders.entrySet()) {
+            response.addHeader(entry.getKey(), entry.getValue());
+        }
+    }
 
-        response.addHeader("os_arch", osStats.getArch());
-        response.addHeader("os_name", osStats.getName());
-        response.addHeader("os_version", osStats.getVersion());
-        response.addHeader("jvm_version", System.getProperty("java.runtime.version"));
+    public static Map<String, String> getPerfResponseHeaders(long startTime) {
+        Map<String, String> toReturn = new HashMap<String, String>();
+        toReturn.put("server_response_time", String.valueOf((System.currentTimeMillis() - startTime)));
 
+        toReturn.put("os_arch", osStats.getArch());
+        toReturn.put("os_name", osStats.getName());
+        toReturn.put("os_version", osStats.getVersion());
+        toReturn.put("jvm_version", System.getProperty("java.runtime.version"));
         // per core load average
         int cores = Runtime.getRuntime().availableProcessors();
         double loadAverage = osStats.getSystemLoadAverage();
@@ -107,6 +110,7 @@ public class ServiceResponseBuilder {
         if (l.length() > 4) {
             l = l.substring(0, 4);
         }
-        response.addHeader("load_avg_per_core", l);
+        toReturn.put("load_avg_per_core", l);
+        return toReturn;
     }
 }
