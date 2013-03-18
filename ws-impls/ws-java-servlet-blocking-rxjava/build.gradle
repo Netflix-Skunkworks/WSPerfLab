@@ -1,0 +1,30 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'jetty'
+
+dependencies {
+    compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
+    compile 'org.apache.httpcomponents:httpclient:4.2.3'
+    compile 'org.slf4j:slf4j-api:1.7.0'
+    compile 'com.netflix.rxjava:rxjava-core:0.6+'
+    compile project(':ws-impls:ws-impl-utils')
+    provided 'junit:junit-dep:4.10'
+    provided 'javax.servlet:servlet-api:2.5'
+}
+
+eclipse {
+  classpath {
+    plusConfigurations += configurations.provided
+    downloadSources = true
+    downloadJavadoc = true
+  }
+}
+
+jettyRun.doFirst {
+	// use the default port of the ws-backend-simulation module
+	System.setProperty("perf.test.backend.hostname","http://localhost:8989/ws-backend-mock") 
+}
+
+jettyRun {
+        httpPort = 8888
+}
