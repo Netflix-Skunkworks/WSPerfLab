@@ -3,6 +3,7 @@ package perf.test.netty.server.tests;
 import com.google.common.base.Throwables;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http.HttpResponse;
+import perf.test.netty.PropertyNames;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 
@@ -31,7 +32,7 @@ public class TestCaseA extends TestCaseHandler {
         /* First 2 requests (A, B) in parallel */
         final Future<String> aResponse = get("/mock.json?numItems=2&itemSize=50&delay=50&id=" + id);
         final Future<String> bResponse = get("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id);
-        final int timeout = 300;
+        final int timeout = PropertyNames.ClientReadTimeout.getValueAsInt();
         /* When response A received perform C & D */
         // spawned in another thread so we don't block the ability to B/E to proceed in parallel
         Future<BackendResponse[]> aGroupResponses = executor.submit(new Callable<BackendResponse[]>() {

@@ -17,6 +17,7 @@ public enum PropertyNames {
 
     ClientLoggingEnable("client.log.enable", "false"),
     ClientChunkSize("client.chunk.size", "1048576"),
+    ClientReadTimeout("client.read.timeout", "500"),
 
     MockBackendHost("perf.test.backend.host", "localhost"),
     MockBackendPort("perf.test.backend.port", "8989"),

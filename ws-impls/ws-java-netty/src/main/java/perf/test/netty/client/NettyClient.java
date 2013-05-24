@@ -171,7 +171,7 @@ public class NettyClient {
                         handler.contentPopulationLock.wait(waitTime);
                     }
                     waitTime = waitTime - (System.currentTimeMillis() - startTime);
-                    if (waitTime < 0) {
+                    if (waitTime <= 0) {
                         break;
                     }
                 }
