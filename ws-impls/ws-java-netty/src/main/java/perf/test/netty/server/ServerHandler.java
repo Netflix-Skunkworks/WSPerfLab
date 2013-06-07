@@ -76,10 +76,10 @@ public class ServerHandler extends SimpleChannelUpstreamHandler {
         }
 
         if (!ctx.getChannel().isConnected()) {
-            logger.error("Server handler received error, when the channel was closed. Nothing much can be done now.", e);
+            logger.error("Server handler received error, when the channel was closed. Nothing much can be done now.", cause);
             return;
         } else {
-            logger.error("Server handler received error. Will send an error response.", e);
+            logger.error("Server handler received error. Will send an error response.", cause);
         }
 
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
