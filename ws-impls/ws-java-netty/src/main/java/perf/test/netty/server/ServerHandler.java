@@ -71,8 +71,15 @@ public class ServerHandler extends SimpleChannelUpstreamHandler {
         Throwable cause = e.getCause();
 
         if (cause instanceof Error) {
-            logger.error("Error during server handling", cause);
+            logger.error("Error during server handling, No more processing can be done.", cause);
             return;
+        }
+
+        if (!ctx.getChannel().isConnected()) {
+            logger.error("Server handler received error, when the channel was closed. Nothing much can be done now.", e);
+            return;
+        } else {
+            logger.error("Server handler received error. Will send an error response.", e);
         }
 
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);

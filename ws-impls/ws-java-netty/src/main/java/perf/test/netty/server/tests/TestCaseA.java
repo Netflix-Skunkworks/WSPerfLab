@@ -217,7 +217,12 @@ public class TestCaseA extends TestCaseHandler {
 
         @Override
         public void onError(ExceptionEvent exceptionEvent) {
-            HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+            if (!channel.isConnected()) {
+                logger.error("Client completion listener got an exception when the server channel is disconnected. Nothing else to do.", exceptionEvent.getCause());
+                return;
+            }
+            HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
+                                                            HttpResponseStatus.INTERNAL_SERVER_ERROR);
             Throwable cause = exceptionEvent.getCause();
             NettyUtils.createErrorResponse(jsonFactory, response, (null != cause) ? cause.getMessage() : "Unknown");
             NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
