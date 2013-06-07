@@ -141,7 +141,7 @@ public class TestCaseA extends TestCaseHandler {
     }
 
     private void handleErrorFromExtCalls(Continuation continuation, HttpServletResponse topLevelResponse,
-            Runnable onCompleteHandler, String callName, @Nullable String message) {
+            Runnable onCompleteHandler, String callName, String message) {
         if (continuation.isSuspended()) {
             // Fail fast
             topLevelResponse.setStatus(500);
