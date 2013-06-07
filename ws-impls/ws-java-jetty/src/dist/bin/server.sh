@@ -4,7 +4,7 @@
 ################# ws-java-jetty options #####################
 
 
-: ${SERVER_PORT:=8798}
+: ${SERVER_PORT:=8698}
 SERVER_LOG="false"
 CLIENT_LOG="false"
 
@@ -17,7 +17,7 @@ CLIENT_READ_TIMEOUT_MS=500
 
 LOG_LEVEL="INFO"
 
-WS_JAVA_NETTY_OPTS="-Dhttp.server.port=${SERVER_PORT} -Dserver.log.enable=${SERVER_LOG} -Dclient.read.timeout=${CLIENT_READ_TIMEOUT_MS} -Dclient.log.enable=${CLIENT_LOG} -Dperf.test.backend.host=${BACKEND_HOST} -Dperf.test.backend.port=${BACKEND_PORT} -Dperf.test.backend.host.maxconn.per.test=${BACKEND_MAX_CONN_PER_TEST} -D-Dorg.slf4j.simpleLogger.defaultLogLevel=${LOG_LEVEL}"
+WS_JAVA_JETTY_OPTS="-Dhttp.server.port=${SERVER_PORT} -Dserver.log.enable=${SERVER_LOG} -Dclient.read.timeout=${CLIENT_READ_TIMEOUT_MS} -Dclient.log.enable=${CLIENT_LOG} -Dperf.test.backend.host=${BACKEND_HOST} -Dperf.test.backend.port=${BACKEND_PORT} -Dperf.test.backend.host.maxconn.per.test=${BACKEND_MAX_CONN_PER_TEST} -D-Dorg.slf4j.simpleLogger.defaultLogLevel=${LOG_LEVEL}"
 #############################################################
 
 SCRIPT_DIR=$(dirname $BASH_SOURCE)
@@ -45,7 +45,7 @@ start() {
 
     PID=`ps -ef | grep ${SCRIPTNAME} | head -n1 |  awk ' {print $2;} '`
     echo ${PID} > ${PIDFILE}
-    export WS_JAVA_NETTY_OPTS=${WS_JAVA_NETTY_OPTS}
+    export WS_JAVA_JETTY_OPTS=${WS_JAVA_JETTY_OPTS}
 
     . $SCRIPT_DIR/ws-java-jetty
     echo "Started jetty based ws server...."
