@@ -28,8 +28,17 @@ public class BackendResponse {
         this.items = items;
     }
 
+    public static BackendResponse fromJson(JsonFactory jsonFactory, byte[] content) throws Exception {
+        JsonParser parser = jsonFactory.createJsonParser(content);
+        return paseBackendResponse(parser);
+    }
+
     public static BackendResponse fromJson(JsonFactory jsonFactory, String json) throws Exception {
         JsonParser parser = jsonFactory.createJsonParser(json);
+        return paseBackendResponse(parser);
+    }
+
+    public static BackendResponse paseBackendResponse(JsonParser parser) throws IOException {
         try {
             // Sanity check: verify that we got "Json Object":
             if (parser.nextToken() != JsonToken.START_OBJECT) {

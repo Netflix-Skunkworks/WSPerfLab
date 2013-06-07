@@ -16,6 +16,12 @@ import java.util.Map;
  */
 public class ServiceResponseBuilder {
 
+    public static ByteArrayOutputStream buildTestAResponse(JsonFactory jsonFactory, BackendResponse[] orderedResponse)
+            throws IOException {
+        return buildTestAResponse(jsonFactory, orderedResponse[0], orderedResponse[1], orderedResponse[2],
+                                  orderedResponse[3], orderedResponse[4]);
+    }
+
     public static ByteArrayOutputStream buildTestAResponse(JsonFactory jsonFactory,
             BackendResponse responseA, BackendResponse responseB,
             BackendResponse responseC, BackendResponse responseD,

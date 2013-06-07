@@ -1,0 +1,25 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'application'
+
+dependencies {
+    compile 'org.slf4j:slf4j-api:1.7.0'
+    runtime 'org.slf4j:slf4j-simple:1.7.0'
+    compile 'org.eclipse.jetty:jetty-server:9.0.3.v20130506'
+    compile 'org.eclipse.jetty:jetty-client:9.0.3.v20130506'
+    compile 'org.eclipse.jetty:jetty-continuation:9.0.3.v20130506'
+    compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
+    compile 'com.google.guava:guava:r05'
+    provided 'junit:junit-dep:4.10'
+    compile project(':ws-impls:ws-impl-utils')
+}
+
+eclipse {
+  classpath {
+    plusConfigurations += configurations.provided
+    downloadSources = true
+    downloadJavadoc = true
+  }
+}
+
+mainClassName = "perf.test.jetty.server.ServerBootstrap"

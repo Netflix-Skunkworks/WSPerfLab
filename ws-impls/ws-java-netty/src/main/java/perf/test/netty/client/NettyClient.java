@@ -4,20 +4,18 @@ import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -44,6 +42,7 @@ public class NettyClient {
 
     private Channel channel;
     private final ClientStateChangeListener stateChangeListener;
+    private ClientCompletionListener currentRequestCompletionListener;
     private final String host;
     private final int port;
     private final ClientBootstrap bootstrap;
@@ -60,19 +59,19 @@ public class NettyClient {
      * Executes an HTTP get request for the passed uri.
      * <b>The host, port & scheme information in the passed URI, if any, is ignored. This information is taken from the
      * associated {@link NettyClientPool}</b>
+     * The passed handler is invoked (in the selector thread) after a response is received.
      *
      * @param uri URI for the request.
      *
      * @return The future to retrieve the result.
      */
-    public Future<String> get(URI uri) {
+    public void get(URI uri, ClientCompletionListener listener) {
         validateIfInUse(); // Throws an exception if in use.
-        ClientHandler handler = (ClientHandler) channel.getPipeline().get("handler");
-        handler.reset();
+        currentRequestCompletionListener = listener;
         channel.setAttachment(this);
         HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getSchemeSpecificPart());
         request.setHeader(HttpHeaders.Names.HOST, host);
-        return new RequestFuture(channel.write(request));
+        channel.write(request);
     }
 
     private void validateIfInUse() {
@@ -82,6 +81,7 @@ public class NettyClient {
     }
 
     void release() {
+        currentRequestCompletionListener = null;
         inUse.set(false);
         if (null != stateChangeListener) {
             stateChangeListener.onClose(this);
@@ -117,76 +117,19 @@ public class NettyClient {
         return (null != channel && channel.isConnected());
     }
 
+    ClientCompletionListener getCurrentRequestCompletionListener() {
+        return currentRequestCompletionListener;
+    }
+
     interface ClientStateChangeListener {
 
         void onClose(NettyClient client);
     }
 
-    private class RequestFuture implements Future<String> {
+    public interface ClientCompletionListener {
 
-        private final ChannelFuture writeFuture;
-        private final ClientHandler handler;
+        void onComplete(HttpResponse response);
 
-        public RequestFuture(ChannelFuture writeFuture) {
-            this.writeFuture = writeFuture;
-            handler = (ClientHandler) channel.getPipeline().get("handler");
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning) {
-            return writeFuture.cancel();
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return writeFuture.isCancelled();
-        }
-
-        @Override
-        public boolean isDone() {
-            return handler.isDone();
-        }
-
-        @Override
-        public String get() throws InterruptedException, ExecutionException {
-            while (!handler.hasContent()) {
-                synchronized (handler.contentPopulationLock) {
-                    handler.contentPopulationLock.wait();
-                }
-            }
-            return handler.getContent();
-        }
-
-        @Override
-        public String get(long timeout, TimeUnit unit)
-                throws InterruptedException, ExecutionException, TimeoutException {
-            long startTime = System.currentTimeMillis();
-            long waitTime = unit.toMillis(timeout);
-            while (!handler.isDone()) {
-                synchronized (handler.contentPopulationLock) {
-                    if (waitTime <= 0) {
-                        handler.contentPopulationLock.wait();
-                        continue;
-                    } else {
-                        handler.contentPopulationLock.wait(waitTime);
-                    }
-                    waitTime = waitTime - (System.currentTimeMillis() - startTime);
-                    if (waitTime <= 0) {
-                        break;
-                    }
-                }
-            }
-
-            if (handler.isDone()) {
-                if (handler.isSuccess()) {
-                    return handler.getContent();
-                } else {
-                    throw new ExecutionException(
-                            "Client request failed with status code: " + handler.getResponseStatusCode(), null);
-                }
-            } else {
-                throw new TimeoutException(String.format("No result after waiting for %s milliseconds.", timeout));
-            }
-        }
+        void onError(ExceptionEvent exceptionEvent);
     }
 }

@@ -26,7 +26,7 @@ import perf.test.netty.server.tests.TestRegistry;
  * case name as specified by {@link perf.test.netty.server.tests.TestCaseHandler#getTestCaseName()}, otherwise, this
  * returns a http response with status {@link HttpResponseStatus#NOT_FOUND}. <br/>
  * If the testcase name matches with a handler registered with the {@link TestRegistry}, this server calls the
- * {@link TestCaseHandler#processRequest(org.jboss.netty.handler.codec.http.HttpRequest, org.jboss.netty.handler.codec.http.QueryStringDecoder)}
+ * {@link TestCaseHandler#processRequest(org.jboss.netty.channel.Channel, boolean, org.jboss.netty.handler.codec.http.HttpRequest, org.jboss.netty.handler.codec.http.QueryStringDecoder)}
  * on that handler. <br/>
  *
  * In case, there is an error in handling an http request, the client connection is not closed. This can be forced to
@@ -48,36 +48,21 @@ public class ServerHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
         HttpRequest request = (HttpRequest) e.getMessage();
+        boolean keepAlive = HttpHeaders.isKeepAlive(request);
+
         QueryStringDecoder qpDecoder = new QueryStringDecoder(request.getUri());
         String path = qpDecoder.getPath();
-        HttpResponse response = null;
+        HttpResponse response;
         if (!path.isEmpty() && path.startsWith(contextPath)) {
             path = path.substring(contextPath.length());
             TestCaseHandler handler = TestRegistry.getHandler(path);
             logger.debug(String.format("Test case handler for path %s is %s", path, handler));
             if (null != handler) {
-                response = handler.processRequest(request, qpDecoder);
+                handler.processRequest(e.getChannel(), keepAlive, request, qpDecoder);
             }
-        }
-
-        if (null == response) {
+        } else {
             response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
-        }
-
-        boolean keepAlive = HttpHeaders.isKeepAlive(request);
-
-        if (keepAlive) {
-            // Add 'Content-Length' header only for a keep-alive connection.
-            response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, response.getContent().readableBytes());
-            // Add keep alive header as per:
-            // - http://www.w3.org/Protocols/HTTP/1.1/draft-ietf-http-v11-spec-01.html#Connection
-            response.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
-        }
-
-        ChannelFuture writeFuture = e.getChannel().write(response);
-
-        if (!keepAlive) {
-            writeFuture.addListener(ChannelFutureListener.CLOSE);
+            NettyUtils.sendResponse(e.getChannel(), keepAlive, jsonFactory, response);
         }
     }
 
@@ -93,6 +78,12 @@ public class ServerHandler extends SimpleChannelUpstreamHandler {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
 
         NettyUtils.createErrorResponse(jsonFactory, response, cause.getMessage());
+
+        // Add 'Content-Length' header only for a keep-alive connection.
+        response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, response.getContent().readableBytes());
+        // Add keep alive header as per:
+        // - http://www.w3.org/Protocols/HTTP/1.1/draft-ietf-http-v11-spec-01.html#Connection
+        response.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
 
         ChannelFuture writeFuture = e.getChannel().write(response);
 

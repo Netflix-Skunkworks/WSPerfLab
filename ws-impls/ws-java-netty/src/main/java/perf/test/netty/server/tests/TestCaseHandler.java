@@ -1,6 +1,7 @@
 package perf.test.netty.server.tests;
 
 import org.codehaus.jackson.JsonFactory;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -17,7 +18,6 @@ import perf.test.netty.client.NettyClientPool;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
@@ -37,26 +37,26 @@ public abstract class TestCaseHandler {
                                          PropertyNames.MockBackendHost.getValueAsString());
     }
 
-    public HttpResponse processRequest(HttpRequest request, QueryStringDecoder qpDecoder) {
+    public void processRequest(Channel channel, boolean keepAlive, HttpRequest request, QueryStringDecoder qpDecoder) {
         Map<String,List<String>> parameters = qpDecoder.getParameters();
         List<String> id = parameters.get("id");
         HttpResponse response;
         if (null == id || id.isEmpty()) {
             response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST);
             NettyUtils.createErrorResponse(jsonFactory, response, "query parameter id not provided.");
+            NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
         } else {
             response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
             try {
-                executeTestCase(id.get(0), response);
+                executeTestCase(channel, keepAlive, id.get(0), response);
             } catch (Throwable throwable) {
                 logger.error("Test case execution threw an exception.", throwable);
-                NettyUtils.createErrorResponse(jsonFactory, response, throwable.getMessage());
+                NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
             }
         }
-        return response;
     }
 
-    protected abstract void executeTestCase(String id, HttpResponse response) throws Throwable;
+    protected abstract void executeTestCase(Channel channel, boolean keepAlive, String id, HttpResponse response) throws Throwable;
 
     public void dispose() {
         clientPool.shutdown();
@@ -66,13 +66,25 @@ public abstract class TestCaseHandler {
         return testCaseName;
     }
 
-    protected Future<String> get(String path) throws Throwable {
-        String basePath = PropertyNames.MaxBackendContextPath.getValueAsString();
+    protected void get(String path, NettyClient.ClientCompletionListener listener, HttpResponse topLevelResponse,
+                       Channel channel, boolean keepAlive) {
+        String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
         path = basePath + path;
-        NettyClient nextAvailableClient = clientPool.getNextAvailableClient();
-        if (null != nextAvailableClient) {
-            return nextAvailableClient.get(new URI(path));
+        NettyClient nextAvailableClient;
+        try {
+            nextAvailableClient = clientPool.getNextAvailableClient();
+            if (null != nextAvailableClient) {
+                nextAvailableClient.get(new URI(path), listener);
+            } else {
+                String msg = "Backend connections exhausted. Failed to execute backend get request: " + path;
+                logger.error(msg);
+                NettyUtils.createErrorResponse(jsonFactory, topLevelResponse, msg);
+                NettyUtils.sendResponse(channel, keepAlive, jsonFactory, topLevelResponse);
+            }
+        } catch (Throwable throwable) {
+            logger.error("Failed to execute backend get request: " + path);
+            NettyUtils.createErrorResponse(jsonFactory, topLevelResponse, throwable.getMessage());
+            NettyUtils.sendResponse(channel, keepAlive, jsonFactory, topLevelResponse);
         }
-        throw new IllegalStateException("Backend connections exhausted.");
     }
 }

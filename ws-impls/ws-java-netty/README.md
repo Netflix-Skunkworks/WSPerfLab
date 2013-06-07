@@ -1,4 +1,4 @@
-# Non-blocking impl
+# Netty Non-blocking impl
 
 This module contains a non-blocking implementation of ws test impl using <a href="https://netty.io/">netty</a>.
 The module provides both client and server HTTP implementations to be used for performace benchmarks.

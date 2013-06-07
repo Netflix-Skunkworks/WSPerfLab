@@ -1,28 +1,29 @@
-package perf.test.netty;
+package perf.test.jetty;
 
 /**
  * All the properties used by netty module. The property values are obtained as {@link System#getProperty(String, String)} for
- * the property name specified by {@link perf.test.netty.PropertyNames#getPropertyName()} with a default value as specified
- * by {@link perf.test.netty.PropertyNames#getDefaultVal()}
+ * the property name specified by {@link #getPropertyName()} with a default value as specified
+ * by {@link #getDefaultVal()}
  *
  * @author Nitesh Kant (nkant@netflix.com)
  */
 public enum PropertyNames {
 
-    ServerContextPath("http.server.context.path", "/ws-java-netty/"),
-    ServerPort("http.server.port", "8798"),
-    ServerLoggingEnable("server.log.enable", "true"),
-    ServerChunkSize("server.chunk.size", "1048576"),
-    ServerCloseConnectionOnError("server.close.conn.on.error", "false"), // Since we always serve HTTP - 1.1., we assume its keep alive.
+    ServerContextPath("http.server.context.path", "/ws-java-jetty"),
+    ServerPort("http.server.port", "8698"),
+    TestCaseExecutionTimeoutMs("test.execution.timeout.ms", "1000"),
 
-    ClientLoggingEnable("client.log.enable", "true"),
-    ClientChunkSize("client.chunk.size", "1048576"),
     ClientReadTimeout("client.read.timeout", "500"),
+    ClientConnectTimeout("client.connect.timeout", "500"),
 
     MockBackendHost("perf.test.backend.host", "localhost"),
     MockBackendPort("perf.test.backend.port", "8989"),
     MockBackendContextPath("perf.test.backend.context.path", "/ws-backend-mock"),
     MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "100"),
+
+    ErrorHeaderName("perf.test.error.header.name", "X-wsperf-error"),
+
+    TestCaseAResponseBufferMaxSize("perf.test.testA.response.buffer.size", String.valueOf(1024 * 1024 * 2)),
 
     TestCaseACallANumItems("perf.test.testA.callA.numItems", "2"),
     TestCaseACallAItemSize("perf.test.testA.callA.itemSize", "50"),
