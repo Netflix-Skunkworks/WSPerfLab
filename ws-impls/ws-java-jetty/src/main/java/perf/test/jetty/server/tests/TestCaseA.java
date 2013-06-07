@@ -1,6 +1,5 @@
 package perf.test.jetty.server.tests;
 
-import com.sun.istack.internal.Nullable;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Result;
 import org.eclipse.jetty.client.util.BufferingResponseListener;
