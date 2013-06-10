@@ -27,7 +27,7 @@ public class WsClientDriver {
             printUsageAndExit();
         }
 
-        clientBuilder.withMaxConnections(concurrentClients);
+        clientBuilder.withMaxConnections(Integer.MAX_VALUE);
         try {
             clientBuilder.withTotalRequests(Long.parseLong(requests));
         } catch (NumberFormatException e) {
