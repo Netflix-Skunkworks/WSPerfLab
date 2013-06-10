@@ -1,9 +1,11 @@
 apply plugin: "clojure"
 /*
  * template derived from https://github.com/adrnai/clojure-gradle-bootstrap
- */ 
+ */
 apply plugin: "eclipse"
 apply plugin: "idea"
+apply plugin: 'java'
+apply plugin: 'application'
 
 aotCompile = true
 warnOnReflection = true
@@ -19,8 +21,14 @@ jar {
 }
 
 dependencies {
-  compile "org.clojure:clojure:1.4.0"
-  compile "clj-http:clj-http:0.6.3" // https://clojars.org/clj-http
+    // dependencies for java ws client - start
+    compile 'com.google.code.gson:gson:2.2.4'
+    compile 'org.apache.commons:commons-math:2.0'
+    compile 'org.eclipse.jetty:jetty-client:9.0.3.v20130506'
+    // dependencies for java ws client - end
+
+    compile "org.clojure:clojure:1.4.0"
+    compile "clj-http:clj-http:0.6.3" // https://clojars.org/clj-http
 }
 
 /* 
@@ -45,4 +53,4 @@ buildscript {
   dependencies { classpath "clojuresque:clojuresque:1.5.4" }
 }
 
-
+mainClassName = "perf.client.WsClientDriver"

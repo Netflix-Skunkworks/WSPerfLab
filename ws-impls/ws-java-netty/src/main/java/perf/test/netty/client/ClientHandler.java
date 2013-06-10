@@ -37,12 +37,18 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
         logger.error("Client handler got an error.", e.getCause());
         releaseClientAndSetListener(ctx);
-        listener.onError(e);
+        if (null != listener) {
+            listener.onError(e);
+        } else {
+            logger.error("No listener found on error. Nothing more to do.");
+        }
     }
 
     private void releaseClientAndSetListener(final ChannelHandlerContext ctx) {
         NettyClient client = (NettyClient) ctx.getChannel().getAttachment();
-        listener = client.getCurrentRequestCompletionListener();
-        client.release(); // Release the client to be reused.
+        if (null != client) {
+            listener = client.getCurrentRequestCompletionListener();
+            client.release(); // Release the client to be reused.
+        }
     }
 }
