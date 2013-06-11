@@ -57,6 +57,10 @@ public abstract class TestCaseHandler {
             Continuation continuation, final Runnable onCompleteHandler) throws Exception;
 
     protected void onComplete(long startTime, Continuation continuation) {
+        if (continuation.isInitial()) {
+            logger.error("Continuation state is initial when response listener complete called.");
+            return;
+        }
         if (logger.isDebugEnabled()) {
             logger.debug("Completed jetty continuation: " + continuation);
         }
