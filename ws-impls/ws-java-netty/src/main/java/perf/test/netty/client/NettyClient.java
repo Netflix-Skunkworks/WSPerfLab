@@ -69,6 +69,7 @@ public class NettyClient {
      */
     public void get(URI uri, ClientCompletionListener listener) {
         validateIfInUse(); // Throws an exception if in use.
+        lastUsedTime = System.currentTimeMillis();
         currentRequestCompletionListener = listener;
         channel.setAttachment(this);
         HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getSchemeSpecificPart());
