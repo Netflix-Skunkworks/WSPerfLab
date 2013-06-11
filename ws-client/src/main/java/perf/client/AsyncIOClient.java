@@ -44,6 +44,7 @@ public class AsyncIOClient {
     public void start(Runnable onCompleteHandler) throws Exception {
         finishingLatch = new CountDownLatch(concurrentClients);
         result.setConcurrentClients(concurrentClients);
+        final long maxRequestsPerThread = totalRequests / concurrentClients;
         result.setTestUri(testUri);
         httpClient.setMaxRequestsQueuedPerDestination(Integer.MAX_VALUE);
         httpClient.start();
@@ -51,22 +52,18 @@ public class AsyncIOClient {
         for (int loaderCount = 0; loaderCount < concurrentClients; loaderCount++) {
             loaderThreadPool.execute(new Runnable() {
 
-                private volatile boolean keepRunning = true;
-
                 @Override
                 public void run() {
                     try {
-                        while (keepRunning) {
+                        int count = 0;
+                        while (count++ <= maxRequestsPerThread && !stopped) {
                             final long start = System.nanoTime();
                             beforeSendRequest();
                             String uriWithId = String.format("%s?id=%d", testUri, Math.abs(idGenerator.nextLong()));
                             httpClient.newRequest(uriWithId).send(new Response.CompleteListener() {
                                 @Override
                                 public void onComplete(Result result) {
-                                    boolean proceed = processResponse(result, start);
-                                    if (!proceed) {
-                                        keepRunning = false;
-                                    }
+                                    processResponse(result, start);
                                 }
                             });
                         }
@@ -101,9 +98,9 @@ public class AsyncIOClient {
         onCompleteHandler.run();
     }
 
-    private boolean processResponse(Result result, long startTime) {
+    private void processResponse(Result result, long startTime) {
         if (stopped) {
-            return false;
+            return;
         }
 
         final long end = System.nanoTime();
@@ -125,7 +122,6 @@ public class AsyncIOClient {
         }
         long requestCount = this.requestCount.incrementAndGet();
         statusUpdater.onNewItem(requestCount);
-        return requestCount < totalRequests;
     }
 
     private TestResult.IndividualResult getIndividualResult(Response response, long totalTime) {
