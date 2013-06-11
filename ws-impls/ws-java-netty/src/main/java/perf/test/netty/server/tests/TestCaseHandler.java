@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.NettyUtils;
 import perf.test.netty.PropertyNames;
-import perf.test.netty.client.NettyClient;
 import perf.test.netty.client.NettyClientPool;
 
 import java.net.URI;
@@ -33,8 +32,10 @@ public abstract class TestCaseHandler {
     protected TestCaseHandler(String testCaseName) throws InterruptedException {
         this.testCaseName = testCaseName;
         clientPool = new NettyClientPool(PropertyNames.MockBackendMaxConnectionsPerTest.getValueAsInt(),
+                                         PropertyNames.MockBackendMaxConnectionsPerTest.getValueAsInt(),
                                          PropertyNames.MockBackendPort.getValueAsInt(),
-                                         PropertyNames.MockBackendHost.getValueAsString());
+                                         PropertyNames.MockBackendHost.getValueAsString(),
+                                         PropertyNames.MockBackendMaxBacklog.getValueAsInt());
     }
 
     public void processRequest(Channel channel, boolean keepAlive, HttpRequest request, QueryStringDecoder qpDecoder) {
@@ -66,24 +67,15 @@ public abstract class TestCaseHandler {
         return testCaseName;
     }
 
-    protected void get(String path, NettyClient.ClientCompletionListener listener, HttpResponse topLevelResponse,
+    protected void get(String path, NettyClientPool.ClientCompletionListener listener, HttpResponse topLevelResponse,
                        Channel channel, boolean keepAlive) {
         String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
         path = basePath + path;
-        NettyClient nextAvailableClient;
         try {
-            nextAvailableClient = clientPool.getNextAvailableClient();
-            if (null != nextAvailableClient) {
-                nextAvailableClient.get(new URI(path), listener);
-            } else {
-                String msg = "Backend connections exhausted. Failed to execute backend get request: " + path;
-                logger.error(msg);
-                NettyUtils.createErrorResponse(jsonFactory, topLevelResponse, msg);
-                NettyUtils.sendResponse(channel, keepAlive, jsonFactory, topLevelResponse);
-            }
-        } catch (Throwable throwable) {
+            clientPool.sendGetRequest(new URI(path), listener);
+        } catch (Exception e) {
             logger.error("Failed to execute backend get request: " + path);
-            NettyUtils.createErrorResponse(jsonFactory, topLevelResponse, throwable.getMessage());
+            NettyUtils.createErrorResponse(jsonFactory, topLevelResponse, e.getMessage());
             NettyUtils.sendResponse(channel, keepAlive, jsonFactory, topLevelResponse);
         }
     }

@@ -3,16 +3,17 @@ package perf.test.netty.client;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.net.URI;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A pool of {@link NettyClient}s. This is an aggressively initialized client pool, the max connections of which are
@@ -31,117 +32,180 @@ public class NettyClientPool {
 
     private Logger logger = LoggerFactory.getLogger(NettyClientPool.class);
 
-    private LinkedBlockingQueue<NettyClient> pool;
+    private LinkedBlockingQueue<NettyClient> clients;
+    private LinkedBlockingQueue<Request> requestQueue;
     private final String host;
     private int maxConnections;
     private final int port;
     private ClientBootstrap bootstrap;
     private volatile boolean shutdown;
-    private final AtomicInteger connectionsInUse = new AtomicInteger();
-    private final ReentrantLock poolBootstrapLock = new ReentrantLock();
+    private final AtomicInteger inUseCount = new AtomicInteger();
+    private final AtomicInteger idleCount = new AtomicInteger();
 
-    public NettyClientPool(int maxConnections, final int port, final String host) throws InterruptedException {
+    public NettyClientPool(int maxConnections, int connectionAtBootstrap, final int port, final String host,
+                           int requestQueueSize) throws InterruptedException {
         this.maxConnections = maxConnections;
         this.port = port;
         this.host = host;
         bootstrap();
-        pool = new LinkedBlockingQueue<NettyClient>(maxConnections);
-        List<ChannelFuture> connectFutures = new ArrayList<ChannelFuture>(maxConnections);
-        for (int i = 0; i < maxConnections; i++) {
-            ChannelFuture connectFuture = connectNewClientAsync();
-            if (null != connectFuture) {
-                connectFutures.add(connectFuture);
-            }
-        }
-        for (ChannelFuture connectFuture : connectFutures) {
-            connectFuture.awaitUninterruptibly();
+        clients = new LinkedBlockingQueue<NettyClient>(maxConnections);
+        requestQueue = new LinkedBlockingQueue<Request>(requestQueueSize);
+        for (int i = 0; i < connectionAtBootstrap; i++) {
+            connectNewClientAsync();
         }
     }
 
     public void shutdown() {
         logger.info("Shutting down client pool.");
         shutdown = true;
-        for (NettyClient nettyClient : pool) {
+        for (NettyClient nettyClient : clients) {
             nettyClient.dispose();
         }
         bootstrap.releaseExternalResources();
     }
 
-    public NettyClient getNextAvailableClient() throws Throwable {
+    public void sendGetRequest(URI uri, ClientCompletionListener completionListener) {
         if (shutdown) {
-            logger.warn("Netty client pool is shutting down. No more connections available.");
-            return null;
+            logger.warn("Netty client pool is shutting down.");
+            throw new RejectedExecutionException("Netty client pool is shutting down.");
         }
-        final NettyClient client = pool.poll();
-        if (null != client) {
-            if (!client.isConnected()) {
-                // Async connect & use next available.
-                connectNewClientAsync();
-                return getNextAvailableClient();
+        final Request newRequest = new Request(uri, completionListener);
+        if (requestQueue.offer(newRequest)) {
+            NettyClient clientToUse = getNextAvailableClient();
+            if (null == clientToUse) {
+                // Time to increase the pool if required.
+                if (idleCount.get() + inUseCount.get() < maxConnections) {
+                    // This is not strictly enforcing but we enforce the connections queue size as such.
+                    connectNewClientAsync();
+                }
             } else {
-                connectionsInUse.incrementAndGet();
+                Request requestToExecute = requestQueue.poll();
+                if (null != requestToExecute) {
+                    makeGetRequestOnClient(requestToExecute, clientToUse);
+                } else {
+                    clientToUse.release(); // didn't use it so release.
+                }
             }
         } else {
-            bootstrapPoolIfNeeded();
+            logger.error("Backend request backlog very high, rejecting requests.");
+            throw new RejectedExecutionException("Backend request backlog very high, rejecting requests.");
+        }
+
+    }
+
+    void retry(ClientCompletionListenerWrapper completionListenerWrapper) {
+        sendGetRequest(completionListenerWrapper.requestUri, completionListenerWrapper.delegate);
+    }
+
+    private NettyClient getNextAvailableClient() {
+        if (shutdown) {
+            logger.warn("Netty client pool is shutting down.");
+            throw new RejectedExecutionException("Netty client pool is shutting down.");
+        }
+        final NettyClient client = clients.poll();
+        if (null != client) {
+            if (!client.claim()) {
+                return getNextAvailableClient();
+            } else {
+                inUseCount.incrementAndGet();
+                if (idleCount.get() != 0) {
+                    idleCount.decrementAndGet();
+                }
+            }
         }
         return client;
     }
 
-    private void bootstrapPoolIfNeeded() {
-        if (connectionsInUse.get() > 0) {
-            return;
-        }
-
-        if (poolBootstrapLock.tryLock()) {
-            try {
-                for (int i = 0; i < maxConnections; i++) {
-                    connectNewClientAsync();
-                }
-            } finally {
-                if (poolBootstrapLock.isHeldByCurrentThread()) {
-                    poolBootstrapLock.unlock();
-                }
-            }
-        }
-    }
-
-    private ChannelFuture connectNewClientAsync() {
-        final NettyClient clientToUse = newClient(new ClientStateChangeListenerImpl());
-        ChannelFuture connect = null;
-        try {
-            connect = clientToUse.connect();
-            connect.addListener(new ChannelFutureListener() {
+    private void connectNewClientAsync() {
+        final NettyClient clientToUse = newClient();
+        if (clients.offer(clientToUse)) {
+            clientToUse.connect().addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
                         logger.info(String.format("A client connected to host %s at port %s", host, port));
-                        pool.offer(clientToUse);
+                        Request request = requestQueue.poll();
+                        if (null != request && clientToUse.claim()) { // since its connected, someone else may have claimed it.
+                            // We do not process queued messages from the connection callback as that can be costly for the
+                            // boss thread which is generally == 1. So, we do not set the client here before firing the
+                            // request.
+                            makeGetRequestOnClient(request, clientToUse);
+                        }
                     }
                 }
             });
-        } catch (Throwable throwable) {
-            logger.error(String.format("Connect failed for host: %s and port: %s", host, port), throwable);
+        } else {
+            // Connections limit reached.
+            logger.warn("Failed to enqueue the new client connections, connection limit is reached. This can still process the requests albit slowly.");
         }
-        return connect;
     }
 
-    private NettyClient newClient(NettyClient.ClientStateChangeListener stateChangeListener) {
-        return new NettyClient(bootstrap, stateChangeListener, host, port);
+    private void makeGetRequestOnClient(Request request, NettyClient clientToUse) {
+        request.completionListener.clientToUse = clientToUse;
+        clientToUse.get(request.uri, request.completionListener);
+    }
+
+    private NettyClient newClient() {
+        return new NettyClient(bootstrap, null, host, port);
     }
 
     private void bootstrap() {
-        bootstrap =
-                new ClientBootstrap(new NioClientSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool()));
-        bootstrap.setPipelineFactory(new ClientPipelineFactory());
-
+        bootstrap = new ClientBootstrap(new NioClientSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool()));
+        bootstrap.setPipelineFactory(new ClientPipelineFactory(this) /*This is bad as we are leaking "this" before construction*/);
     }
 
-    private class ClientStateChangeListenerImpl implements NettyClient.ClientStateChangeListener {
+    public interface ClientCompletionListener {
+
+        void onComplete(HttpResponse response);
+
+        void onError(ExceptionEvent exceptionEvent);
+    }
+
+    class ClientCompletionListenerWrapper implements ClientCompletionListener {
+
+        private ClientCompletionListener delegate;
+        private URI requestUri;
+        private NettyClient clientToUse;
+
+        ClientCompletionListenerWrapper(ClientCompletionListener delegate, URI requestUri) {
+            this.delegate = delegate;
+            this.requestUri = requestUri;
+        }
 
         @Override
-        public void onClose(NettyClient client) {
-            connectionsInUse.decrementAndGet();
-            pool.offer(client);
+        public void onComplete(HttpResponse response) {
+            delegate.onComplete(response);
+            processQueuedMessages(clientToUse);
+        }
+
+        @Override
+        public void onError(ExceptionEvent exceptionEvent) {
+            delegate.onError(exceptionEvent);
+            processQueuedMessages(clientToUse);
+        }
+    }
+
+    private void processQueuedMessages(NettyClient clientToUse) {
+        if (null == clientToUse) {
+            return;
+        }
+        Request requestToProcess = requestQueue.poll();
+        if (null != requestToProcess) {
+            makeGetRequestOnClient(requestToProcess, clientToUse);
+        } else if (clients.offer(clientToUse)) {
+            inUseCount.decrementAndGet();
+            idleCount.incrementAndGet();
+        }
+    }
+
+    private class Request {
+
+        private URI uri;
+        private ClientCompletionListenerWrapper completionListener;
+
+        public Request(URI uri, ClientCompletionListener completionListener) {
+            this.uri = uri;
+            this.completionListener = new ClientCompletionListenerWrapper(completionListener, uri);
         }
     }
 }

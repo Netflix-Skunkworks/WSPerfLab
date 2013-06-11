@@ -8,12 +8,17 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * @author Nitesh Kant (nkant@netflix.com)
  */
 public class ClientHandler extends SimpleChannelUpstreamHandler {
 
+    public static final int MAX_RETRIES = 3;
+    private final NettyClientPool nettyClientPool;
     private Logger logger = LoggerFactory.getLogger(ClientHandler.class);
+    private final AtomicInteger retryCount; // This is per connection, which at a time only has one request.
 
     /**
      * A handler instance is tied to a particular connection, HTTP can not have concurrent requests on the
@@ -21,10 +26,16 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
      * {@link #releaseClientAndSetListener(org.jboss.netty.channel.ChannelHandlerContext)} before doing anything in any
      * callback.
      */
-    private volatile NettyClient.ClientCompletionListener listener;
+    private volatile NettyClientPool.ClientCompletionListener listener;
+
+    public ClientHandler(NettyClientPool nettyClientPool) {
+        this.nettyClientPool = nettyClientPool;
+        retryCount = new AtomicInteger();
+    }
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+        retryCount.set(0); // We got a response, reset retries.
         releaseClientAndSetListener(ctx);
         if (null != listener) {
             listener.onComplete((HttpResponse) e.getMessage());
@@ -38,7 +49,12 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
         logger.error("Client handler got an error.", e.getCause());
         releaseClientAndSetListener(ctx);
         if (null != listener) {
-            listener.onError(e);
+            if (!ctx.getChannel().isConnected() && retryCount.incrementAndGet() >= MAX_RETRIES) {
+                // Client disconnected, we must retry the request as we only support GET which is idempotent.
+                nettyClientPool.retry((NettyClientPool.ClientCompletionListenerWrapper) listener);
+            } else {
+                listener.onError(e);
+            }
         } else {
             logger.error("No listener found on error. Nothing more to do.");
         }
@@ -48,7 +64,7 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
         NettyClient client = (NettyClient) ctx.getChannel().getAttachment();
         if (null != client) {
             listener = client.getCurrentRequestCompletionListener();
-            client.release(); // Release the client to be reused.
+            client.release();
         }
     }
 }

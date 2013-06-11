@@ -4,16 +4,13 @@ import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import perf.test.netty.PropertyNames;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -37,13 +34,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author Nitesh Kant (nkant@netflix.com)
  */
-public class NettyClient {
+class NettyClient {
 
     private Logger logger = LoggerFactory.getLogger(NettyClient.class);
 
     private Channel channel;
     private final ClientStateChangeListener stateChangeListener;
-    private ClientCompletionListener currentRequestCompletionListener;
+    private NettyClientPool.ClientCompletionListener currentRequestCompletionListener;
     private final String host;
     private final int port;
     private final ClientBootstrap bootstrap;
@@ -66,19 +63,12 @@ public class NettyClient {
      *
      * @return The future to retrieve the result.
      */
-    public void get(URI uri, ClientCompletionListener listener) {
-        validateIfInUse(); // Throws an exception if in use.
+    void get(URI uri, NettyClientPool.ClientCompletionListener listener) {
         currentRequestCompletionListener = listener;
         channel.setAttachment(this);
         HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getSchemeSpecificPart());
         request.setHeader(HttpHeaders.Names.HOST, host);
         channel.write(request);
-    }
-
-    private void validateIfInUse() {
-        if (!inUse.compareAndSet(false, true)) {
-            throw new IllegalStateException("Client in use or is closing.");
-        }
     }
 
     void release() {
@@ -89,7 +79,7 @@ public class NettyClient {
         }
     }
 
-    ChannelFuture connect() throws Throwable {
+    ChannelFuture connect() {
         if (isConnected()) {
             return null;
         }
@@ -118,7 +108,11 @@ public class NettyClient {
         return (null != channel && channel.isConnected());
     }
 
-    ClientCompletionListener getCurrentRequestCompletionListener() {
+    boolean claim() {
+        return isConnected() && inUse.compareAndSet(false, true);
+    }
+
+    NettyClientPool.ClientCompletionListener getCurrentRequestCompletionListener() {
         return currentRequestCompletionListener;
     }
 
@@ -127,10 +121,4 @@ public class NettyClient {
         void onClose(NettyClient client);
     }
 
-    public interface ClientCompletionListener {
-
-        void onComplete(HttpResponse response);
-
-        void onError(ExceptionEvent exceptionEvent);
-    }
 }

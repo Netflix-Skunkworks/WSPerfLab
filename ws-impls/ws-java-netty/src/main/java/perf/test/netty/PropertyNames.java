@@ -19,11 +19,14 @@ public enum PropertyNames {
     ClientChunkSize("client.chunk.size", "1048576"),
     ClientReadTimeout("client.read.timeout", "500"),
     ClientIdleTimeOutMs("client.idle.timeout.ms", "2000"),
+    ClientBacklogCleanerThreadCount("client.backlog.cleaner.count", "5"),
 
     MockBackendHost("perf.test.backend.host", "localhost"),
     MockBackendPort("perf.test.backend.port", "8989"),
     MockBackendContextPath("perf.test.backend.context.path", "/ws-backend-mock"),
-    MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "100"),
+    MockBackendConnectionsAtStartupPerTest("perf.test.backend.host.startupconn.per.test", "1000"),
+    MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "1000"),
+    MockBackendMaxBacklog("perf.test.backend.host.max.backlog", "1000"),
 
     TestCaseACallANumItems("perf.test.testA.callA.numItems", "2"),
     TestCaseACallAItemSize("perf.test.testA.callA.itemSize", "50"),

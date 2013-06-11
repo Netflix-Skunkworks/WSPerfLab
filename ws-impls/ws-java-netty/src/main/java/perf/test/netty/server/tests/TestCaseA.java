@@ -13,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.NettyUtils;
 import perf.test.netty.PropertyNames;
-import perf.test.netty.client.NettyClient;
+import perf.test.netty.client.NettyClientPool;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 
@@ -176,7 +176,7 @@ public class TestCaseA extends TestCaseHandler {
         }
     }
 
-    private static abstract class CompletionListener implements NettyClient.ClientCompletionListener {
+    private static abstract class CompletionListener implements NettyClientPool.ClientCompletionListener {
 
         private final Channel channel;
         private final boolean keepAlive;

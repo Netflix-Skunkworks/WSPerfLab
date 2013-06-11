@@ -13,6 +13,12 @@ import perf.test.netty.PropertyNames;
  */
 public class ClientPipelineFactory implements ChannelPipelineFactory {
 
+    private final NettyClientPool nettyClientPool;
+
+    public ClientPipelineFactory(NettyClientPool nettyClientPool) {
+        this.nettyClientPool = nettyClientPool;
+    }
+
     @Override
     public ChannelPipeline getPipeline() throws Exception {
         ChannelPipeline pipeline = Channels.pipeline();
@@ -21,7 +27,7 @@ public class ClientPipelineFactory implements ChannelPipelineFactory {
         }
         pipeline.addLast("codec", new HttpClientCodec());
         pipeline.addLast("aggregator", new HttpChunkAggregator(PropertyNames.ClientChunkSize.getValueAsInt()));
-        pipeline.addLast("handler", new ClientHandler());
+        pipeline.addLast("handler", new ClientHandler(nettyClientPool));
         return pipeline;
     }
 }
