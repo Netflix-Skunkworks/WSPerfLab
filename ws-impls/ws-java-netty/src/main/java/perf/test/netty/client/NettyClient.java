@@ -13,6 +13,7 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import perf.test.netty.PropertyNames;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -47,6 +48,7 @@ public class NettyClient {
     private final int port;
     private final ClientBootstrap bootstrap;
     private AtomicBoolean inUse = new AtomicBoolean();
+    private long lastUsedTime = System.currentTimeMillis();
 
     NettyClient(ClientBootstrap bootstrap, ClientStateChangeListener stateChangeListener, String host, int port) {
         this.bootstrap = bootstrap;
@@ -72,6 +74,11 @@ public class NettyClient {
         HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getSchemeSpecificPart());
         request.setHeader(HttpHeaders.Names.HOST, host);
         channel.write(request);
+    }
+
+    boolean isExpired(long now) {
+        long timeInWaiting = now - lastUsedTime;
+        return (timeInWaiting + 10) > PropertyNames.ClientIdleTimeOutMs.getValueAsInt();
     }
 
     private void validateIfInUse() {
@@ -110,6 +117,12 @@ public class NettyClient {
     void dispose() {
         if (null != channel) {
             channel.getCloseFuture().awaitUninterruptibly();
+        }
+    }
+
+    void closeAndForget() {
+        if (null != channel) {
+            channel.disconnect();
         }
     }
 

@@ -63,6 +63,7 @@ public class TestCaseA extends TestCaseHandler {
         backendClient.setConnectTimeout(PropertyNames.ClientConnectTimeout.getValueAsInt());
         backendClient.setDispatchIO(false); // We want to execute in the selector thread as we don't do any blocking work.
         backendClient.setMaxConnectionsPerDestination(PropertyNames.MockBackendMaxConnectionsPerTest.getValueAsInt());
+        backendClient.setMaxRequestsQueuedPerDestination(PropertyNames.MockBackendClientQueueSize.getValueAsInt());
         backendClient.start();
     }
 

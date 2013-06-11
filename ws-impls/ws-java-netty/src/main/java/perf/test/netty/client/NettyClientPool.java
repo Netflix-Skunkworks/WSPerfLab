@@ -62,7 +62,7 @@ public class NettyClientPool {
         logger.info("Shutting down client pool.");
         shutdown = true;
         for (NettyClient nettyClient : pool) {
-            nettyClient.dispose();
+            nettyClient.closeAndForget();
         }
         bootstrap.releaseExternalResources();
     }
@@ -74,7 +74,7 @@ public class NettyClientPool {
         }
         final NettyClient client = pool.poll();
         if (null != client) {
-            if (!client.isConnected()) {
+            if (!client.isConnected() || client.isExpired(System.currentTimeMillis())) {
                 // Async connect & use next available.
                 connectNewClientAsync();
                 return getNextAvailableClient();

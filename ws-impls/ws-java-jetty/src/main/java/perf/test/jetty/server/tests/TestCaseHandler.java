@@ -40,7 +40,6 @@ public abstract class TestCaseHandler {
             return;
         }
 
-
         continuation.suspend(response);
 
         doExecute(id, baseRequest, response, continuation, new Runnable() {
@@ -57,13 +56,11 @@ public abstract class TestCaseHandler {
             Continuation continuation, final Runnable onCompleteHandler) throws Exception;
 
     protected void onComplete(long startTime, Continuation continuation) {
-        if (continuation.isInitial()) {
+        if (!continuation.isSuspended()) {
             logger.error("Continuation state is initial when response listener complete called.");
             return;
         }
-        if (logger.isDebugEnabled()) {
-            logger.debug("Completed jetty continuation: " + continuation);
-        }
+
         HttpServletResponse servletResponse = (HttpServletResponse) continuation.getServletResponse();
         ServiceResponseBuilder.addResponseHeaders(servletResponse, startTime);
 
