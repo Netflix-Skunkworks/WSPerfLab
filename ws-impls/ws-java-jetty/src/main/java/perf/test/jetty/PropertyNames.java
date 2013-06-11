@@ -11,7 +11,7 @@ public enum PropertyNames {
 
     ServerContextPath("http.server.context.path", "/ws-java-jetty"),
     ServerPort("http.server.port", "8698"),
-    TestCaseExecutionTimeoutMs("test.execution.timeout.ms", "1000"),
+    TestCaseExecutionTimeoutMs("test.execution.timeout.ms", "60000"),
 
     ClientReadTimeout("client.read.timeout", "500"),
     ClientConnectTimeout("client.connect.timeout", "500"),

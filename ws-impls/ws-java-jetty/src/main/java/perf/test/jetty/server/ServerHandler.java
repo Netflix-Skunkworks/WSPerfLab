@@ -33,9 +33,11 @@ public class ServerHandler extends AbstractHandler {
 
         Continuation continuation = ContinuationSupport.getContinuation(request);
 
-        if (continuation.isSuspended()) {
+        if (!continuation.isInitial()) {
+            response.sendError(HttpServletResponse.SC_GATEWAY_TIMEOUT);
             return; // Looks like jetty gives callbacks even when suspended, need to see more into why.
         }
+
         final long startTime = System.currentTimeMillis();
 
         String contextPath = PropertyNames.ServerContextPath.getValueAsString();

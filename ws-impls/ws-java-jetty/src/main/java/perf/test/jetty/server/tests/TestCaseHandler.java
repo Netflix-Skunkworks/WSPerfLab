@@ -9,6 +9,7 @@ import perf.test.jetty.PropertyNames;
 import perf.test.utils.ServiceResponseBuilder;
 
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -42,12 +43,11 @@ public abstract class TestCaseHandler {
 
         continuation.suspend(response);
 
-        final AtomicBoolean continuationCompleted = new AtomicBoolean();
         doExecute(id, baseRequest, response, continuation, new Runnable() {
 
             @Override
             public void run() {
-                onComplete(startTime, continuation, continuationCompleted);
+                onComplete(startTime, continuation);
             }
 
         });
@@ -56,15 +56,19 @@ public abstract class TestCaseHandler {
     protected abstract void doExecute(String id, Request baseRequest, HttpServletResponse response,
             Continuation continuation, final Runnable onCompleteHandler) throws Exception;
 
-    protected void onComplete(long startTime, Continuation continuation, AtomicBoolean continuationCompleted) {
-        if (!continuationCompleted.compareAndSet(false, true)) {
-            // Continuation will throw an Illegal state if you mark it as completed twice, which sucks
-            return;
-        }
+    protected void onComplete(long startTime, Continuation continuation) {
         if (logger.isDebugEnabled()) {
             logger.debug("Completed jetty continuation: " + continuation);
         }
-        ServiceResponseBuilder.addResponseHeaders((HttpServletResponse) continuation.getServletResponse(), startTime);
+        HttpServletResponse servletResponse = (HttpServletResponse) continuation.getServletResponse();
+        ServiceResponseBuilder.addResponseHeaders(servletResponse, startTime);
+
+        try {
+            servletResponse.flushBuffer();
+        } catch (IOException e) {
+            logger.error("Error while committing response");
+        }
+
         continuation.complete();
     }
 
