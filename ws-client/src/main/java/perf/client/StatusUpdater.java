@@ -27,7 +27,9 @@ public class StatusUpdater {
                     }
                 } catch (InterruptedException e) {
                     // exit
-                    System.out.println("Status updater interrupted, no more status will be shown.");
+                    if (keepRunning) {
+                        System.out.println("Status updater interrupted, no more status will be shown.");
+                    }
                     break;
                 }
             }

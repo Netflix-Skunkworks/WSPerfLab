@@ -52,10 +52,12 @@ public class AsyncIOClient {
         for (int loaderCount = 0; loaderCount < concurrentClients; loaderCount++) {
             loaderThreadPool.execute(new Runnable() {
 
+                private AtomicLong responseReceived = new AtomicLong();
+
                 @Override
                 public void run() {
+                    int count = 0;
                     try {
-                        int count = 0;
                         while (count++ <= maxRequestsPerThread && !stopped) {
                             final long start = System.nanoTime();
                             beforeSendRequest();
@@ -64,14 +66,16 @@ public class AsyncIOClient {
                                 @Override
                                 public void onComplete(Result result) {
                                     processResponse(result, start);
+                                    if (responseReceived.incrementAndGet() >= maxRequestsPerThread) {
+                                        System.out.println("Loader thread: " + Thread.currentThread().getName() + " got all responses. Stopping the loader.");
+                                        finishingLatch.countDown();
+                                    }
                                 }
                             });
                         }
                     } catch (Exception e) {
                         System.err.println("Error while sending a request from worker: " + Thread.currentThread().getName());
                         e.printStackTrace();
-                    } finally {
-                        finishingLatch.countDown();
                     }
                 }
             });
