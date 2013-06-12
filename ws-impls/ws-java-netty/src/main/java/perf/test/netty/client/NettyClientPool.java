@@ -76,6 +76,7 @@ public class NettyClientPool {
                 // Time to increase the pool if required.
                 if (idleCount.get() + inUseCount.get() < maxConnections) {
                     // This is not strictly enforcing but we enforce the connections queue size as such.
+                    logger.info("Creating a new connection, idleCount: " + idleCount.get() + ", inuse count: " + inUseCount.get());
                     connectNewClientAsync();
                 }
             } else {
