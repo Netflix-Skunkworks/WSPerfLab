@@ -3,8 +3,9 @@
 #############################################################
 ################# ws-client options #####################
 REQUEST_TIMEOUT_MS=60000
+MAX_BACKEND_CONNECTIONS_PER_HOST=2000
 
-WS_CLIENT_OPTS=" -Dasync.client.request.timeout.ms=${REQUEST_TIMEOUT_MS} "
+WS_CLIENT_OPTS=" -Dasync.client.request.timeout.ms=${REQUEST_TIMEOUT_MS} -Dasync.client.max.conn.per.host=${MAX_BACKEND_CONNECTIONS_PER_HOST} "
 export WS_CLIENT_OPTS=${WS_CLIENT_OPTS}
 #############################################################
 

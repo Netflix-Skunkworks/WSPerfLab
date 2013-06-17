@@ -45,7 +45,8 @@ public class AsyncIOClient {
     public void start(Runnable onCompleteHandler) throws Exception {
         finishingLatch = new CountDownLatch(concurrentClients);
         result.setConcurrentClients(concurrentClients);
-        final long maxRequestsPerThread = totalRequests / concurrentClients;
+        final long maxRequestsPerThread = Math.round((double)totalRequests / (double)concurrentClients);
+        System.out.println("Requests to be sent per thread: " + maxRequestsPerThread);
         result.setTestUri(testUri);
         httpClient.setMaxRequestsQueuedPerDestination(Integer.MAX_VALUE);
         httpClient.start();
