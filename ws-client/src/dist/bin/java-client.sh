@@ -2,8 +2,9 @@
 
 #############################################################
 ################# ws-client options #####################
+REQUEST_TIMEOUT_MS=60000
 
-WS_CLIENT_OPTS=""
+WS_CLIENT_OPTS=" -Dasync.client.request.timeout.ms=${REQUEST_TIMEOUT_MS} "
 export WS_CLIENT_OPTS=${WS_CLIENT_OPTS}
 #############################################################
 

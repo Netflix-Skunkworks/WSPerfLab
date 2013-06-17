@@ -64,7 +64,7 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
         NettyClient client = (NettyClient) ctx.getChannel().getAttachment();
         if (null != client) {
             listener = client.getCurrentRequestCompletionListener();
-            client.release();
+            //client.release();
         }
     }
 }

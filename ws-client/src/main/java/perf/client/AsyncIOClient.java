@@ -37,6 +37,7 @@ public class AsyncIOClient {
     private final AtomicLong requestCount = new AtomicLong();
     private CountDownLatch finishingLatch;
     private long totalRequests;
+    private long requestTimeoutMs = Integer.MAX_VALUE;
     private volatile boolean stopped;
     private TestResult result = new TestResult();
     private final StatusUpdater statusUpdater = new StatusUpdater(80);
@@ -62,12 +63,13 @@ public class AsyncIOClient {
                             final long start = System.nanoTime();
                             beforeSendRequest();
                             String uriWithId = String.format("%s?id=%d", testUri, Math.abs(idGenerator.nextLong()));
-                            httpClient.newRequest(uriWithId).send(new Response.CompleteListener() {
+                            httpClient.newRequest(uriWithId).timeout(requestTimeoutMs, TimeUnit.MILLISECONDS).send(new Response.CompleteListener() {
                                 @Override
                                 public void onComplete(Result result) {
                                     processResponse(result, start);
                                     if (responseReceived.incrementAndGet() >= maxRequestsPerThread) {
-                                        System.out.println("Loader thread: " + Thread.currentThread().getName() + " got all responses. Stopping the loader.");
+                                        System.out.println("Loader thread: " + Thread.currentThread().getName()
+                                                           + " got all responses. Stopping the loader.");
                                         finishingLatch.countDown();
                                     }
                                 }
@@ -164,6 +166,11 @@ public class AsyncIOClient {
 
         public Builder withTotalRequests(long requestCount) {
             client.totalRequests = requestCount;
+            return this;
+        }
+
+        public Builder withRequestTimeoutMs(long timeoutInMs) {
+            client.requestTimeoutMs = timeoutInMs;
             return this;
         }
 

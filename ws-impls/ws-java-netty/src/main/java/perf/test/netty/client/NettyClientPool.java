@@ -8,11 +8,14 @@ import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import perf.test.netty.PropertyNames;
 
 import java.net.URI;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -39,8 +42,9 @@ public class NettyClientPool {
     private final int port;
     private ClientBootstrap bootstrap;
     private volatile boolean shutdown;
-    private final AtomicInteger inUseCount = new AtomicInteger();
-    private final AtomicInteger idleCount = new AtomicInteger();
+    private final AtomicInteger connCount = new AtomicInteger();
+
+    private final ExecutorService requestQueueExecutor;
 
     public NettyClientPool(int maxConnections, int connectionAtBootstrap, final int port, final String host,
                            int requestQueueSize) throws InterruptedException {
@@ -51,7 +55,49 @@ public class NettyClientPool {
         clients = new LinkedBlockingQueue<NettyClient>(maxConnections);
         requestQueue = new LinkedBlockingQueue<Request>(requestQueueSize);
         for (int i = 0; i < connectionAtBootstrap; i++) {
-            connectNewClientAsync();
+            connectNewClientAsync(true);
+        }
+        requestQueueExecutor = Executors.newCachedThreadPool(); // Fixed number of threads are always running
+
+        for (int i = 0; i < PropertyNames.ClientBacklogCleanerThreadCount.getValueAsInt(); i++) {
+            requestQueueExecutor.execute(new Runnable() {
+
+                private final Object continueMonitor = new Object();
+
+                @Override
+                public void run() {
+                    NettyClient clientToUse = null;
+                    while (true) { // Blocks till client/request is available.
+                        try {
+                            synchronized (continueMonitor) {
+                                continueMonitor.wait(); // will be notified when the current get request finishes.
+                            }
+                            Request toProcess = requestQueue.take();
+                            if (null == clientToUse) {
+                                clientToUse = newClient("backlog.cleaner"); // So we essentially have one client per cleaner.
+                                connCount.incrementAndGet();
+                            }
+
+                            if (!clientToUse.claim()) {
+                                clientToUse.connect().awaitUninterruptibly(); // This may result in timeout of the request to be processed, but in warmed up state, this will work fine.
+                            }
+
+                            toProcess.completionListener = new ClientCompletionListenerWrapper(toProcess.completionListener.delegate, toProcess.uri) {
+                                @Override
+                                protected void _releaseClient(NettyClient clientToUse) {
+                                    synchronized (continueMonitor) {
+                                        continueMonitor.notify();
+                                    }
+                                }
+                            };
+                            makeGetRequestOnClient(toProcess, clientToUse, true);
+                        } catch (InterruptedException e) {
+                            logger.info("Netty client backlog cleaner interrupted, shutting down now.");
+                            break;
+                        }
+                    }
+                }
+            });
         }
     }
 
@@ -71,20 +117,27 @@ public class NettyClientPool {
         }
         final Request newRequest = new Request(uri, completionListener);
         if (requestQueue.offer(newRequest)) {
-            NettyClient clientToUse = getNextAvailableClient();
+            NettyClient clientToUse = null;
+            try {
+                clientToUse = getNextAvailableClient();
+            } catch (InterruptedException e) {
+                // Should not happen as we do not block.
+                Thread.interrupted();
+                logger.warn("Send get request interrupted, strange as we do not block.", e);
+            }
             if (null == clientToUse) {
                 // Time to increase the pool if required.
-                if (idleCount.get() + inUseCount.get() < maxConnections) {
-                    // This is not strictly enforcing but we enforce the connections queue size as such.
-                    logger.info("Creating a new connection, idleCount: " + idleCount.get() + ", inuse count: " + inUseCount.get());
-                    connectNewClientAsync();
+                int connectionCount = connCount.getAndIncrement();
+                if (connectionCount < maxConnections) {
+                    logger.info("Creating a new connection, connection count till now: " + connectionCount);
+                    connectNewClientAsync(false);
                 }
             } else {
                 Request requestToExecute = requestQueue.poll();
                 if (null != requestToExecute) {
-                    makeGetRequestOnClient(requestToExecute, clientToUse);
+                    makeGetRequestOnClient(requestToExecute, clientToUse, true);
                 } else {
-                    clientToUse.release(); // didn't use it so release.
+                    releaseClient(clientToUse); // didn't use it so release.
                 }
             }
         } else {
@@ -98,7 +151,7 @@ public class NettyClientPool {
         sendGetRequest(completionListenerWrapper.requestUri, completionListenerWrapper.delegate);
     }
 
-    private NettyClient getNextAvailableClient() {
+    private NettyClient getNextAvailableClient() throws InterruptedException {
         if (shutdown) {
             logger.warn("Netty client pool is shutting down.");
             throw new RejectedExecutionException("Netty client pool is shutting down.");
@@ -107,19 +160,26 @@ public class NettyClientPool {
         if (null != client) {
             if (!client.claim()) {
                 return getNextAvailableClient();
-            } else {
-                inUseCount.incrementAndGet();
-                if (idleCount.get() != 0) {
-                    idleCount.decrementAndGet();
-                }
             }
         }
         return client;
     }
 
-    private void connectNewClientAsync() {
-        final NettyClient clientToUse = newClient();
+    private void releaseClient(NettyClient client) {
+        client.release();
+        if (clients.offer(client)) {
+            logger.debug("Connection returned to pool.");
+        } else {
+            logger.info("Could not return connection back to pool.");
+        }
+    }
+
+    private void connectNewClientAsync(boolean incrementConnCounter) {
+        final NettyClient clientToUse = newClient("pool");
         if (clients.offer(clientToUse)) {
+            if (incrementConnCounter) {
+                connCount.incrementAndGet();
+            }
             clientToUse.connect().addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -130,24 +190,42 @@ public class NettyClientPool {
                             // We do not process queued messages from the connection callback as that can be costly for the
                             // boss thread which is generally == 1. So, we do not set the client here before firing the
                             // request.
-                            makeGetRequestOnClient(request, clientToUse);
+                            makeGetRequestOnClient(request, clientToUse, false);
                         }
+                    } else {
+                        logger.info("Client connection failed.", future.getCause());
+                        connCount.decrementAndGet();// Since we increment the count before connecting, we decrement here.
                     }
                 }
             });
         } else {
             // Connections limit reached.
             logger.warn("Failed to enqueue the new client connections, connection limit is reached. This can still process the requests albit slowly.");
+            connCount.decrementAndGet();// Since we increment the count before connecting, we decrement here.
         }
     }
 
-    private void makeGetRequestOnClient(Request request, NettyClient clientToUse) {
-        request.completionListener.clientToUse = clientToUse;
+    private void makeGetRequestOnClient(Request request, NettyClient clientToUse,
+                                        boolean processMoreMessagesOnCompletion) {
+        if (processMoreMessagesOnCompletion) {
+            request.completionListener.clientToUse = clientToUse;
+        }
         clientToUse.get(request.uri, request.completionListener);
     }
 
-    private NettyClient newClient() {
-        return new NettyClient(bootstrap, null, host, port);
+    private NettyClient newClient(String owner) {
+        return new NettyClient(bootstrap, new ChannelFutureListener() {
+
+            private AtomicBoolean countDecreased = new AtomicBoolean();
+
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if (countDecreased.compareAndSet(false, true)) {
+                    logger.info("Client channel closed.");
+                    connCount.decrementAndGet();
+                }
+            }
+        }, host, owner, port);
     }
 
     private void bootstrap() {
@@ -184,18 +262,22 @@ public class NettyClientPool {
             delegate.onError(exceptionEvent);
             processQueuedMessages(clientToUse);
         }
-    }
 
-    private void processQueuedMessages(NettyClient clientToUse) {
-        if (null == clientToUse) {
-            return;
+        protected void processQueuedMessages(NettyClient clientToUse) {
+            if (null == clientToUse) {
+                logger.error("No client set in the completion listener.");
+                return;
+            }
+            Request requestToProcess = requestQueue.poll();
+            if (null != requestToProcess) {
+                makeGetRequestOnClient(requestToProcess, clientToUse, true);
+            } else {
+                _releaseClient(clientToUse);
+            }
         }
-        Request requestToProcess = requestQueue.poll();
-        if (null != requestToProcess) {
-            makeGetRequestOnClient(requestToProcess, clientToUse);
-        } else if (clients.offer(clientToUse)) {
-            inUseCount.decrementAndGet();
-            idleCount.incrementAndGet();
+
+        protected void _releaseClient(NettyClient clientToUse) {
+            releaseClient(clientToUse);
         }
     }
 

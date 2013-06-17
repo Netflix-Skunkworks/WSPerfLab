@@ -39,17 +39,19 @@ class NettyClient {
     private Logger logger = LoggerFactory.getLogger(NettyClient.class);
 
     private Channel channel;
-    private final ClientStateChangeListener stateChangeListener;
+    private final ChannelFutureListener channelCloseListener;
     private NettyClientPool.ClientCompletionListener currentRequestCompletionListener;
     private final String host;
+    private final String owner;
     private final int port;
     private final ClientBootstrap bootstrap;
-    private AtomicBoolean inUse = new AtomicBoolean();
 
-    NettyClient(ClientBootstrap bootstrap, ClientStateChangeListener stateChangeListener, String host, int port) {
+    NettyClient(ClientBootstrap bootstrap, ChannelFutureListener channelCloseListener, String host, String owner,
+                int port) {
         this.bootstrap = bootstrap;
-        this.stateChangeListener = stateChangeListener;
+        this.channelCloseListener = channelCloseListener;
         this.host = host;
+        this.owner = owner;
         this.port = port;
     }
 
@@ -73,10 +75,6 @@ class NettyClient {
 
     void release() {
         currentRequestCompletionListener = null;
-        inUse.set(false);
-        if (null != stateChangeListener) {
-            stateChangeListener.onClose(this);
-        }
     }
 
     ChannelFuture connect() {
@@ -90,6 +88,9 @@ class NettyClient {
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
                     channel = future.getChannel();
+                    if (null != channelCloseListener) {
+                        channel.getCloseFuture().addListener(channelCloseListener);
+                    }
                 } else {
                     logger.error(String.format("Connect failed for host: %s and port: %s", host, port), future.getCause());
                 }
@@ -109,16 +110,11 @@ class NettyClient {
     }
 
     boolean claim() {
-        return isConnected() && inUse.compareAndSet(false, true);
+        return isConnected();
     }
 
     NettyClientPool.ClientCompletionListener getCurrentRequestCompletionListener() {
         return currentRequestCompletionListener;
-    }
-
-    interface ClientStateChangeListener {
-
-        void onClose(NettyClient client);
     }
 
 }

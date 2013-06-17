@@ -1,7 +1,5 @@
 package perf.client;
 
-import org.eclipse.jetty.client.api.Result;
-
 /**
  * @author Nitesh Kant
  */
@@ -36,6 +34,8 @@ public class WsClientDriver {
         }
 
         clientBuilder.withTestUrl(uri);
+        clientBuilder.withRequestTimeoutMs(Long.parseLong(System.getProperty("async.client.request.timeout.ms",
+                                                                             String.valueOf(Integer.MAX_VALUE))));
 
         final AsyncIOClient client = clientBuilder.build();
         client.start(new Runnable() {
