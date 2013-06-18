@@ -8,7 +8,9 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
@@ -19,6 +21,8 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
     private final NettyClientPool nettyClientPool;
     private Logger logger = LoggerFactory.getLogger(ClientHandler.class);
     private final AtomicInteger retryCount; // This is per connection, which at a time only has one request.
+
+    private final AtomicReference<String> lastCallbackReceived = new AtomicReference<String>();
 
     /**
      * A handler instance is tied to a particular connection, HTTP can not have concurrent requests on the
@@ -35,6 +39,9 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+        if (!lastCallbackReceived.compareAndSet(null, "msgReceived")) {
+            logger.error("Multiple calls to the Client handler, current call is msg received, last callback received: " + lastCallbackReceived.get());
+        }
         retryCount.set(0); // We got a response, reset retries.
         releaseClientAndSetListener(ctx);
         if (null != listener) {
@@ -46,6 +53,9 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
+        if (!lastCallbackReceived.compareAndSet(null, "error")) {
+            logger.error("Multiple calls to the Client handler, current call is error, last callback received: " + lastCallbackReceived.get());
+        }
         logger.error("Client handler got an error.", e.getCause());
         releaseClientAndSetListener(ctx);
         if (null != listener) {
