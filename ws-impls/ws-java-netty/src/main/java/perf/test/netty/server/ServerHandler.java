@@ -1,6 +1,7 @@
 package perf.test.netty.server;
 
 import org.codehaus.jackson.JsonFactory;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -53,14 +54,26 @@ public class ServerHandler extends SimpleChannelUpstreamHandler {
         QueryStringDecoder qpDecoder = new QueryStringDecoder(request.getUri());
         String path = qpDecoder.getPath();
         HttpResponse response;
+        boolean handled = false;
+
         if (!path.isEmpty() && path.startsWith(contextPath)) {
             path = path.substring(contextPath.length());
             TestCaseHandler handler = TestRegistry.getHandler(path);
             logger.debug(String.format("Test case handler for path %s is %s", path, handler));
             if (null != handler) {
                 handler.processRequest(e.getChannel(), keepAlive, request, qpDecoder);
+                handled = true;
+            } else if (path.startsWith(PropertyNames.StatusRetrieverContextPath.getValueAsString())) {
+                System.out.println("Got a status request.");
+                String status = StatusRetriever.getStatus();
+                response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+                response.setContent(ChannelBuffers.copiedBuffer(status.getBytes()));
+                NettyUtils.sendResponse(e.getChannel(), keepAlive, jsonFactory, response);
+                handled = true;
             }
-        } else {
+        }
+
+        if (!handled) {
             response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
             NettyUtils.sendResponse(e.getChannel(), keepAlive, jsonFactory, response);
         }

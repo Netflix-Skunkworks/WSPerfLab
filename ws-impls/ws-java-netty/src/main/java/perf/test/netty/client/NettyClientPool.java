@@ -9,6 +9,7 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.PropertyNames;
+import perf.test.netty.server.StatusRetriever;
 
 import java.net.URI;
 import java.util.concurrent.ExecutorService;
@@ -231,6 +232,11 @@ public class NettyClientPool {
     private void bootstrap() {
         bootstrap = new ClientBootstrap(new NioClientSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool()));
         bootstrap.setPipelineFactory(new ClientPipelineFactory(this) /*This is bad as we are leaking "this" before construction*/);
+    }
+
+    public void populateStatus(StatusRetriever.TestCaseStatus testCaseStatus) {
+        testCaseStatus.setConnectionsCount(connCount.get());
+        testCaseStatus.setRequestQueueSize(requestQueue.size());
     }
 
     public interface ClientCompletionListener {

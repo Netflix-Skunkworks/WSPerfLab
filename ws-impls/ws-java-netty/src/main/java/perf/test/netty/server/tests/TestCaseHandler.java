@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import perf.test.netty.NettyUtils;
 import perf.test.netty.PropertyNames;
 import perf.test.netty.client.NettyClientPool;
+import perf.test.netty.server.StatusRetriever;
 
 import java.net.URI;
 import java.util.List;
@@ -79,4 +80,13 @@ public abstract class TestCaseHandler {
             NettyUtils.sendResponse(channel, keepAlive, jsonFactory, topLevelResponse);
         }
     }
+
+    public void populateStatus(StatusRetriever.Status statusToPopulate) {
+        StatusRetriever.TestCaseStatus testCaseStatus = new StatusRetriever.TestCaseStatus();
+        clientPool.populateStatus(testCaseStatus);
+        testCaseStatus.setInflightTests(getTestsInFlight());
+        statusToPopulate.addTestStatus(testCaseName, testCaseStatus);
+    }
+
+    protected abstract long getTestsInFlight();
 }

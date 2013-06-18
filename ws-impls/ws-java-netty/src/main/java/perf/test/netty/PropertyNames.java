@@ -28,6 +28,7 @@ public enum PropertyNames {
     MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "10"),
     MockBackendMaxBacklog("perf.test.backend.host.max.backlog", "1000"),
 
+    StatusRetrieverContextPath("http.server.status.endpoint", "status/"),
     TestCaseACallANumItems("perf.test.testA.callA.numItems", "2"),
     TestCaseACallAItemSize("perf.test.testA.callA.itemSize", "50"),
     TestCaseACallAItemDelay("perf.test.testA.callA.delay", "50"),

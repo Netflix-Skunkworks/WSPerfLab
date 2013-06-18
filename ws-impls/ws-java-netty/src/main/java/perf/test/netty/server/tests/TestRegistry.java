@@ -1,5 +1,6 @@
 package perf.test.netty.server.tests;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,5 +32,9 @@ public class TestRegistry {
 
     public static TestCaseHandler getHandler(String name) {
         return handlers.get(name);
+    }
+
+    public static Collection<TestCaseHandler> getAllHandlers() {
+        return handlers.values();
     }
 }

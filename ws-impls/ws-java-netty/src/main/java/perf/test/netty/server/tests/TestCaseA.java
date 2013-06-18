@@ -20,6 +20,7 @@ import perf.test.utils.ServiceResponseBuilder;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
@@ -61,13 +62,15 @@ public class TestCaseA extends TestCaseHandler {
         return uri;
     }
 
+    private AtomicLong inflightTests = new AtomicLong();
+
     public TestCaseA() throws InterruptedException {
         super("testA");
     }
 
     @Override
     protected void executeTestCase(final Channel channel, final boolean keepAlive, String id, final HttpResponse topLevelResponse) throws Throwable {
-
+        inflightTests.incrementAndGet();
         final ResponseCollector responseCollector = new ResponseCollector();
 
         final MoveForwardBarrier topLevelMoveFwdBarrier = new MoveForwardBarrier("top", 2);
@@ -131,6 +134,11 @@ public class TestCaseA extends TestCaseHandler {
         get(CALL_B_URI_WITHOUT_ID + id, callBListener, topLevelResponse, channel, keepAlive);
     }
 
+    @Override
+    protected long getTestsInFlight() {
+        return inflightTests.get();
+    }
+
     private void buildFinalResponseAndFinish(Channel channel, boolean keepAlive, HttpResponse topLevelResponse,
                                              ResponseCollector responseCollector) {
         ByteArrayOutputStream outputStream;
@@ -143,6 +151,8 @@ public class TestCaseA extends TestCaseHandler {
             HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
             NettyUtils.createErrorResponse(jsonFactory, response, e.getMessage());
             NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
+        } finally {
+            inflightTests.decrementAndGet();
         }
     }
 
