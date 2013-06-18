@@ -18,6 +18,7 @@ public class TestResult {
     private long total2XXResponses;
     private long totalNon2XXResponses;
     private long totalFailedRequestsOrResponse;
+    private boolean collectIndividualResults = true;
 
     public ResultStatsCollector.StatsResult getStatsResult() {
         return statsResult;
@@ -82,6 +83,14 @@ public class TestResult {
     public String toJson() {
         Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
         return gson.toJson(this);
+    }
+
+    public boolean isCollectIndividualResults() {
+        return collectIndividualResults;
+    }
+
+    public void setCollectIndividualResults(boolean collectIndividualResults) {
+        this.collectIndividualResults = collectIndividualResults;
     }
 
     public static class IndividualResult {

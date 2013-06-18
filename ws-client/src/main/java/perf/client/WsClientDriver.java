@@ -26,6 +26,9 @@ public class WsClientDriver {
         }
 
         clientBuilder.withMaxConnections(Integer.parseInt(System.getProperty("async.client.max.conn.per.host", "100")));
+        if (Boolean.getBoolean("async.client.collect.individual.results")) {
+            clientBuilder.dontCollectIndividualResults();
+        }
         try {
             clientBuilder.withTotalRequests(Long.parseLong(requests));
         } catch (NumberFormatException e) {

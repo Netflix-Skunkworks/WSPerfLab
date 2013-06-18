@@ -30,6 +30,7 @@ public class AsyncIOClient {
         }
     });
 
+    private boolean collectIndividualResults = true;
     private int concurrentClients;
     private String testUri;
     private final Random idGenerator = new Random();
@@ -45,6 +46,7 @@ public class AsyncIOClient {
     public void start(Runnable onCompleteHandler) throws Exception {
         finishingLatch = new CountDownLatch(concurrentClients);
         result.setConcurrentClients(concurrentClients);
+        result.setCollectIndividualResults(collectIndividualResults);
         final long maxRequestsPerThread = Math.round((double)totalRequests / (double)concurrentClients);
         System.out.println("Requests to be sent per thread: " + maxRequestsPerThread);
         result.setTestUri(testUri);
@@ -76,6 +78,7 @@ public class AsyncIOClient {
                                 }
                             });
                         }
+                        System.out.println("Loader thread: " + Thread.currentThread().getName() + " finished enqueing all requests to the selector. ");
                     } catch (Exception e) {
                         System.err.println("Error while sending a request from worker: " + Thread.currentThread().getName());
                         e.printStackTrace();
@@ -93,15 +96,18 @@ public class AsyncIOClient {
 
         stopped = true;
         statusUpdater.stop();
+        System.out.println("Stopped the Status updater.");
         try {
             httpClient.stop();
         } catch (Exception e) {
             System.out.println("Error while shutting down underlying http client.");
             e.printStackTrace();
         }
-
+        System.out.println("Stopped the http client.");
         loaderThreadPool.shutdown();
+        System.out.println("Shutdown the loader threadpool.");
         resultStatsCollector.calculateResult(result);
+        System.out.println("Calculated stats about the test.");
         onCompleteHandler.run();
     }
 
@@ -115,7 +121,9 @@ public class AsyncIOClient {
 
         resultStatsCollector.addResponseDetails(result, totalTimeInMillis);
         if (result.isSucceeded()) {
-            this.result.getIndividualResults().add(getIndividualResult(result.getResponse(), totalTimeInMillis));
+            if (collectIndividualResults) {
+                this.result.getIndividualResults().add(getIndividualResult(result.getResponse(), totalTimeInMillis));
+            }
         } else {
             Throwable requestFailure = result.getRequestFailure();
             if (null != requestFailure) {
@@ -132,6 +140,9 @@ public class AsyncIOClient {
     }
 
     private TestResult.IndividualResult getIndividualResult(Response response, long totalTime) {
+        if (!collectIndividualResults) {
+            return null;
+        }
         TestResult.IndividualResult toReturn = new TestResult.IndividualResult();
         toReturn.setTotalTime(String.valueOf(totalTime));
         HttpFields headers = response.getHeaders();
@@ -172,6 +183,11 @@ public class AsyncIOClient {
 
         public Builder withRequestTimeoutMs(long timeoutInMs) {
             client.requestTimeoutMs = timeoutInMs;
+            return this;
+        }
+
+        public Builder dontCollectIndividualResults() {
+            client.collectIndividualResults = false;
             return this;
         }
 
