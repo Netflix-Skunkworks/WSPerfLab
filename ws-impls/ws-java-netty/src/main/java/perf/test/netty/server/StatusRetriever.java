@@ -74,7 +74,7 @@ public class StatusRetriever {
 
     public static class Status {
 
-        private Map<String, TestCaseStatus> testNameVSStatus = new HashMap<>();
+        private Map<String, TestCaseStatus> testNameVSStatus = new HashMap<String, TestCaseStatus>();
 
         public Map<String, TestCaseStatus> getTestNameVSStatus() {
             return testNameVSStatus;
