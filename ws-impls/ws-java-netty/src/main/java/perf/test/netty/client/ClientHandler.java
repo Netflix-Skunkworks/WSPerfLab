@@ -19,6 +19,7 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
 
     public static final int MAX_RETRIES = 3;
     private final NettyClientPool nettyClientPool;
+    private final long id;
     private Logger logger = LoggerFactory.getLogger(ClientHandler.class);
     private final AtomicInteger retryCount; // This is per connection, which at a time only has one request.
 
@@ -32,31 +33,32 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
      */
     private volatile NettyClientPool.ClientCompletionListener listener;
 
-    public ClientHandler(NettyClientPool nettyClientPool) {
+    public ClientHandler(NettyClientPool nettyClientPool, long id) {
         this.nettyClientPool = nettyClientPool;
+        this.id = id;
         retryCount = new AtomicInteger();
     }
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
         if (!lastCallbackReceived.compareAndSet(null, "msgReceived")) {
-            logger.error("Multiple calls to the Client handler, current call is msg received, last callback received: " + lastCallbackReceived.get());
+            logger.error("Client id: " + id + ". Multiple calls to the Client handler, current call is msg received, last callback received: " + lastCallbackReceived.get());
         }
         retryCount.set(0); // We got a response, reset retries.
         releaseClientAndSetListener(ctx);
         if (null != listener) {
             listener.onComplete((HttpResponse) e.getMessage());
         } else {
-            logger.error("No listener found on message complete, may be coz of an earlier error.");
+            logger.error("Client id: " + id + "No listener found on message complete, may be coz of an earlier error.");
         }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
         if (!lastCallbackReceived.compareAndSet(null, "error")) {
-            logger.error("Multiple calls to the Client handler, current call is error, last callback received: " + lastCallbackReceived.get());
+            logger.error("Client id: " + id + "Multiple calls to the Client handler, current call is error, last callback received: " + lastCallbackReceived.get());
         }
-        logger.error("Client handler got an error.", e.getCause());
+        logger.error("Client id: " + id + "Client handler got an error.", e.getCause());
         releaseClientAndSetListener(ctx);
         if (null != listener) {
             if (!ctx.getChannel().isConnected() && retryCount.incrementAndGet() >= MAX_RETRIES) {
@@ -66,7 +68,7 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
                 listener.onError(e);
             }
         } else {
-            logger.error("No listener found on error. Nothing more to do.");
+            logger.error("Client id: " + id + "No listener found on error. Nothing more to do.");
         }
     }
 
