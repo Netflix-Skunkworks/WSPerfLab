@@ -35,6 +35,9 @@ public class StatusRetriever {
             statusBuilder.append("Inflight tests: ");
             statusBuilder.append(testCaseStatus.getInflightTests());
             statusBuilder.append("\n");
+            statusBuilder.append("Unhandled requests since startup: ");
+            statusBuilder.append(testCaseStatus.getUnhandledRequestsSinceStartUp());
+            statusBuilder.append("\n");
             statusBuilder.append("------------------------------------------------------------------");
             statusBuilder.append("\n");
         }
@@ -46,6 +49,7 @@ public class StatusRetriever {
         private long requestQueueSize;
         private long connectionsCount;
         private long inflightTests;
+        private int unhandledRequestsSinceStartUp;
 
         public long getRequestQueueSize() {
             return requestQueueSize;
@@ -69,6 +73,14 @@ public class StatusRetriever {
 
         public void setInflightTests(long inflightTests) {
             this.inflightTests = inflightTests;
+        }
+
+        public void setUnhandledRequestsSinceStartUp(int unhandledRequestsSinceStartUp) {
+            this.unhandledRequestsSinceStartUp = unhandledRequestsSinceStartUp;
+        }
+
+        public int getUnhandledRequestsSinceStartUp() {
+            return unhandledRequestsSinceStartUp;
         }
     }
 

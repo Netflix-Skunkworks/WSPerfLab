@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A client abstraction for non-blocking clients. <br/>
@@ -42,16 +44,15 @@ class NettyClient {
     private final ChannelFutureListener channelCloseListener;
     private NettyClientPool.ClientCompletionListener currentRequestCompletionListener;
     private final String host;
-    private final String owner;
     private final int port;
     private final ClientBootstrap bootstrap;
+    private final ReentrantLock owningLock = new ReentrantLock();
 
-    NettyClient(ClientBootstrap bootstrap, ChannelFutureListener channelCloseListener, String host, String owner,
+    NettyClient(ClientBootstrap bootstrap, ChannelFutureListener channelCloseListener, String host,
                 int port) {
         this.bootstrap = bootstrap;
         this.channelCloseListener = channelCloseListener;
         this.host = host;
-        this.owner = owner;
         this.port = port;
     }
 
@@ -66,15 +67,15 @@ class NettyClient {
      * @return The future to retrieve the result.
      */
     void get(URI uri, NettyClientPool.ClientCompletionListener listener) {
+        if (!owningLock.isHeldByCurrentThread()) {
+            throw new IllegalStateException("This thread: " + Thread.currentThread().getName() +
+                                            ". Client instance not owned by current thread. Is owned by anyone? " + owningLock.isLocked() + ". Lock state: " + owningLock);
+        }
         currentRequestCompletionListener = listener;
         channel.setAttachment(this);
         HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getSchemeSpecificPart());
         request.setHeader(HttpHeaders.Names.HOST, host);
         channel.write(request);
-    }
-
-    void release() {
-        currentRequestCompletionListener = null;
     }
 
     ChannelFuture connect() {
@@ -109,12 +110,32 @@ class NettyClient {
         return (null != channel && channel.isConnected());
     }
 
+    void release() {
+        if (!owningLock.isHeldByCurrentThread()) {
+            logger.error("Attempt to release the client, when it was not owned.");
+        } else {
+            owningLock.unlock();
+        }
+
+        currentRequestCompletionListener = null;
+    }
+
     boolean claim() {
-        return isConnected();
+        if (!owningLock.isHeldByCurrentThread()) {
+            if (!owningLock.tryLock()) {
+                 return false;
+            }
+        }
+
+        if (!isConnected()) {
+            owningLock.unlock(); // Will not use it.
+            return false;
+        } else {
+            return true;
+        }
     }
 
     NettyClientPool.ClientCompletionListener getCurrentRequestCompletionListener() {
         return currentRequestCompletionListener;
     }
-
 }

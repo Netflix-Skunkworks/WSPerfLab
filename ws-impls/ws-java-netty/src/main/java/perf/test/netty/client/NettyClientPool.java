@@ -44,6 +44,7 @@ public class NettyClientPool {
     private ClientBootstrap bootstrap;
     private volatile boolean shutdown;
     private final AtomicInteger connCount = new AtomicInteger();
+    private final AtomicInteger unhandledRequests = new AtomicInteger();
 
     private final ExecutorService requestQueueExecutor;
 
@@ -121,25 +122,28 @@ public class NettyClientPool {
             NettyClient clientToUse = null;
             try {
                 clientToUse = getNextAvailableClient();
+                if (null == clientToUse) {
+                    // Time to increase the pool if required.
+                    int connectionCount = connCount.getAndIncrement();
+                    if (connectionCount < maxConnections) {
+                        logger.info("Creating a new connection, connection count till now: " + connectionCount);
+                        connectNewClientAsync(false);
+                    } else {
+                        connCount.decrementAndGet();
+                        logger.info("No more connections can be created. Connection count till now: " + connectionCount);
+                    }
+                } else {
+                    Request requestToExecute = requestQueue.poll();
+                    if (null != requestToExecute) {
+                        makeGetRequestOnClient(requestToExecute, clientToUse, true);
+                    } else {
+                        releaseClient(clientToUse); // didn't use it so release.
+                    }
+                }
             } catch (InterruptedException e) {
                 // Should not happen as we do not block.
                 Thread.interrupted();
                 logger.warn("Send get request interrupted, strange as we do not block.", e);
-            }
-            if (null == clientToUse) {
-                // Time to increase the pool if required.
-                int connectionCount = connCount.getAndIncrement();
-                if (connectionCount < maxConnections) {
-                    logger.info("Creating a new connection, connection count till now: " + connectionCount);
-                    connectNewClientAsync(false);
-                }
-            } else {
-                Request requestToExecute = requestQueue.poll();
-                if (null != requestToExecute) {
-                    makeGetRequestOnClient(requestToExecute, clientToUse, true);
-                } else {
-                    releaseClient(clientToUse); // didn't use it so release.
-                }
             }
         } else {
             logger.error("Backend request backlog very high, rejecting requests.");
@@ -150,6 +154,10 @@ public class NettyClientPool {
 
     void retry(ClientCompletionListenerWrapper completionListenerWrapper) {
         sendGetRequest(completionListenerWrapper.requestUri, completionListenerWrapper.delegate);
+    }
+
+    void onUnhandledRequest(NettyClient client) {
+        unhandledRequests.incrementAndGet();
     }
 
     private NettyClient getNextAvailableClient() throws InterruptedException {
@@ -226,7 +234,7 @@ public class NettyClientPool {
                     connCount.decrementAndGet();
                 }
             }
-        }, host, owner, port);
+        }, host, port);
     }
 
     private void bootstrap() {
@@ -237,6 +245,7 @@ public class NettyClientPool {
     public void populateStatus(StatusRetriever.TestCaseStatus testCaseStatus) {
         testCaseStatus.setConnectionsCount(connCount.get());
         testCaseStatus.setRequestQueueSize(requestQueue.size());
+        testCaseStatus.setUnhandledRequestsSinceStartUp(unhandledRequests.get());
     }
 
     public interface ClientCompletionListener {
@@ -271,7 +280,6 @@ public class NettyClientPool {
 
         protected void processQueuedMessages(NettyClient clientToUse) {
             if (null == clientToUse) {
-                logger.error("No client set in the completion listener.");
                 return;
             }
             Request requestToProcess = requestQueue.poll();
