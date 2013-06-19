@@ -175,11 +175,15 @@ public class NettyClientPool {
     }
 
     private void releaseClient(NettyClient client) {
-        client.release();
-        if (clients.offer(client)) {
-            logger.debug("Connection returned to pool.");
-        } else {
-            logger.info("Could not return connection back to pool.");
+        try {
+            client.release();
+            if (clients.offer(client)) {
+                logger.debug("Connection returned to pool.");
+            } else {
+                logger.info("Could not return connection back to pool.");
+            }
+        } catch (Exception e) {
+            logger.error("Failed to release the client.", e);
         }
     }
 
