@@ -219,7 +219,11 @@ public class NettyClientPool {
         if (processMoreMessagesOnCompletion) {
             request.completionListener.clientToUse = clientToUse;
         }
-        clientToUse.get(request.uri, request.completionListener);
+        try {
+            clientToUse.get(request.uri, request.completionListener);
+        } catch (IllegalStateException e) {
+            logger.error("Failed to make get request for uri: " + request.uri, e);
+        }
     }
 
     private NettyClient newClient(String owner) {
