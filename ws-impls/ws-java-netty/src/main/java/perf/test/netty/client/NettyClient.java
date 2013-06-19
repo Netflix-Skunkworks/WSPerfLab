@@ -112,7 +112,7 @@ class NettyClient {
 
     void release() {
         if (!owningLock.isHeldByCurrentThread()) {
-            logger.error("Attempt to release the client, when it was not owned.");
+            logger.error("This thread: " + Thread.currentThread().getName() +". Attempt to release the client, when it was not owned.Is owned by anyone? " + owningLock.isLocked() + ". Lock state: " + owningLock);
         } else {
             owningLock.unlock();
         }
