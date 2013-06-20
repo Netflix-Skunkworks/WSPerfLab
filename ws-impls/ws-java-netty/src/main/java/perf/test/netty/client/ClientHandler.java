@@ -24,7 +24,7 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
     /**
      * A handler instance is tied to a particular connection, HTTP can not have concurrent requests on the
      * same connection, so we can maintain this state, making sure that we always call
-     * {@link #releaseClientAndSetListener(org.jboss.netty.channel.ChannelHandlerContext)} before doing anything in any
+     * {@link #extractCompletionListener(org.jboss.netty.channel.ChannelHandlerContext)} before doing anything in any
      * callback.
      */
     private volatile NettyClientPool.ClientCompletionListener listener;
@@ -39,7 +39,7 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
         retryCount.set(0); // We got a response, reset retries.
-        releaseClientAndSetListener(ctx);
+        extractCompletionListener(ctx);
         if (null != listener) {
             listener.onComplete((HttpResponse) e.getMessage());
         } else {
@@ -51,11 +51,15 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
         logger.error("Client id: " + id + ". Client handler got an error.", e.getCause());
-        releaseClientAndSetListener(ctx);
+        extractCompletionListener(ctx);
         if (null != listener) {
-            if (!ctx.getChannel().isConnected() && retryCount.incrementAndGet() >= MAX_RETRIES) {
+            int retryCount = this.retryCount.incrementAndGet();
+            if (!ctx.getChannel().isConnected() && retryCount <= MAX_RETRIES) {
+                NettyClientPool.ClientCompletionListenerWrapper completionListenerWrapper =
+                        (NettyClientPool.ClientCompletionListenerWrapper) listener;
+                logger.info("Retrying request: " + completionListenerWrapper.getRequestUri() + ", retry count: " + retryCount);
                 // Client disconnected, we must retry the request as we only support GET which is idempotent.
-                nettyClientPool.retry((NettyClientPool.ClientCompletionListenerWrapper) listener);
+                nettyClientPool.retry(client, completionListenerWrapper);
             } else {
                 listener.onError(e);
             }
@@ -65,7 +69,7 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
         }
     }
 
-    private void releaseClientAndSetListener(final ChannelHandlerContext ctx) {
+    private void extractCompletionListener(final ChannelHandlerContext ctx) {
         client = (NettyClient) ctx.getChannel().getAttachment();
         if (null != client) {
             listener = client.getCurrentRequestCompletionListener();

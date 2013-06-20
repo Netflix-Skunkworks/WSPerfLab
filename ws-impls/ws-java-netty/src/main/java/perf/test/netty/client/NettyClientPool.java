@@ -76,7 +76,7 @@ public class NettyClientPool {
                             }
                             Request toProcess = requestQueue.take();
                             if (null == clientToUse) {
-                                clientToUse = newClient("backlog.cleaner"); // So we essentially have one client per cleaner.
+                                clientToUse = newClient(); // So we essentially have one client per cleaner.
                                 connCount.incrementAndGet();
                             }
 
@@ -119,7 +119,7 @@ public class NettyClientPool {
         }
         final Request newRequest = new Request(uri, completionListener);
         if (requestQueue.offer(newRequest)) {
-            NettyClient clientToUse = null;
+            NettyClient clientToUse;
             try {
                 clientToUse = getNextAvailableClient();
                 if (null == clientToUse) {
@@ -152,7 +152,8 @@ public class NettyClientPool {
 
     }
 
-    void retry(ClientCompletionListenerWrapper completionListenerWrapper) {
+    void retry(NettyClient failedClient, ClientCompletionListenerWrapper completionListenerWrapper) {
+        releaseClient(failedClient);
         sendGetRequest(completionListenerWrapper.requestUri, completionListenerWrapper.delegate);
     }
 
@@ -177,10 +178,12 @@ public class NettyClientPool {
     private void releaseClient(NettyClient client) {
         try {
             client.release();
-            if (clients.offer(client)) {
-                logger.debug("Connection returned to pool.");
-            } else {
-                logger.info("Could not return connection back to pool.");
+            if (client.isConnected()) { // don't bother returning if disconnected.
+                if (clients.offer(client)) {
+                    logger.debug("Connection returned to pool.");
+                } else {
+                    logger.info("Could not return connection back to pool.");
+                }
             }
         } catch (Exception e) {
             logger.error("Failed to release the client.", e);
@@ -188,7 +191,7 @@ public class NettyClientPool {
     }
 
     private void connectNewClientAsync(boolean incrementConnCounter) {
-        final NettyClient clientToUse = newClient("pool");
+        final NettyClient clientToUse = newClient();
         if (clients.offer(clientToUse)) {
             if (incrementConnCounter) {
                 connCount.incrementAndGet();
@@ -230,7 +233,7 @@ public class NettyClientPool {
         }
     }
 
-    private NettyClient newClient(String owner) {
+    private NettyClient newClient() {
         return new NettyClient(bootstrap, new ChannelFutureListener() {
 
             private AtomicBoolean countDecreased = new AtomicBoolean();
@@ -287,7 +290,7 @@ public class NettyClientPool {
         }
 
         protected void processQueuedMessages(NettyClient clientToUse) {
-            if (null == clientToUse) {
+            if (null == clientToUse || !clientToUse.isConnected()) {
                 return;
             }
             Request requestToProcess = requestQueue.poll();
@@ -300,6 +303,10 @@ public class NettyClientPool {
 
         protected void _releaseClient(NettyClient clientToUse) {
             releaseClient(clientToUse);
+        }
+
+        URI getRequestUri() {
+            return requestUri;
         }
     }
 

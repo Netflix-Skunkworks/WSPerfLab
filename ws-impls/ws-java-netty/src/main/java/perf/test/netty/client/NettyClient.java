@@ -46,7 +46,7 @@ class NettyClient {
     private final String host;
     private final int port;
     private final ClientBootstrap bootstrap;
-    private final ReentrantLock owningLock = new ReentrantLock();
+    private final AtomicBoolean inUse = new AtomicBoolean();
 
     NettyClient(ClientBootstrap bootstrap, ChannelFutureListener channelCloseListener, String host,
                 int port) {
@@ -67,9 +67,8 @@ class NettyClient {
      * @return The future to retrieve the result.
      */
     void get(URI uri, NettyClientPool.ClientCompletionListener listener) {
-        if (!owningLock.isHeldByCurrentThread()) {
-            throw new IllegalStateException("This thread: " + Thread.currentThread().getName() +
-                                            ". Client instance not owned by current thread. Is owned by anyone? " + owningLock.isLocked() + ". Lock state: " + owningLock);
+        if (!inUse.get()) {
+            throw new IllegalStateException("Request issued on a client without claiming it.");
         }
         currentRequestCompletionListener = listener;
         channel.setAttachment(this);
@@ -111,32 +110,15 @@ class NettyClient {
     }
 
     void release() {
-        if (!owningLock.isHeldByCurrentThread()) {
-            logger.error("This thread: " + Thread.currentThread().getName() +
-                         ". Attempt to release the client, when it was not owned.Is owned by anyone? " + owningLock.isLocked() + ". Lock state: " + owningLock);
-            throw new IllegalStateException("This thread: " + Thread.currentThread().getName() +
-                                            ". Attempt to release the client, when it was not owned.Is owned by anyone? "
-                                            + owningLock.isLocked() + ". Lock state: " + owningLock);
+        if (!inUse.compareAndSet(true, false)) {
+            throw new IllegalStateException("Attempt to release without claiming the client.");
         } else {
-            owningLock.unlock();
+            currentRequestCompletionListener = null;
         }
-
-        currentRequestCompletionListener = null;
     }
 
     boolean claim() {
-        if (!owningLock.isHeldByCurrentThread()) {
-            if (!owningLock.tryLock()) {
-                 return false;
-            }
-        }
-
-        if (!isConnected()) {
-            owningLock.unlock(); // Will not use it.
-            return false;
-        } else {
-            return true;
-        }
+        return isConnected() && inUse.compareAndSet(false, true);
     }
 
     NettyClientPool.ClientCompletionListener getCurrentRequestCompletionListener() {
