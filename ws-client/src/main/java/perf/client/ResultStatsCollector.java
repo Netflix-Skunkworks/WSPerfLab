@@ -5,10 +5,10 @@ import org.apache.commons.math.stat.descriptive.moment.Mean;
 import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
 import org.apache.commons.math.stat.descriptive.rank.Percentile;
 import org.eclipse.jetty.client.api.Response;
+import org.eclipse.jetty.http.HttpFields;
 
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ResultStatsCollector {
 
     private ConcurrentLinkedQueue<Double> responseTimesInMillis = new ConcurrentLinkedQueue<Double>();
+    private ConcurrentLinkedQueue<Double> serverResponseTimesInMillis = new ConcurrentLinkedQueue<Double>();
 
     private AtomicLong failedRequestsOrResponse = new AtomicLong();
     private AtomicLong non200Responses = new AtomicLong();
@@ -29,6 +30,16 @@ public class ResultStatsCollector {
         }
         Response response = result.getResponse();
         responseTimesInMillis.add((double) timeTakenInMillis);
+        HttpFields headers = response.getHeaders();
+        if (headers.containsKey("server_response_time")) {
+            double serverResponseTime = 0;
+            try {
+                serverResponseTime = Double.parseDouble(headers.get("server_response_time"));
+                serverResponseTimesInMillis.add(serverResponseTime);
+            } catch (NumberFormatException e) {
+                e.printStackTrace();
+            }
+        }
         if (response.getStatus() >= 200 && response.getStatus() < 300) {
             responses200.incrementAndGet();
         } else {
@@ -36,12 +47,24 @@ public class ResultStatsCollector {
         }
     }
 
-    public StatsResult calculateResult(TestResult result) {
+    public void calculateResult(TestResult result) {
+        StatsResult totalTimeStats = calculateStatsResult(responseTimesInMillis);
+        StatsResult serverTimeStats = calculateStatsResult(serverResponseTimesInMillis);
+
+        result.setTotal2XXResponses(responses200.get());
+        result.setTotalRequestsSent(totalTimeStats.getSampleSize());
+        result.setTotalTimeStats(totalTimeStats);
+        result.setServerTimeStats(serverTimeStats);
+        result.setTotalNon2XXResponses(non200Responses.get());
+        result.setTotalFailedRequestsOrResponse(failedRequestsOrResponse.get());
+    }
+
+    private StatsResult calculateStatsResult(ConcurrentLinkedQueue<Double> allTimes) {
         StatsResult toReturn = new StatsResult();
-        int sampleSize = responseTimesInMillis.size();
+        int sampleSize = allTimes.size();
         Double[] times = new Double[sampleSize];
-        responseTimesInMillis.toArray(times);
-        responseTimesInMillis.clear();
+        allTimes.toArray(times);
+        allTimes.clear();
         toReturn.sampleSize = times.length;
 
         if (0 < toReturn.sampleSize) {
@@ -60,14 +83,6 @@ public class ResultStatsCollector {
             toReturn.mean = new Mean().evaluate(unboxedValues);
             toReturn.stddev = new StandardDeviation().evaluate(unboxedValues);
         }
-
-
-        result.setTotal2XXResponses(responses200.get());
-        result.setTotalRequestsSent(toReturn.getSampleSize());
-        result.setStatsResult(toReturn);
-        result.setTotalNon2XXResponses(non200Responses.get());
-        result.setTotalFailedRequestsOrResponse(failedRequestsOrResponse.get());
-
         return toReturn;
     }
 

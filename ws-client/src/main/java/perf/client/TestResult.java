@@ -10,7 +10,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public class TestResult {
 
-    private ResultStatsCollector.StatsResult statsResult;
+    private ResultStatsCollector.StatsResult totalTimeStats;
+    private ResultStatsCollector.StatsResult serverTimeStats;
     private ConcurrentLinkedQueue<IndividualResult> individualResults = new ConcurrentLinkedQueue<IndividualResult>();
     private String testUri;
     private int concurrentClients;
@@ -20,12 +21,20 @@ public class TestResult {
     private long totalFailedRequestsOrResponse;
     private boolean collectIndividualResults = true;
 
-    public ResultStatsCollector.StatsResult getStatsResult() {
-        return statsResult;
+    public ResultStatsCollector.StatsResult getServerTimeStats() {
+        return serverTimeStats;
     }
 
-    public void setStatsResult(ResultStatsCollector.StatsResult statsResult) {
-        this.statsResult = statsResult;
+    public void setServerTimeStats(ResultStatsCollector.StatsResult serverTimeStats) {
+        this.serverTimeStats = serverTimeStats;
+    }
+
+    public ResultStatsCollector.StatsResult getTotalTimeStats() {
+        return totalTimeStats;
+    }
+
+    public void setTotalTimeStats(ResultStatsCollector.StatsResult totalTimeStats) {
+        this.totalTimeStats = totalTimeStats;
     }
 
     public ConcurrentLinkedQueue<IndividualResult> getIndividualResults() {
