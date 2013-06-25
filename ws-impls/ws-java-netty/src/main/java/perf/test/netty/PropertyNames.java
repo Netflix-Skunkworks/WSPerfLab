@@ -17,8 +17,6 @@ public enum PropertyNames {
 
     ClientLoggingEnable("client.log.enable", "true"),
     ClientChunkSize("client.chunk.size", "1048576"),
-    ClientReadTimeout("client.read.timeout", "500"),
-    ClientIdleTimeOutMs("client.idle.timeout.ms", "2000"),
     ClientBacklogCleanerThreadCount("client.backlog.cleaner.count", "1"),
 
     MockBackendHost("perf.test.backend.host", "localhost"),
@@ -29,6 +27,7 @@ public enum PropertyNames {
     MockBackendMaxBacklog("perf.test.backend.host.max.backlog", "1000"),
 
     StatusRetrieverContextPath("http.server.status.endpoint", "status/"),
+
     TestCaseACallANumItems("perf.test.testA.callA.numItems", "2"),
     TestCaseACallAItemSize("perf.test.testA.callA.itemSize", "50"),
     TestCaseACallAItemDelay("perf.test.testA.callA.delay", "50"),

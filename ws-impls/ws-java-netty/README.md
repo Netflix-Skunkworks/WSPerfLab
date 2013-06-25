@@ -38,34 +38,26 @@ A netty based non-blocking client for outbound requests to the mock backend.
 This client uses a connection pool for all outbound backend requests. All the test cases uses a different connection
 pool for the purpose of isolation.
 
-If the connection pool is exhausted and no new connections can be obtained, the server fails fast and sends a HTTP
-response of 500 (This should be 503 but for the reason of simplicity, its not implemented. It can be implemented if required)
+### Request Backlog
 
-### Exhaustion
-
-Connection pool can exhaust for two reasons:
-
-* Genuine load.
-* Bust of disconnections from the backend.
-
-In the second case above, the pool will try to get any available & connected backend connections before throwing an error.
-In case, no connected connections are available (out of the max connection limit), the pool is deemed exhausted.
-However, as soon as a connection is identified as closed, the system tries to re-establish the connection asynchronously.
+If there are more concurrent requests than the maximum backend connections, new requests are added to a queue (queue
+size is configurable). There are a fixed number of background threads that cleans this queue using a dedicated
+connection. If this queue is full then the client rejects new requests.
 
 For details about the client implementation, see the javadocs for perf.test.netty.client.NettyClientPool
-
 
 ## Client configuration
 
 The client can be configured using the following optional system properties:
 
 * client.log.enable: Enable verbose logging (netty) for the client.
-* client.chunk.size: Chunk size for the netty server pipeline. This size is used to instanruare the
+* client.chunk.size: Chunk size for the netty server pipeline. This size is used to instantiate the
  <a href="http://static.netty.io/3.6/api/org/jboss/netty/handler/codec/http/HttpChunkAggregator.html#HttpChunkAggregator(int)">Netty Http Chunk aggregator</a>
   configured in the client pipeline.
-* perf.test.backend.host.maxconn.per.test: Number of connections to the mock backend. This is an aggressive pool size and
-is connected at server startup. Default: 100
-
+* perf.test.backend.host.maxconn.per.test: Maximum number of connections to the mock backend. Default: 10
+* perf.test.backend.host.startupconn.per.test: Number of connections to the mock backend at startup. Default: 10
+* perf.test.backend.host.max.backlog: Queue size for backlog requests. Default: 1000
+* client.backlog.cleaner.count: Number of background workers to clean up backlog.
 
 # Mock backend
 
@@ -76,6 +68,10 @@ following system properties:
 * perf.test.backend.port: The port for the mock backend server. Default: 8989
 * perf.test.backend.context.path: The base context path for all requests to this server. Default: /ws-backend-mock
 
+# Status endpoint
+
+The netty server provides a status endpoint that provides details about the status of the server, it is available at
+/ws-java-netty/status
 
 # Netty threads
 
