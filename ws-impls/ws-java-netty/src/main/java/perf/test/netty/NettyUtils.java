@@ -4,6 +4,9 @@ import org.codehaus.jackson.JsonEncoding;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
@@ -33,4 +36,20 @@ public class NettyUtils {
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json");
     }
 
+    public static void sendResponse(Channel channel, boolean keepAlive, JsonFactory jsonFactory, HttpResponse response) {
+
+        if (keepAlive) {
+            // Add 'Content-Length' header only for a keep-alive connection.
+            response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, response.getContent().readableBytes());
+            // Add keep alive header as per:
+            // - http://www.w3.org/Protocols/HTTP/1.1/draft-ietf-http-v11-spec-01.html#Connection
+            response.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
+        }
+
+        ChannelFuture writeFuture = channel.write(response);
+
+        if (!keepAlive) {
+            writeFuture.addListener(ChannelFutureListener.CLOSE);
+        }
+    }
 }

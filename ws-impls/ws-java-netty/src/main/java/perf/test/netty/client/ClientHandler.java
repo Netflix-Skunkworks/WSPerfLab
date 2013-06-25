@@ -1,75 +1,81 @@
 package perf.test.netty.client;
 
-import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
-import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
  */
 public class ClientHandler extends SimpleChannelUpstreamHandler {
 
+    public static final int MAX_RETRIES = 3;
+    private final NettyClientPool nettyClientPool;
+    private final long id;
     private Logger logger = LoggerFactory.getLogger(ClientHandler.class);
+    private final AtomicInteger retryCount; // This is per connection, which at a time only has one request.
 
-    private String content;
-    private int responseStatusCode;
-    final Object contentPopulationLock = new Object();
+    /**
+     * A handler instance is tied to a particular connection, HTTP can not have concurrent requests on the
+     * same connection, so we can maintain this state, making sure that we always call
+     * {@link #extractCompletionListener(org.jboss.netty.channel.ChannelHandlerContext)} before doing anything in any
+     * callback.
+     */
+    private volatile NettyClientPool.ClientCompletionListener listener;
+    private volatile NettyClient client;
+
+    public ClientHandler(NettyClientPool nettyClientPool, long id) {
+        this.nettyClientPool = nettyClientPool;
+        this.id = id;
+        retryCount = new AtomicInteger();
+    }
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-        NettyClient client = (NettyClient) ctx.getChannel().getAttachment();
-        client.release(); // Release the client to be reused, the future has a reference to this handler & hence can get the result.
-
-        // AFTER THIS POINT, thou should not refer to the context.
-
-        HttpResponse response = (HttpResponse) e.getMessage();
-        HttpResponseStatus status = response.getStatus();
-        responseStatusCode = status.getCode();
-        if (status.equals(HttpResponseStatus.OK)) {
-            ChannelBuffer responseContent = response.getContent();
-            if (responseContent.readable()) {
-                content = responseContent.toString(CharsetUtil.UTF_8);
-                synchronized (contentPopulationLock) {
-                    contentPopulationLock.notify(); /// There is only one thread waiting always unless absuive clients wait on spawned threads.
-                }
-            }
+        retryCount.set(0); // We got a response, reset retries.
+        extractCompletionListener(ctx);
+        if (null != listener) {
+            listener.onComplete((HttpResponse) e.getMessage());
+        } else {
+            logger.error("Client id: " + id + ". No listener found on message complete.");
+            nettyClientPool.onUnhandledRequest(client);
         }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-        logger.error("Client handler got an error.", e);
+        logger.error("Client id: " + id + ". Client handler got an error.", e.getCause());
+        extractCompletionListener(ctx);
+        if (null != listener) {
+            int retryCount = this.retryCount.incrementAndGet();
+            if (!ctx.getChannel().isConnected() && retryCount <= MAX_RETRIES) {
+                NettyClientPool.ClientCompletionListenerWrapper completionListenerWrapper =
+                        (NettyClientPool.ClientCompletionListenerWrapper) listener;
+                logger.info("Retrying request: " + completionListenerWrapper.getRequestUri() + ", retry count: " + retryCount);
+                // Client disconnected, we must retry the request as we only support GET which is idempotent.
+                nettyClientPool.retry(client, completionListenerWrapper);
+            } else {
+                listener.onError(e);
+            }
+        } else {
+            logger.error("Client id: " + id + ". No listener found on error. Nothing more to do.");
+            nettyClientPool.onUnhandledRequest(client);
+        }
     }
 
-    public void reset() {
-        content = null;
-        responseStatusCode = 0;
-    }
-
-    public boolean isDone() {
-        return responseStatusCode > 0;
-    }
-
-    public boolean isSuccess() {
-        return HttpResponseStatus.OK.getCode() == responseStatusCode;
-    }
-
-    public int getResponseStatusCode() {
-        return responseStatusCode;
-    }
-
-    public boolean hasContent() {
-        return null != content;
-    }
-
-    public String getContent() {
-        return content;
+    private void extractCompletionListener(final ChannelHandlerContext ctx) {
+        client = (NettyClient) ctx.getChannel().getAttachment();
+        if (null != client) {
+            listener = client.getCurrentRequestCompletionListener();
+            if (null == listener) {
+                logger.error("Client id: " + id + ". Got null listener attached to the client.");
+            }
+        }
     }
 }

@@ -8,7 +8,7 @@ dependencies {
     compile 'org.slf4j:slf4j-api:1.7.0'
     compile project(':ws-impls:ws-impl-utils')
     provided 'junit:junit-dep:4.10'
-    provided 'javax.servlet:servlet-api:2.5'
+    compile 'javax.servlet:javax.servlet-api:3.0.1'
 }
 
 eclipse {

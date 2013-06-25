@@ -44,6 +44,7 @@ public class NettyBasedHttpServer {
 
     public void stop() {
         TestRegistry.shutdown();
+        //TODO: Close all channels
         bootstrap.releaseExternalResources();
     }
 }
