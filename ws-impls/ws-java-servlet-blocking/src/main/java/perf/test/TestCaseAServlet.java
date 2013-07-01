@@ -138,7 +138,8 @@ public class TestCaseAServlet extends HttpServlet {
     }
 
     public String get(String url) {
-        HttpGet httpGet = new HttpGet(hostname + url);
+        String uri = hostname + url;
+        HttpGet httpGet = new HttpGet(uri);
         try {
             HttpResponse response = httpclient.execute(httpGet);
 
@@ -156,7 +157,7 @@ public class TestCaseAServlet extends HttpServlet {
 
             return data;
         } catch (Exception e) {
-            throw new RuntimeException("Failure retrieving: " + url, e);
+            throw new RuntimeException("Failure retrieving: " + uri, e);
         } finally {
             httpGet.releaseConnection();
         }

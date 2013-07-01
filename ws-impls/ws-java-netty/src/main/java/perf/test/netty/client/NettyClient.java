@@ -14,11 +14,9 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A client abstraction for non-blocking clients. <br/>
@@ -38,20 +36,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author Nitesh Kant (nkant@netflix.com)
  */
-public class NettyClient {
+class NettyClient {
 
     private Logger logger = LoggerFactory.getLogger(NettyClient.class);
 
     private Channel channel;
-    private final ClientStateChangeListener stateChangeListener;
+    private final ChannelFutureListener channelCloseListener;
+    private NettyClientPool.ClientCompletionListener currentRequestCompletionListener;
     private final String host;
     private final int port;
     private final ClientBootstrap bootstrap;
-    private AtomicBoolean inUse = new AtomicBoolean();
+    private final AtomicBoolean inUse = new AtomicBoolean();
 
-    NettyClient(ClientBootstrap bootstrap, ClientStateChangeListener stateChangeListener, String host, int port) {
+    NettyClient(ClientBootstrap bootstrap, ChannelFutureListener channelCloseListener, String host,
+                int port) {
         this.bootstrap = bootstrap;
-        this.stateChangeListener = stateChangeListener;
+        this.channelCloseListener = channelCloseListener;
         this.host = host;
         this.port = port;
     }
@@ -60,35 +60,24 @@ public class NettyClient {
      * Executes an HTTP get request for the passed uri.
      * <b>The host, port & scheme information in the passed URI, if any, is ignored. This information is taken from the
      * associated {@link NettyClientPool}</b>
+     * The passed handler is invoked (in the selector thread) after a response is received.
      *
      * @param uri URI for the request.
      *
      * @return The future to retrieve the result.
      */
-    public Future<String> get(URI uri) {
-        validateIfInUse(); // Throws an exception if in use.
-        ClientHandler handler = (ClientHandler) channel.getPipeline().get("handler");
-        handler.reset();
+    void get(URI uri, NettyClientPool.ClientCompletionListener listener) {
+        if (!inUse.get()) {
+            throw new IllegalStateException("Request issued on a client without claiming it.");
+        }
+        currentRequestCompletionListener = listener;
         channel.setAttachment(this);
         HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getSchemeSpecificPart());
         request.setHeader(HttpHeaders.Names.HOST, host);
-        return new RequestFuture(channel.write(request));
+        channel.write(request);
     }
 
-    private void validateIfInUse() {
-        if (!inUse.compareAndSet(false, true)) {
-            throw new IllegalStateException("Client in use or is closing.");
-        }
-    }
-
-    void release() {
-        inUse.set(false);
-        if (null != stateChangeListener) {
-            stateChangeListener.onClose(this);
-        }
-    }
-
-    ChannelFuture connect() throws Throwable {
+    ChannelFuture connect() {
         if (isConnected()) {
             return null;
         }
@@ -99,6 +88,9 @@ public class NettyClient {
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
                     channel = future.getChannel();
+                    if (null != channelCloseListener) {
+                        channel.getCloseFuture().addListener(channelCloseListener);
+                    }
                 } else {
                     logger.error(String.format("Connect failed for host: %s and port: %s", host, port), future.getCause());
                 }
@@ -117,76 +109,19 @@ public class NettyClient {
         return (null != channel && channel.isConnected());
     }
 
-    interface ClientStateChangeListener {
-
-        void onClose(NettyClient client);
+    void release() {
+        if (!inUse.compareAndSet(true, false)) {
+            throw new IllegalStateException("Attempt to release without claiming the client.");
+        } else {
+            currentRequestCompletionListener = null;
+        }
     }
 
-    private class RequestFuture implements Future<String> {
+    boolean claim() {
+        return isConnected() && inUse.compareAndSet(false, true);
+    }
 
-        private final ChannelFuture writeFuture;
-        private final ClientHandler handler;
-
-        public RequestFuture(ChannelFuture writeFuture) {
-            this.writeFuture = writeFuture;
-            handler = (ClientHandler) channel.getPipeline().get("handler");
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning) {
-            return writeFuture.cancel();
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return writeFuture.isCancelled();
-        }
-
-        @Override
-        public boolean isDone() {
-            return handler.isDone();
-        }
-
-        @Override
-        public String get() throws InterruptedException, ExecutionException {
-            while (!handler.hasContent()) {
-                synchronized (handler.contentPopulationLock) {
-                    handler.contentPopulationLock.wait();
-                }
-            }
-            return handler.getContent();
-        }
-
-        @Override
-        public String get(long timeout, TimeUnit unit)
-                throws InterruptedException, ExecutionException, TimeoutException {
-            long startTime = System.currentTimeMillis();
-            long waitTime = unit.toMillis(timeout);
-            while (!handler.isDone()) {
-                synchronized (handler.contentPopulationLock) {
-                    if (waitTime <= 0) {
-                        handler.contentPopulationLock.wait();
-                        continue;
-                    } else {
-                        handler.contentPopulationLock.wait(waitTime);
-                    }
-                    waitTime = waitTime - (System.currentTimeMillis() - startTime);
-                    if (waitTime < 0) {
-                        break;
-                    }
-                }
-            }
-
-            if (handler.isDone()) {
-                if (handler.isSuccess()) {
-                    return handler.getContent();
-                } else {
-                    throw new ExecutionException(
-                            "Client request failed with status code: " + handler.getResponseStatusCode(), null);
-                }
-            } else {
-                throw new TimeoutException(String.format("No result after waiting for %s milliseconds.", timeout));
-            }
-        }
+    NettyClientPool.ClientCompletionListener getCurrentRequestCompletionListener() {
+        return currentRequestCompletionListener;
     }
 }

@@ -1,10 +1,10 @@
 #! /bin/bash +x
 
 #############################################################
-################# ws-java-netty options #####################
+################# ws-java-jetty options #####################
 
 
-: ${SERVER_PORT:=8798}
+: ${SERVER_PORT:=8698}
 SERVER_LOG="false"
 CLIENT_LOG="false"
 
@@ -13,24 +13,21 @@ CLIENT_LOG="false"
 
 echo "Using backend host ${BACKEND_HOST} and port ${BACKEND_PORT}"
 BACKEND_MAX_CONN_PER_TEST=2000
-BACKEND_INIT_CONN_PER_TEST=2000
 CLIENT_READ_TIMEOUT_MS=500
-BACKLOG_CLEANER_WORKERS_COUNT=5
-MAX_BACKLOG=5000
 
 LOG_LEVEL="INFO"
 
-WS_JAVA_NETTY_OPTS="-Dperf.test.backend.host.max.backlog=${MAX_BACKLOG} -Dclient.backlog.cleaner.count=${BACKLOG_CLEANER_WORKERS_COUNT} -Dhttp.server.port=${SERVER_PORT} -Dserver.log.enable=${SERVER_LOG} -Dclient.read.timeout=${CLIENT_READ_TIMEOUT_MS} -Dclient.log.enable=${CLIENT_LOG} -Dperf.test.backend.host=${BACKEND_HOST} -Dperf.test.backend.port=${BACKEND_PORT} -Dperf.test.backend.host.maxconn.per.test=${BACKEND_MAX_CONN_PER_TEST} -Dperf.test.backend.host.startupconn.per.test=${BACKEND_INIT_CONN_PER_TEST} -D-Dorg.slf4j.simpleLogger.defaultLogLevel=${LOG_LEVEL}"
+WS_JAVA_JETTY_OPTS="-Dhttp.server.port=${SERVER_PORT} -Dserver.log.enable=${SERVER_LOG} -Dclient.read.timeout=${CLIENT_READ_TIMEOUT_MS} -Dclient.log.enable=${CLIENT_LOG} -Dperf.test.backend.host=${BACKEND_HOST} -Dperf.test.backend.port=${BACKEND_PORT} -Dperf.test.backend.host.maxconn.per.test=${BACKEND_MAX_CONN_PER_TEST} -D-Dorg.slf4j.simpleLogger.defaultLogLevel=${LOG_LEVEL}"
 #############################################################
 
 SCRIPT_DIR=$(dirname $BASH_SOURCE)
 SCRIPTNAME=`basename $0`
-ACTUAL_SCRIPT_NAME='ws-java-netty'
+ACTUAL_SCRIPT_NAME='ws-java-jetty'
 
 PIDFILE=${SCRIPT_DIR}/${SCRIPTNAME}.pid
 
 start() {
-    echo "Starting netty based ws server...."
+    echo "Starting jetty based ws server...."
     if [ -f ${PIDFILE} ]; then
        #verify if the process is actually still running under this pid
        OLDPID=`cat ${PIDFILE}`
@@ -48,14 +45,14 @@ start() {
 
     PID=`ps -ef | grep ${SCRIPTNAME} | head -n1 |  awk ' {print $2;} '`
     echo ${PID} > ${PIDFILE}
-    export WS_JAVA_NETTY_OPTS=${WS_JAVA_NETTY_OPTS}
+    export WS_JAVA_JETTY_OPTS=${WS_JAVA_JETTY_OPTS}
 
-    . $SCRIPT_DIR/ws-java-netty
-    echo "Started netty based ws server...."
+    . $SCRIPT_DIR/ws-java-jetty
+    echo "Started jetty based ws server...."
 }
 
 stop() {
-    echo "Stopping netty based ws server...."
+    echo "Stopping jetty based ws server...."
     if [ -f ${PIDFILE} ]; then
         OLDPID=`cat ${PIDFILE}`
         echo "Netty based server PID: ${OLDPID}"
@@ -72,17 +69,17 @@ stop() {
             fi
         fi
     fi
-    echo "Stopped netty based ws server...."
+    echo "Stopped jetty based ws server...."
 }
 
 cleanup() {
     if [ "$CMD" != "stop" ];then
-        echo "Cleaning up netty based server after shutdown...."
+        echo "Cleaning up jetty based server after shutdown...."
 
         if [ -f ${PIDFILE} ]; then
             rm -f ${PIDFILE}
         fi
-        echo "Cleaned up netty based server after shutdown...."
+        echo "Cleaned up jetty based server after shutdown...."
     fi
 }
 

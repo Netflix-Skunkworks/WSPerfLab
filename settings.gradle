@@ -5,6 +5,7 @@ include 'ws-backend-mock', \
 'ws-impls:ws-java-servlet-blocking', \
 'ws-impls:ws-java-servlet-blocking-rxjava', \
 'ws-impls:ws-java-servlet-nonblocking', \
+'ws-impls:ws-java-jetty', \
 'ws-impls:ws-java-netty', \
 'ws-impls:ws-java-vertx', \
 'ws-impls:ws-clojure-vertx', \
