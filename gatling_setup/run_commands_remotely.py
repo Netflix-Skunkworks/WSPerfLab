@@ -8,6 +8,8 @@ import os.path
 from subprocess import Popen, PIPE
 import time
 
+cat_file = "/tmp/cmd.txt"
+
 
 #assumes server location created by callin grab_instance_ids script
 if (len(sys.argv) < 1):
@@ -16,32 +18,37 @@ if (len(sys.argv) < 1):
 server_location = sys.argv[1]
 if not server_location:
     server_location = "/tmp/servers.txt"
-poll_time = 5 #seconds to wait before repolling
+poll_time = 1 #seconds to wait before repolling
 
 cmd = '; '.join([line.strip() for line in (sys.stdin)])
-print "using %(cmd)s" % { 'cmd' : cmd}
+print "using: %(cmd)s" % { 'cmd' : cmd}
+f=open(cat_file, "w")
+f.write(cmd)
+f.close()
 
 instance_ids = [line.strip().split()[0] for line in open(server_location)]
 print "instance_ids %(id)s" % { 'id': str(instance_ids)}
 
-
-running_procs = [
-    Popen(cmd % {'instance_id' : instance_id},
+running_procs = dict()
+for instance_id in instance_ids:
+    running_procs[instance_id] = Popen("cat %(cat_file)s | oq-ssh %(instance_id)s" %
+        {'instance_id' : instance_id, 'cat_file': cat_file },
         stdout=PIPE, stderr=PIPE, shell=True)
-    for instance_id in instance_ids]
 
 while running_procs:
-    for proc in running_procs:
+    for instance_id in running_procs:
+        proc = running_procs[instance_id]
         retcode = proc.poll()
         if retcode is not None: # Process finished.
-            running_procs.remove(proc)
+            del running_procs[instance_id]
             break
-    else: # No process is done, wait a bit and check again.
+    else: #no proceses were completed
         time.sleep(poll_time)
         continue
 
-    # Here, `proc` has finished with return code `retcode`
     if retcode != 0:
-        print "proc failed, proc=%(p)s and code =%(c)d" % {'p' : str(proc), 'c' : retcode}
+        print "proc failed, code =%(c)d, for instance=%(id)s" % {'c' : retcode, 'id' : instance_id}
+    for line in proc.stderr:
+        print "error %(id)s %(line)s" % {'id' : instance_id, 'line' : line}
     for line in proc.stdout:
-        print line
+        print "output %(id)s %(line)s" % {'id' : instance_id, 'line' : line}
