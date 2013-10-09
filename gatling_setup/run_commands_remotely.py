@@ -16,6 +16,8 @@ if (len(sys.argv) < 1):
     print "usage run_gatling_remotely <server_file_path>, commands should come on standard input"
 
 server_location = sys.argv[1]
+if not server_location:
+    server_location = "/tmp/servers.txt"
 poll_time = 1 #seconds to wait before repolling
 
 cmd = '; '.join([line.strip() for line in (sys.stdin)])
