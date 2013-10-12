@@ -1,0 +1,63 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>io.gatling</groupId>
+	<artifactId>gatling-maven-plugin-demo</artifactId>
+	<version>2.0.0-M3a</version>
+	<packaging>jar</packaging>
+
+	<repositories>
+		<repository>
+			<id>excilys</id>
+			<name>Excilys Repository</name>
+			<url>http://repository.excilys.com/content/groups/public</url>
+		</repository>
+	</repositories>
+
+	<pluginRepositories>
+		<pluginRepository>
+			<id>excilys</id>
+			<name>Excilys Repository</name>
+			<url>http://repository.excilys.com/content/groups/public</url>
+		</pluginRepository>
+	</pluginRepositories>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<gatling.version>2.0.0-M3a</gatling.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>io.gatling.highcharts</groupId>
+			<artifactId>gatling-charts-highcharts</artifactId>
+			<version>${gatling.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>io.gatling</groupId>
+				<artifactId>gatling-maven-plugin</artifactId>
+				<version>${gatling.version}</version>
+				<executions>
+					<execution>
+						<phase>test</phase>
+						<goals>
+							<goal>execute</goal>
+						</goals>
+						<configuration>
+							<charting>
+								<reportsOnly>true</reportsOnly>
+							</charting>
+							<resultsFolder>/Users/skatz/stresstest_results/oio_raw_results</resultsFolder>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>
