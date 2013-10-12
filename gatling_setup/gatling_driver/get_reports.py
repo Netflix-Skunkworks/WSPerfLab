@@ -16,7 +16,7 @@ def usage():
     """
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "hfs:r:", ["--help", "--fetch",--scp=", "--remote_hosts="])
+    opts, args = getopt.getopt(sys.argv[1:], "hfs:r:", ["--help", "--fetch", "--scp=", "--remote_hosts="])
 except Exception:
     # print help information and exit:
     print(sys.exc_info()[:1]) # will print something like "option -a not recognized"
@@ -51,13 +51,13 @@ def verboseCall(command):
     print "executing %(cmd)s" % { 'cmd' : command}
     call(command, shell=True)
 if (fetch):
-    verboseCall("rm -rf gatling-plugin-maven-demo")
+    verboseCall("rm -rf gatling-maven-plugin-demo")
 
-if (!os.exists("gatling-plugin-maven-demo")):
+if (not os.path.exists("gatling-maven-plugin-demo")):
     verboseCall("git clone git://github.com/excilys/gatling-maven-plugin-demo.git")
-    verboseCall("cp -f src/test/resources/gatling.conf gatling-plugin-maven-demo/src/test/resources/gatling.conf")
+    verboseCall("cp -f src/test/resources/gatling.conf gatling-maven-plugin-demo/src/test/resources/gatling.conf")
 
-gatling_results_dir = "gatling-plugin-maven-demo/target/gatling_results/gatling_results_dir"
+gatling_results_dir = "gatling-maven-plugin-demo/target/gatling_results/gatling_results_dir"
 
 if (os.path.exists(gatling_results_dir)):
     new_dir = "%(dir)s%(t)d" % {'dir' : gatling_results_dir, 't': time.time()}
@@ -80,5 +80,7 @@ for instance_id in instance_ids:
 ###On the remote host running gatling, we use the downloaded gatling maven as is
 ###On the local host, we run the edited version checked into git.
 ###The main difference is that on local host, gatling.conf has reportsOnly uncommented and set
-verboseCall("python install_maven.py")
-verboseCall("./mvn gatling:execute -Dgatling.simulationClass=driver.LoadDriver")
+
+# BOO!   only has jdk 1.6 on current river.  for now, copy the files to 1.7 box to run these steps.
+#verboseCall("python install_maven.py")
+#verboseCall("cd gatling-maven-plugin-demo; ../mvn gatling:execute -Dgatling.simulationClass=driver.LoadDriver")
