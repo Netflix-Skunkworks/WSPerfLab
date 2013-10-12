@@ -1,5 +1,10 @@
 package perf.test.netty.server.tests;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -11,16 +16,13 @@ import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import perf.test.netty.NettyUtils;
 import perf.test.netty.PropertyNames;
 import perf.test.netty.client.NettyClientPool;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import perf.test.utils.URLSelector;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
@@ -55,7 +57,11 @@ public class TestCaseA extends TestCaseHandler {
             PropertyNames.TestCaseACallEItemDelay.getValueAsInt());
 
     private static String constructUri(int numItems, int itemSize, int delay) {
-        String uri = String.format("/mock.json?numItems=%d&itemSize=%d&delay=%d&id=", numItems, itemSize, delay);
+        String uri = String.format("http://%s:%d%s/mock.json?numItems=%d&itemSize=%d&delay=%d&id=",
+                URLSelector.chooseHost(),
+                PropertyNames.MockBackendPort.getValueAsInt(),
+                PropertyNames.MockBackendContextPath.getValueAsString(),
+                numItems, itemSize, delay);
         if (logger.isDebugEnabled()) {
             logger.debug("Created a new uri: " + uri);
         }
