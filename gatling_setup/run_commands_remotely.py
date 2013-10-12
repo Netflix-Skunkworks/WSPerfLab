@@ -69,7 +69,7 @@ running_procs = dict()
 for instance_id in instance_ids:
     running_procs[instance_id] = Popen("cat %(cat_file)s | %(ssh)s %(instance_id)s" %
         {'instance_id' : instance_id, 'cat_file': cat_file, 'ssh' : ssh },
-        stdout=PIPE, stderr=PIPE, shell=True)
+           bufsize=1, shell=True)
 
 while running_procs:
     for instance_id in running_procs:
@@ -84,7 +84,3 @@ while running_procs:
 
     if retcode != 0:
         print "proc failed, code =%(c)d, for instance=%(id)s" % {'c' : retcode, 'id' : instance_id}
-    for line in proc.stderr:
-        print "error %(id)s %(line)s" % {'id' : instance_id, 'line' : line}
-    for line in proc.stdout:
-        print "output %(id)s %(line)s" % {'id' : instance_id, 'line' : line}
