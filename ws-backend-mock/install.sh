@@ -2,7 +2,12 @@
 
 sshCommand="ssh"
 update=false
-tomcatVersion="7.0.40"
+tomcatVersion="7.0.42"
+
+if [ -z $GIT_COMMAND ] then
+    GIT_COMMAND='git clone git://github.com/benjchristensen/WSPerfLab.git'
+fi
+
 
 while getopts "h:s:t:u" opt; do
   case $opt in
@@ -47,7 +52,7 @@ else
 	echo "--- Kill all java processes"
 	eval "$sshCommand $hostname 'sudo killall java'"
 	echo "--- Git clone WSPerfLab"
-	eval "$sshCommand $hostname 'git clone git://github.com/benjchristensen/WSPerfLab.git'"
+	eval "$sshCommand $hostname '$GIT_COMMAND'"
 	echo "--- Download Tomcat 7"
 	eval "$sshCommand $hostname 'wget http://mirrors.gigenet.com/apache/tomcat/tomcat-7/v${tomcatVersion}/bin/apache-tomcat-${tomcatVersion}.tar.gz'"
 	echo "--- Extract Tomcat 7"
