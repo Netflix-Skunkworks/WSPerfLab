@@ -20,6 +20,7 @@
 *.tar
 *.zip
 
+
 # Logs and databases #
 ######################
 *.log
@@ -62,3 +63,7 @@ atlassian-ide-plugin.xml
 
 # NetBeans specific files/directories
 .nbattrs
+
+# Downloaded files
+mvn
+*maven*
