@@ -10,9 +10,7 @@ targetURL = sys.argv[1]
 def callWithErrorHandling(command):
     print "calling command %(cmd)s" % {'cmd' : command }
     try :
-        retcode = call(command, shell=True)
-        if (retcode != 0):
-            raise Exception("command failed, return %(code)d %(cmd)s" % {"code" : retcode, "cmd" : command})
+        call(command, shell=True)
     except Exception:
         print "exception on " + command
         raise

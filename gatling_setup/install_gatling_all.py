@@ -8,9 +8,8 @@ def callRemotely(command_file):
     command = "python run_commands_remotely.py -s %(ssh)s -r %(remote_host_file)s -c %(command_file)s >> logs/%(command_file)s.log" \
         % { 'ssh' : ssh, 'remote_host_file' : remote_host_file, 'command_file' : command_file}
     print "executing " + command
-    retcode = call(command, shell=True)
-    if (retcode != 0):
-        raise Exception("bad return code = %(code)d" % { 'code' : retcode })
+    call(command, shell=True)
+
 
 ssh = 'ssh'
 
