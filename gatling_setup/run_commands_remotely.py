@@ -30,9 +30,7 @@ remote_host_file = None
 command_file = None
 
 for o, a in opts:
-    if o == "-":
-        verbose = True
-    elif o in ("-h", "--help"):
+    if o in ("-h", "--help"):
         usage()
         sys.exit()
     elif o in ("-s", "--ssh"):

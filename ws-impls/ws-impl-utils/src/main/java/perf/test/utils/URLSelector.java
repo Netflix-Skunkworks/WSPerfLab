@@ -9,8 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 
-/** A class for selecting back-end URLS to talk to, from file /tmp/wsmock_servers.txt, a tab delimited
- * list of instance-id host_name, one per line.
+/** A class for selecting back-end URLS to talk to, from file /tmp/wsmock_servers.txt, should have one host name per line
  * @author skatz
  *
  */
@@ -31,11 +30,8 @@ public class URLSelector {
         try {
             Iterable<String> hostLines = Files.readAllLines(Paths.get(DEFAULT_SERVER_LOCATION), Charsets.UTF_8);
             for (String line : hostLines) {
-                String[] pair = StringUtils.split(line.trim());
-                if (pair.length != 2) {
-                    throw new Exception("expected <instance_id> <host_name> format at line" +line);
-                }
-                hostNameBuilder.add(pair[1]);
+                String trimmedLine = line.trim();
+                hostNameBuilder.add(trimmedLine);
             }
         }
         catch (Exception exc) {

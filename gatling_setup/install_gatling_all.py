@@ -35,9 +35,7 @@ load_url = None
 fetch_git_changes = False
 
 for o, a in opts:
-    if o == "-":
-        verbose = True
-    elif o in ("-h", "--help"):
+    if o in ("-h", "--help"):
         usage()
         sys.exit()
     elif o in ("-s", "--ssh"):
