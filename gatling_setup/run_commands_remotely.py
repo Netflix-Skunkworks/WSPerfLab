@@ -1,38 +1,74 @@
-#This program runs remote commands, then dumps output on completion to one large file
-#it expects one argument, the path to oq-instances, most likely created with the grab_instance_ids script
-#the commands should be sent on standard input and then they will be concatenated and run
-#to include the instance_id in a command, use standard Python interpolation %(instance_id)s
+#This program runs remote commands.  The commands to run should come on standard input
 
 import sys
 import os.path
 from subprocess import Popen, PIPE
 import time
+import getopt
 
 cat_file = "/tmp/cmd.txt"
 
+ssh_to_use = 'ssh'
 
-#assumes server location created by callin grab_instance_ids script
-if (len(sys.argv) < 1):
-    print "usage run_gatling_remotely <server_file_path>, commands should come on standard input"
+def usage():
+    print """
+    -h, --help - print this message
+    -s, --ssh - override ssh command to ssh_to_use
+    -r, --remote_host_file - list of remote hosts to execute the command, one per line
+    -c, --command_file - list of commands to execute, one per line
+    """
 
-server_location = sys.argv[1]
-if not server_location:
-    server_location = "/tmp/servers.txt"
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "hs:r:c:", ["help", "ssh=", "remote_host_file=", "command_file="])
+except Exception:
+    # print help information and exit:
+    print(sys.exc_info()[:1]) # will print something like "option -a not recognized"
+    usage()
+    sys.exit(2)
+
+remote_host_file = None
+command_file = None
+
+for o, a in opts:
+    if o == "-":
+        verbose = True
+    elif o in ("-h", "--help"):
+        usage()
+        sys.exit()
+    elif o in ("-s", "--ssh"):
+        ssh=a
+    elif o in ("-r", "--remote_host_file"):
+        remote_host_file = a
+    elif o in ("-c", "--command_file"):
+        command_file = a
+    else:
+        assert False, "unhandled option" + o + " -- " + usage()
+
+if (remote_host_file is None):
+    print "specify remote_host_file"
+    usage()
+    sys.exit(2)
+if (command_file is None):
+    print "specify command_file"
+    usage()
+    sys.exit(2)
+
 poll_time = 1 #seconds to wait before repolling
 
-cmd = '; '.join([line.strip() for line in (sys.stdin)])
+cmd = '; '.join([line.strip() for line in open(command_file)])
 print "using: %(cmd)s" % { 'cmd' : cmd}
 f=open(cat_file, "w")
 f.write(cmd)
 f.close()
 
-instance_ids = [line.strip().split()[0] for line in open(server_location)]
+instance_ids = [line.strip() for line in open(remote_host_file)]
 print "instance_ids %(id)s" % { 'id': str(instance_ids)}
+
 
 running_procs = dict()
 for instance_id in instance_ids:
-    running_procs[instance_id] = Popen("cat %(cat_file)s | oq-ssh %(instance_id)s" %
-        {'instance_id' : instance_id, 'cat_file': cat_file },
+    running_procs[instance_id] = Popen("cat %(cat_file)s | %(ssh)s %(instance_id)s" %
+        {'instance_id' : instance_id, 'cat_file': cat_file, 'ssh' : ssh },
         stdout=PIPE, stderr=PIPE, shell=True)
 
 while running_procs:
