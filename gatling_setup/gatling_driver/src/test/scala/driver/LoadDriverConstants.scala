@@ -1,9 +1,9 @@
 package driver
 
 object LoadDriverConstants {
-    val repetitions = 500
+    val repetitions = 250
     val warmup = 5
-    val totalUsers = 100
+    val totalUsers = 8000
     val rampTime = totalUsers/1000+1
     var file = "/tmp/loadtesturl.txt"
 
