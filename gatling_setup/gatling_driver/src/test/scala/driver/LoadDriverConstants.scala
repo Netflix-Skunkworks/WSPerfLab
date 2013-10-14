@@ -8,7 +8,7 @@ object LoadDriverConstants {
     val warmup = 5
     val totalUsers = 8000
     val rampTime = totalUsers/1000+1
-    var file = "/tmp/loadtesturl.txt"
+    var urlfile = "/tmp/loadtesturl.txt"
 
     val randomPerThread : ThreadLocal[Random] = {
         new ThreadLocal[Random] {
@@ -16,10 +16,11 @@ object LoadDriverConstants {
         }
     }
 
+
     /** grab the host name from /tmp/servers.txt (from grab_ids.py) - since there should only be 1 ws_impl, just grab the first host */
     val url : String = {
         import scala.io.Source
-        val source = Source.fromFile(file)
+        val source = Source.fromFile(urlfile)
         val line = source.getLines.find(_ => true).getOrElse("NO HOST SPECIFIED")
         source.close
         line
