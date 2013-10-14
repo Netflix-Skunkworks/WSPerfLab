@@ -4,17 +4,14 @@ sshCommand="ssh"
 update=false
 tomcatVersion="7.0.42"
 
-if [ -z $GIT_COMMAND ] then
-    GIT_COMMAND='git clone git://github.com/benjchristensen/WSPerfLab.git'
+if [ -z $GIT_COMMAND ]; then
+    GIT_COMMAND='git clone -b gatling_setup git://github.com/katzseth22202/WSPerfLab.git'
 fi
 
 while getopts "h:s:t:b:u" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
-      ;;
-    b)
- 	  backend=$OPTARG
       ;;
     s)
       sshCommand=$OPTARG
@@ -33,13 +30,7 @@ done
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
-	echo "$0 -h [HOSTNAME] -b [BACKEND_HOSTNAME ie http://ec2-54-234-88-75.compute-1.amazonaws.com:8080] -t [tomcat version(optional defaults to 7.0.42] -s [SSH COMMAND (optional)] -u (to update only)"
-	exit
-fi
-
-if [ -z "$backend" ]; then
-	echo $'\a'-b required for backend hostname
-	echo "$0 -h [HOSTNAME] -b [BACKEND_HOSTNAME ie http://ec2-54-234-88-75.compute-1.amazonaws.com:8080] -t [tomcat version(optional defaults to 7.0.42] -s [SSH COMMAND (optional)] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -t [tomcat version(optional defaults to 7.0.42] -s [SSH COMMAND (optional)] -u (to update only)"
 	exit
 fi
 
@@ -69,7 +60,6 @@ else
 	eval "$sshCommand $hostname '/bin/rm -R apache-tomcat-${tomcatVersion}/webapps/docs/ apache-tomcat-${tomcatVersion}/webapps/examples/ apache-tomcat-${tomcatVersion}/webapps/host-manager/ apache-tomcat-${tomcatVersion}/webapps/manager/'"
 	echo "--- Add perf.test.backend.hostname property to catalina.sh"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"99a100,101\" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"> JAVA_OPTS=\\\"\\\$JAVA_OPTS -Dperf.test.backend.hostname=$backend/ws-backend-mock\\\"\" >> catalina.patch'"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"> \" >> catalina.patch'"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; patch catalina.sh catalina.patch'"
 fi
