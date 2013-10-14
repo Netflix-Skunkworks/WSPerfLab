@@ -8,7 +8,7 @@ if [ -z $GIT_COMMAND ]; then
     GIT_COMMAND='git clone -b gatling_setup git://github.com/katzseth22202/WSPerfLab.git'
 fi
 
-while getopts "h:s:t:b:u" opt; do
+while getopts "h:s:t:u" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
@@ -58,7 +58,6 @@ else
 	eval "$sshCommand $hostname 'tar xzvf apache-tomcat-${tomcatVersion}.tar.gz'"
 	echo "--- Delete demo apps from Tomcat 7"
 	eval "$sshCommand $hostname '/bin/rm -R apache-tomcat-${tomcatVersion}/webapps/docs/ apache-tomcat-${tomcatVersion}/webapps/examples/ apache-tomcat-${tomcatVersion}/webapps/host-manager/ apache-tomcat-${tomcatVersion}/webapps/manager/'"
-	echo "--- Add perf.test.backend.hostname property to catalina.sh"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"99a100,101\" >> catalina.patch'"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"> \" >> catalina.patch'"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; patch catalina.sh catalina.patch'"
