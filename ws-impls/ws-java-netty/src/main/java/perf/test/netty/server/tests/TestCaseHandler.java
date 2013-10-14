@@ -1,5 +1,9 @@
 package perf.test.netty.server.tests;
 
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
+
 import org.codehaus.jackson.JsonFactory;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
@@ -10,14 +14,11 @@ import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.jboss.netty.handler.codec.http.QueryStringDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import perf.test.netty.NettyUtils;
 import perf.test.netty.PropertyNames;
 import perf.test.netty.client.NettyClientPool;
 import perf.test.netty.server.StatusRetriever;
-
-import java.net.URI;
-import java.util.List;
-import java.util.Map;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
@@ -34,8 +35,6 @@ public abstract class TestCaseHandler {
         this.testCaseName = testCaseName;
         clientPool = new NettyClientPool(PropertyNames.MockBackendMaxConnectionsPerTest.getValueAsInt(),
                                          PropertyNames.MockBackendMaxConnectionsPerTest.getValueAsInt(),
-                                         PropertyNames.MockBackendPort.getValueAsInt(),
-                                         PropertyNames.MockBackendHost.getValueAsString(),
                                          PropertyNames.MockBackendMaxBacklog.getValueAsInt());
     }
 
@@ -70,8 +69,8 @@ public abstract class TestCaseHandler {
 
     protected void get(String path, NettyClientPool.ClientCompletionListener listener, HttpResponse topLevelResponse,
                        Channel channel, boolean keepAlive) {
-        String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
-        path = basePath + path;
+        // path = basePath + path;
+        path = null;
         try {
             clientPool.sendGetRequest(new URI(path), listener);
         } catch (Exception e) {
