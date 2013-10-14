@@ -57,10 +57,8 @@ public class TestCaseA extends TestCaseHandler {
             PropertyNames.TestCaseACallEItemDelay.getValueAsInt());
 
     private static String constructUri(int numItems, int itemSize, int delay) {
-        String uri = String.format("http://%s:%d%s/mock.json?numItems=%d&itemSize=%d&delay=%d&id=",
-                URLSelector.chooseHost(),
-                PropertyNames.MockBackendPort.getValueAsInt(),
-                PropertyNames.MockBackendContextPath.getValueAsString(),
+        String uri = String.format("%s/mock.json?numItems=%d&itemSize=%d&delay=%d&id=",
+                URLSelector.chooseURLBase(),
                 numItems, itemSize, delay);
         if (logger.isDebugEnabled()) {
             logger.debug("Created a new uri: " + uri);

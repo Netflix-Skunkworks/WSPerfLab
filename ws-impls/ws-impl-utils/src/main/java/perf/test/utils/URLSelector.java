@@ -4,8 +4,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Random;
 
-import org.apache.commons.lang3.StringUtils;
-
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 
@@ -41,7 +39,8 @@ public class URLSelector {
     }
 
     /** picks a host at random.  Thread safe*/
-    public static String chooseHost() {
-        return hostNames.get(rnd.get().nextInt(hostNames.size()));
+    public static String chooseURLBase() {
+        final String host = hostNames.get(rnd.get().nextInt(hostNames.size()));
+        return "http://" + host + ":8080/ws-backend-mock";
     }
 }
