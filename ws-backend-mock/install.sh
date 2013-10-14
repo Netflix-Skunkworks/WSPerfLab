@@ -4,8 +4,8 @@ sshCommand="ssh"
 update=false
 tomcatVersion="7.0.42"
 
-if [ -z $GIT_COMMAND ] then
-    GIT_COMMAND='git clone git://github.com/benjchristensen/WSPerfLab.git'
+if [ -z $GIT_COMMAND ]; then
+    GIT_COMMAND='git clone -b gatling_setup git://github.com/katzseth22202/WSPerfLab.git'
 fi
 
 
