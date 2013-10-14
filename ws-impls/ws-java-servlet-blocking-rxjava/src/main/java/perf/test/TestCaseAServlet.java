@@ -153,7 +153,7 @@ public class TestCaseAServlet extends HttpServlet {
 
                     @Override
                     public void run() {
-                        HttpGet httpGet = new HttpGet(URLSelector.chooseHost() + url);
+                        HttpGet httpGet = new HttpGet(URLSelector.chooseURLBase() + url);
                         try {
                             HttpResponse response = httpclient.execute(httpGet);
 

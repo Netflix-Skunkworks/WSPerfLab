@@ -127,7 +127,7 @@ public class TestCaseAServlet extends HttpServlet {
     }
 
     public String get(String url) {
-        String uri = URLSelector.chooseHost() + url;
+        String uri = URLSelector.chooseURLBase() + url;
         HttpGet httpGet = new HttpGet(uri);
         try {
             HttpResponse response = httpclient.execute(httpGet);

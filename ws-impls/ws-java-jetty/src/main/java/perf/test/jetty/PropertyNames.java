@@ -17,8 +17,6 @@ public enum PropertyNames {
     ClientReadTimeout("client.read.timeout", "500"),
     ClientConnectTimeout("client.connect.timeout", "500"),
 
-    MockBackendPort("perf.test.backend.port", "8989"),
-    MockBackendContextPath("perf.test.backend.context.path", "/ws-backend-mock"),
     MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "100"),
     MockBackendClientQueueSize("perf.test.backend.host.client.q.size", "1000"),
 
