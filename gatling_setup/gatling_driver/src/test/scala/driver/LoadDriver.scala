@@ -16,7 +16,7 @@ class LoadDriver extends Simulation {
   val scn = scenario("My scenario")
             .repeat(LoadDriverConstants.repetitions) {
                exec(http("My Page")
-                 .get(LoadDriverConstants.nextURL)
+                 .get(LoadDriverConstants.nextURL())
                  .headers(headers_1)
                  .check(status.is(200)))
             }
