@@ -23,7 +23,12 @@ object LoadDriverConstants {
         val source = Source.fromFile(urlfile)
         val line = source.getLines.find(_ => true).getOrElse("NO HOST SPECIFIED")
         source.close
-        line
+        if (line.endsWith("/")) {
+            line
+        }
+        else {
+            line+"/"
+        }
     }
 
     def nextURL() : String = {
