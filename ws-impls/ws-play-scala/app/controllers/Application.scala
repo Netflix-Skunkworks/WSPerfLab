@@ -56,8 +56,17 @@ object Application extends Controller {
       chooseURLBase + "/mock.json?numItems=100&itemSize=30&delay=40&id=" + id
   }
 
-  private def responseKey(thisRequest: Char, parsedAlready : ConcurrentHashMap[Char, HashMap[String, Object]], rs: Response) : Int = {
-      parseResponse(thisRequest, parsedAlready, rs).get("responseKey").asInstanceOf[Int]
+  val responseKey = "responseKey"
+  val delay = "delay"
+
+  private def responseKey(rs: Response) : Int = {
+      parseResponse(rs).get(responseKey).asInstanceOf[Int]
+  }
+
+  private def buildDelayStat(name: String, jsonMap: HashMap[String, Object]) : HashMap[String, Int] = {
+      val map = new HashMap[String, Int]
+      map.put(name, jsonMap.get(delay).asInstanceOf[Int])
+      map
   }
 
   private def doProcessing(id: Int) = {
@@ -65,30 +74,44 @@ object Application extends Controller {
       // start a and b in parallel
       val aFuture = WS.url(AURL(id)).get()
       val bFuture = WS.url(BURL(id)).get()
-      val parsedAlready = new ConcurrentHashMap[Char, HashMap[String, Object]]
 
       for (aResponse <- aFuture;
           bResponse <- bFuture;
-          cResponse <-WS.url(CURL(responseKey('C', parsedAlready, aResponse))).get();
-          dResponse <- WS.url(DURL(responseKey('D', parsedAlready, aResponse))).get();
-          eResonse <- WS.url(EURL(responseKey('E', parsedAlready, bResponse))).get()) yield {
-          Ok("done")
+          cResponse <-WS.url(CURL(responseKey(aResponse))).get();
+          dResponse <- WS.url(DURL(responseKey(aResponse))).get();
+          eResponse <- WS.url(EURL(responseKey(bResponse))).get()) yield {
+
+          val aJSON = parseResponse(aResponse)
+          val bJSON = parseResponse(bResponse)
+          val cJSON = parseResponse(cResponse)
+          val dJSON = parseResponse(dResponse)
+          val eJSON = parseResponse(eResponse)
+
+          // ported from ServiceResponseBuilder.java
+          val sumResponse = cJSON.get(responseKey).asInstanceOf[Int] + dJSON.get(responseKey).asInstanceOf[Int] + eJSON.get(responseKey).asInstanceOf[Int]
+          val resultMap = new HashMap[String, Object]
+          resultMap.put(responseKey, sumResponse.asInstanceOf[Object])
+          val delayList = new ArrayList[HashMap[String, Int]]
+          delayList.add(buildDelayStat("a", aJSON))
+          delayList.add(buildDelayStat("b", bJSON))
+          delayList.add(buildDelayStat("c", cJSON))
+          delayList.add(buildDelayStat("d", dJSON))
+          delayList.add(buildDelayStat("e", eJSON))
+          resultMap.put(delay, delayList.asInstanceOf[Object])
+          val mapper = new ObjectMapper
+
+          Ok(mapper.writeValueAsString(resultMap))
       }
   }
 
+  class HashTypeReference extends TypeReference[HashMap[String, Object]] {}
 
-  private def parseResponse(thisRequest: Char, parsedAlready: ConcurrentHashMap[Char, HashMap[String, Object]], rs: Response) : HashMap[String, Object] = {
+  private def parseResponse(rs: Response) : HashMap[String, Object] = {
     val mapper = new ObjectMapper
-    val existing = parsedAlready.get(thisRequest)
-    if (existing != null) {
-       existing
-    }
-    else {
-        val typeRef = new TypeReference[HashMap[String, Object]]() {}
-        val result = mapper.readValue(rs.body, typeRef)
-        parsedAlready.putIfAbsent(thisRequest, result)
-        result
-    }
+
+
+    val typeRef = new HashTypeReference
+    mapper.readValue(rs.body, typeRef)
   }
 
   def testA = Action.async { request =>
