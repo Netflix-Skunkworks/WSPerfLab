@@ -13,4 +13,3 @@ dist
 /.project
 /RUNNING_PID
 /.settings
-activator-sbt-*-shim.sbt
