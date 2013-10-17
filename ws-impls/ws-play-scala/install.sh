@@ -53,10 +53,10 @@ else
 	echo "--- Unzip play"
 	eval "$sshCommand $hostname 'unzip play-${version}.zip'"
 	echo "--- Link play"
-	eval "$sshCommand $hostname 'ln -s 'ln -s play-${version}/play WSPerfLab/ws-impls/ws-play-scala/play"
+	eval "$sshCommand $hostname 'ln -s play-${version}/play WSPerfLab/ws-impls/ws-play-scala/play'"
 fi
 
 echo "--- Stage play"
-eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-play-scala; ./play clean compile stage"
+eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-play-scala; ./play clean compile stage'"
 echo "--- Run play"
-eval "$sshCommand $hostname 'WSPerfLab/ws-impls/ws-play-scala/target/universal/stage/bin; bash ws-play-scala -Dhttp.port=8080&"
+eval "$sshCommand $hostname 'WSPerfLab/ws-impls/ws-play-scala/target/universal/stage/bin; bash ws-play-scala -Dhttp.port=8080&'"
