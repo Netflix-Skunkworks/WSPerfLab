@@ -59,4 +59,4 @@ fi
 echo "--- Stage play"
 eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-play-scala; ./play clean compile stage'"
 echo "--- Run play"
-eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-play-scala/target/universal/stage/bin; bash ws-play-scala -Dhttp.port=8080 &'"
+eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-play-scala; bash run_in_background.sh'"
