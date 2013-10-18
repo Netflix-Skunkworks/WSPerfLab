@@ -13,10 +13,12 @@ import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.databind._
 import java.util._
 import java.util.concurrent.ConcurrentHashMap
+import java.lang.management._
 import play.api.libs.concurrent.Execution.Implicits._
 
 object Application extends Controller {
 
+  private val osStats = ManagementFactory.getOperatingSystemMXBean
 
   private val fileVector = {
      val fileLocation = "/tmp/wsmock_servers.txt"
@@ -84,23 +86,26 @@ object Application extends Controller {
      map
   }
 
-  private def buildItem(name: String, jsonMap: HashMap[String, Object]) : HashMap[String, HashMap[String, Object]] = {
-     val map = new HashMap[String, HashMap[String, Object]]
-     map.put(name, jsonMap)
-     map
-  }
-
   private def doProcessing(id: Int) = {
+      val start = System.currentTimeMillis
 
       // start a and b in parallel
       val aFuture = WS.url(AURL(id)).get()
       val bFuture = WS.url(BURL(id)).get()
 
+      // c&d can execute right after a, and e can execute right after b.
+      // if we put these statements in the sequence comprehension, there would be
+      // some unnecessary sequencing.
+      val cFuture = aFuture.flatMap(aResponse => WS.url(CURL(responseKey(aResponse))).get())
+      val dFuture = aFuture.flatMap(aResponse => WS.url(DURL(responseKey(aResponse))).get())
+      val eFuture = bFuture.flatMap(bResponse=> WS.url(EURL(responseKey(bResponse))).get())
+
+      // get all the futures and process the results
       for (aResponse <- aFuture;
           bResponse <- bFuture;
-          cResponse <-WS.url(CURL(responseKey(aResponse))).get();
-          dResponse <- WS.url(DURL(responseKey(aResponse))).get();
-          eResponse <- WS.url(EURL(responseKey(bResponse))).get()) yield {
+          cResponse <- cFuture;
+          dResponse <- dFuture;
+          eResponse <- eFuture) yield {
 
           val aJSON = parseResponse(aResponse)
           val bJSON = parseResponse(bResponse)
@@ -136,16 +141,34 @@ object Application extends Controller {
           itemSizeList.add(buildItemSizeStat("e", eJSON))
           resultMap.put(itemSize, itemSizeList.asInstanceOf[Object])
 
-          val itemList = new ArrayList[HashMap[String, HashMap[String, Object]]]
-          itemList.add(buildItem("a", aJSON))
-          itemList.add(buildItem("b", bJSON))
-          itemList.add(buildItem("c", cJSON))
-          itemList.add(buildItem("d", dJSON))
-          itemList.add(buildItem("e", eJSON))
+          val itemList = new ArrayList[String]
+          itemList.addAll(aJSON.get(items).asInstanceOf[Collection[String]])
+          itemList.addAll(bJSON.get(items).asInstanceOf[Collection[String]])
+          itemList.addAll(cJSON.get(items).asInstanceOf[Collection[String]])
+          itemList.addAll(dJSON.get(items).asInstanceOf[Collection[String]])
+          itemList.addAll(eJSON.get(items).asInstanceOf[Collection[String]])
           resultMap.put(items, itemList)
 
           val mapper = new ObjectMapper
-          Ok(mapper.writeValueAsString(resultMap))
+          Ok(mapper.writeValueAsString(resultMap)).as("text/json")
+              .withHeaders("server_response_time" -> (System.currentTimeMillis - start).toString,
+                  "os_arch" -> osStats.getArch,
+                  "os_version" -> osStats.getVersion,
+                  "jvm_version" -> System.getProperty("java.runtime.version"),
+                  "load_avg_per_core" -> loadAvgPerCore,
+                  "os_name" -> osStats.getName())
+      }
+  }
+
+  private def loadAvgPerCore() : String = {
+      val cores = Runtime.getRuntime.availableProcessors
+      val load = osStats.getSystemLoadAverage
+      val perCore = (load/cores).toString
+      if (perCore.length > 4) {
+        perCore.substring(0,4)
+      }
+      else {
+        perCore
       }
   }
 
