@@ -1,5 +1,13 @@
 package perf.test.netty.client;
 
+import java.net.URI;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -8,16 +16,9 @@ import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import perf.test.netty.PropertyNames;
 import perf.test.netty.server.StatusRetriever;
-
-import java.net.URI;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A pool of {@link NettyClient}s. This is an aggressively initialized client pool, the max connections of which are
@@ -38,9 +39,7 @@ public class NettyClientPool {
 
     private LinkedBlockingQueue<NettyClient> clients;
     private LinkedBlockingQueue<Request> requestQueue;
-    private final String host;
     private int maxConnections;
-    private final int port;
     private ClientBootstrap bootstrap;
     private volatile boolean shutdown;
     private final AtomicInteger connCount = new AtomicInteger();
@@ -48,11 +47,10 @@ public class NettyClientPool {
 
     private final ExecutorService requestQueueExecutor;
 
-    public NettyClientPool(int maxConnections, int connectionAtBootstrap, final int port, final String host,
+    public NettyClientPool(int maxConnections, int connectionAtBootstrap,
                            int requestQueueSize) throws InterruptedException {
         this.maxConnections = maxConnections;
-        this.port = port;
-        this.host = host;
+
         bootstrap();
         clients = new LinkedBlockingQueue<NettyClient>(maxConnections);
         requestQueue = new LinkedBlockingQueue<Request>(requestQueueSize);
@@ -200,7 +198,7 @@ public class NettyClientPool {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
-                        logger.info(String.format("A client connected to host %s at port %s", host, port));
+
                         Request request = requestQueue.poll();
                         if (null != request && clientToUse.claim()) { // since its connected, someone else may have claimed it.
                             // We do not process queued messages from the connection callback as that can be costly for the
@@ -245,7 +243,7 @@ public class NettyClientPool {
                     connCount.decrementAndGet();
                 }
             }
-        }, host, port);
+        } );
     }
 
     private void bootstrap() {

@@ -2,7 +2,6 @@ package perf.test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -23,6 +22,7 @@ import org.codehaus.jackson.JsonFactory;
 
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
+import perf.test.utils.URLSelector;
 import rx.Observable;
 import rx.Observer;
 import rx.Subscription;
@@ -45,19 +45,7 @@ public class TestCaseAServlet extends HttpServlet {
     // used for parallel execution of requests
     private final ThreadPoolExecutor executor;
 
-    private final String hostname;
-
     public TestCaseAServlet() {
-
-        // hostname via properties
-        String host = System.getProperty("perf.test.backend.hostname");
-        if (host == null) {
-            throw new IllegalStateException("The perf.test.backend.hostname property must be set.");
-        }
-        if (host.endsWith("/")) {
-            host = host.substring(0, host.length() - 1);
-        }
-        hostname = host;
 
         cm = new PoolingClientConnectionManager();
         // set the limit high so this isn't throttling us while we push to the limit
@@ -165,7 +153,7 @@ public class TestCaseAServlet extends HttpServlet {
 
                     @Override
                     public void run() {
-                        HttpGet httpGet = new HttpGet(hostname + url);
+                        HttpGet httpGet = new HttpGet(URLSelector.chooseURLBase() + url);
                         try {
                             HttpResponse response = httpclient.execute(httpGet);
 

@@ -1,22 +1,18 @@
 package perf.test.netty.client;
 
+import java.net.URI;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.net.InetSocketAddress;
-import java.net.URI;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A client abstraction for non-blocking clients. <br/>
@@ -43,17 +39,13 @@ class NettyClient {
     private Channel channel;
     private final ChannelFutureListener channelCloseListener;
     private NettyClientPool.ClientCompletionListener currentRequestCompletionListener;
-    private final String host;
-    private final int port;
+
     private final ClientBootstrap bootstrap;
     private final AtomicBoolean inUse = new AtomicBoolean();
 
-    NettyClient(ClientBootstrap bootstrap, ChannelFutureListener channelCloseListener, String host,
-                int port) {
+    NettyClient(ClientBootstrap bootstrap, ChannelFutureListener channelCloseListener) {
         this.bootstrap = bootstrap;
         this.channelCloseListener = channelCloseListener;
-        this.host = host;
-        this.port = port;
     }
 
     /**
@@ -73,7 +65,6 @@ class NettyClient {
         currentRequestCompletionListener = listener;
         channel.setAttachment(this);
         HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getSchemeSpecificPart());
-        request.setHeader(HttpHeaders.Names.HOST, host);
         channel.write(request);
     }
 
@@ -82,7 +73,8 @@ class NettyClient {
             return null;
         }
         bootstrap.setOption("child.keepAlive", true);
-        ChannelFuture connectFuture = bootstrap.connect(new InetSocketAddress(host, port));
+        ChannelFuture connectFuture = null;
+//        ChannelFuture connectFuture = bootstrap.connect(new InetSocketAddress(host, port));
         connectFuture.addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
@@ -92,7 +84,7 @@ class NettyClient {
                         channel.getCloseFuture().addListener(channelCloseListener);
                     }
                 } else {
-                    logger.error(String.format("Connect failed for host: %s and port: %s", host, port), future.getCause());
+//                    logger.error(String.format("Connect failed for host: %s and port: %s", host, port), future.getCause());
                 }
             }
         });
