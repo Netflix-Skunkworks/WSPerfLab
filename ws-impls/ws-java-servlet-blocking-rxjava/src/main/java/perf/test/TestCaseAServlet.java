@@ -2,7 +2,6 @@ package perf.test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -12,24 +11,19 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.PoolingClientConnectionManager;
-import org.apache.http.util.EntityUtils;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.codehaus.jackson.JsonFactory;
 
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 import rx.Observable;
-import rx.Observer;
-import rx.Subscription;
-import rx.subscriptions.Subscriptions;
-import rx.util.functions.Action1;
+import rx.apache.http.ObservableHttp;
+import rx.apache.http.ObservableHttpResponse;
 import rx.util.functions.Func1;
 import rx.util.functions.Func2;
+import rx.util.functions.Func3;
 
 /**
  * Servlet implementation class TestServlet
@@ -39,9 +33,7 @@ public class TestCaseAServlet extends HttpServlet {
 
     private final static JsonFactory jsonFactory = new JsonFactory();
 
-    // used for multi-threaded Http requests
-    private final PoolingClientConnectionManager cm;
-    private final HttpClient httpclient;
+    final CloseableHttpAsyncClient httpClient;
     // used for parallel execution of requests
     private final ThreadPoolExecutor executor;
 
@@ -59,17 +51,21 @@ public class TestCaseAServlet extends HttpServlet {
         }
         hostname = host;
 
-        cm = new PoolingClientConnectionManager();
-        // set the limit high so this isn't throttling us while we push to the limit
-        cm.setMaxTotal(1000);
-        cm.setDefaultMaxPerRoute(1000);
-        httpclient = new DefaultHttpClient(cm);
+        final RequestConfig requestConfig = RequestConfig.custom()
+                .setSocketTimeout(3000)
+                .setConnectTimeout(500).build();
+        this.httpClient = HttpAsyncClients.custom()
+                .setDefaultRequestConfig(requestConfig)
+                // set the limit high so this isn't throttling us while we push to the limit
+                .setMaxConnPerRoute(1000)
+                .setMaxConnTotal(1000)
+                .build();
 
         // used for parallel execution
         executor = new ThreadPoolExecutor(200, 1000, 1, TimeUnit.HOURS, new LinkedBlockingQueue<Runnable>());
     }
 
-    protected void doGet(HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         long startTime = System.currentTimeMillis();
         try {
             Object _id = request.getParameter("id");
@@ -81,70 +77,103 @@ public class TestCaseAServlet extends HttpServlet {
             final long id = Long.parseLong(String.valueOf(_id));
 
             try {
-                /**
-                 * The following is very obnoxious with all of the types and anonymous inner classes using Java.
-                 * This is FAR easier with Groovy/Clojure/whatever
-                 */
 
-                /* Fetch A then once it returns fetch C & D */
-                Observable<BackendResponse[]> acdValues = get("/mock.json?numItems=2&itemSize=50&delay=50&id=" + id)
-                        .mapMany(new Func1<BackendResponse, Observable<BackendResponse[]>>() {
+                /* A, C, D call graph */
+                final Observable<BackendResponse[]> acdResponse = get("/mock.json?numItems=2&itemSize=50&delay=50&id=" + id)
+                        .flatMap(new Func1<String, Observable<BackendResponse[]>>() {
+                            /* When response A received perform C & D */
 
                             @Override
-                            public Observable<BackendResponse[]> call(final BackendResponse aValue) {
-                                /* When response A received perform C & D */
-                                Observable<BackendResponse> cResponse = get("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + aValue.getResponseKey());
-                                Observable<BackendResponse> dResponse = get("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + aValue.getResponseKey());
-                                return Observable.zip(cResponse, dResponse, new Func2<BackendResponse, BackendResponse, BackendResponse[]>() {
+                            public Observable<BackendResponse[]> call(final String aValue) {
+                                return BackendResponse.fromJsonToObservable(jsonFactory, aValue).flatMap(new Func1<BackendResponse, Observable<BackendResponse[]>>() {
 
                                     @Override
-                                    public BackendResponse[] call(BackendResponse c, BackendResponse d) {
-                                        return new BackendResponse[] { aValue, c, d };
+                                    public Observable<BackendResponse[]> call(BackendResponse aResponse) {
+
+                                        Observable<BackendResponse> cResponse = get("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + aResponse.getResponseKey())
+                                                .flatMap(new Func1<String, Observable<BackendResponse>>() {
+
+                                                    @Override
+                                                    public Observable<BackendResponse> call(String cValue) {
+                                                        return BackendResponse.fromJsonToObservable(jsonFactory, cValue);
+                                                    }
+                                                });
+                                        Observable<BackendResponse> dResponse = get("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + aResponse.getResponseKey())
+                                                .flatMap(new Func1<String, Observable<BackendResponse>>() {
+
+                                                    @Override
+                                                    public Observable<BackendResponse> call(String dValue) {
+                                                        return BackendResponse.fromJsonToObservable(jsonFactory, dValue);
+                                                    }
+                                                });
+
+                                        return Observable.zip(Observable.just(aResponse), cResponse, dResponse, new Func3<BackendResponse, BackendResponse, BackendResponse, BackendResponse[]>() {
+
+                                            @Override
+                                            public BackendResponse[] call(BackendResponse aResponse, BackendResponse cResponse, BackendResponse dResponse) {
+                                                return new BackendResponse[] { aResponse, cResponse, dResponse };
+                                            }
+
+                                        });
+
                                     }
+
                                 });
+
                             }
+
                         });
 
-                /* Fetch B then once it returns fetch E */
-                Observable<BackendResponse[]> beValues = get("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id)
-                        .mapMany(new Func1<BackendResponse, Observable<BackendResponse[]>>() {
+                /* B, E call graph */
+                final Observable<BackendResponse[]> beResponse = get("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id)
+                        .flatMap(new Func1<String, Observable<BackendResponse[]>>() {
+                            /* When response B received perform E */
 
                             @Override
-                            public Observable<BackendResponse[]> call(final BackendResponse b) {
-                                Observable<BackendResponse> eResponse = get("/mock.json?numItems=100&itemSize=30&delay=40&id=" + b.getResponseKey());
-                                return eResponse.map(new Func1<BackendResponse, BackendResponse[]>() {
+                            public Observable<BackendResponse[]> call(final String bValue) {
+                                return BackendResponse.fromJsonToObservable(jsonFactory, bValue).flatMap(new Func1<BackendResponse, Observable<BackendResponse[]>>() {
 
                                     @Override
-                                    public BackendResponse[] call(BackendResponse e) {
-                                        return new BackendResponse[] { b, e };
+                                    public Observable<BackendResponse[]> call(BackendResponse bResponse) {
+                                        Observable<BackendResponse> eResponse = get("/mock.json?numItems=100&itemSize=30&delay=40&id=" + bResponse.getResponseKey())
+                                                .flatMap(new Func1<String, Observable<BackendResponse>>() {
+
+                                                    @Override
+                                                    public Observable<BackendResponse> call(String eValue) {
+                                                        return BackendResponse.fromJsonToObservable(jsonFactory, eValue);
+                                                    }
+                                                });
+
+                                        return Observable.zip(Observable.just(bResponse), eResponse, new Func2<BackendResponse, BackendResponse, BackendResponse[]>() {
+
+                                            @Override
+                                            public BackendResponse[] call(BackendResponse bResponse, BackendResponse eResponse) {
+                                                return new BackendResponse[] { bResponse, eResponse };
+                                            }
+
+                                        });
                                     }
                                 });
+
                             }
 
                         });
 
-                Observable.zip(acdValues, beValues, new Func2<BackendResponse[], BackendResponse[], BackendResponse[]>() {
+                Observable<BackendResponse[]> completeResponse = Observable.zip(acdResponse, beResponse, new Func2<BackendResponse[], BackendResponse[], BackendResponse[]>() {
 
                     @Override
                     public BackendResponse[] call(BackendResponse[] acd, BackendResponse[] be) {
-                        // array of a, b, c, d, e
-                        return new BackendResponse[] { acd[0], be[0], acd[1], acd[2], be[1] };
-                    }
+                        return new BackendResponse[] { acd[0], acd[1], acd[2], be[0], be[1] };
+                    };
 
-                }).forEach(new Action1<BackendResponse[]>() {
-
-                    @Override
-                    public void call(BackendResponse[] be) {
-                        try {
-                            ByteArrayOutputStream bos = ServiceResponseBuilder.buildTestAResponse(jsonFactory, be[0], be[1], be[2], be[3], be[4]);
-                            // output to stream
-                            response.getWriter().write(bos.toString());
-                        } catch (Exception e) {
-                            throw new RuntimeException(e.getMessage(), e);
-                        }
-                    }
                 });
 
+                // blocking servlet call so block here
+                BackendResponse[] r = completeResponse.toBlockingObservable().single();
+
+                ByteArrayOutputStream bos = ServiceResponseBuilder.buildTestAResponse(jsonFactory, r[0], r[1], r[2], r[3], r[4]);
+                // output to stream
+                response.getWriter().write(bos.toString());
             } catch (Exception e) {
                 // error that needs to be returned
                 response.setStatus(500);
@@ -156,49 +185,27 @@ public class TestCaseAServlet extends HttpServlet {
         }
     }
 
-    public Observable<BackendResponse> get(final String url) {
-        return Observable.create(new Func1<Observer<BackendResponse>, Subscription>() {
+    public Observable<String> get(String url) {
+        String uri = hostname + url;
+        return ObservableHttp.createGet("uri", httpClient).toObservable().flatMap(new Func1<ObservableHttpResponse, Observable<String>>() {
 
             @Override
-            public Subscription call(final Observer<BackendResponse> observer) {
-                executor.submit(new Runnable() {
+            public Observable<String> call(ObservableHttpResponse response) {
+                if (response.getResponse().getStatusLine().getStatusCode() != 200) {
+                    return Observable.error(new RuntimeException("Failure: " + response.getResponse().getStatusLine()));
+                } else {
+                    return response.getContent().map(new Func1<byte[], String>() {
 
-                    @Override
-                    public void run() {
-                        HttpGet httpGet = new HttpGet(hostname + url);
-                        try {
-                            HttpResponse response = httpclient.execute(httpGet);
-
-                            if (response.getStatusLine().getStatusCode() != 200) {
-                                throw new RuntimeException("Failure: " + response.getStatusLine());
-                            }
-
-                            HttpEntity entity = response.getEntity();
-
-                            // get response data
-                            String data = EntityUtils.toString(entity);
-
-                            // ensure it is fully consumed
-                            EntityUtils.consume(entity);
-
-                            observer.onNext(BackendResponse.fromJson(jsonFactory, data));
-                            observer.onCompleted();
-                        } catch (Exception e) {
-                            observer.onError(new RuntimeException("Failure retrieving: " + url, e));
-                        } finally {
-                            httpGet.releaseConnection();
+                        @Override
+                        public String call(byte[] bb) {
+                            return new String(bb);
                         }
-                    }
 
-                });
-                /*
-                 * We're doing only single values inside the above work so unsubscribe
-                 * isn't needed to shortcut the work so we'll return an empty subscription.
-                 */
-                return Subscriptions.empty();
+                    });
+                }
 
             }
         });
-    }
 
+    }
 }

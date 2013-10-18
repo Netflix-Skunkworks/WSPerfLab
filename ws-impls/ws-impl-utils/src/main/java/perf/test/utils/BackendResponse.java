@@ -5,6 +5,14 @@ import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonToken;
 import org.junit.Test;
 
+import rx.Observable;
+import rx.Observable.OnSubscribeFunc;
+import rx.Scheduler;
+import rx.concurrency.Schedulers;
+import rx.subscriptions.Subscriptions;
+import rx.Observer;
+import rx.Subscription;
+
 import java.io.IOException;
 
 import static junit.framework.Assert.assertEquals;
@@ -36,6 +44,26 @@ public class BackendResponse {
     public static BackendResponse fromJson(JsonFactory jsonFactory, String json) throws Exception {
         JsonParser parser = jsonFactory.createJsonParser(json);
         return paseBackendResponse(parser);
+    }
+    
+    public static Observable<BackendResponse> fromJsonToObservable(final JsonFactory jsonFactory, final String json) {
+        return fromJsonToObservable(jsonFactory, json, Schedulers.threadPoolForComputation());
+    }
+    
+    public static Observable<BackendResponse> fromJsonToObservable(final JsonFactory jsonFactory, final String json, Scheduler scheduler)  {
+        return Observable.create(new OnSubscribeFunc<BackendResponse>() {
+
+            @Override
+            public Subscription onSubscribe(Observer<? super BackendResponse> o) {
+                try {
+                    o.onNext(fromJson(jsonFactory, json));
+                    o.onCompleted();
+                } catch (Exception e) {
+                    o.onError(e);
+                }
+                return Subscriptions.empty();
+            }
+        }).subscribeOn(scheduler);
     }
 
     public static BackendResponse paseBackendResponse(JsonParser parser) throws IOException {
