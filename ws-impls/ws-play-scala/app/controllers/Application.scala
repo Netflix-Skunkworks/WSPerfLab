@@ -58,6 +58,9 @@ object Application extends Controller {
 
   val responseKey = "responseKey"
   val delay = "delay"
+  val itemSize = "itemSize"
+  val numItems = "numItems"
+  val items = "items"
 
   private def responseKey(rs: Response) : Int = {
       parseResponse(rs).get(responseKey).asInstanceOf[Int]
@@ -67,6 +70,24 @@ object Application extends Controller {
       val map = new HashMap[String, Int]
       map.put(name, jsonMap.get(delay).asInstanceOf[Int])
       map
+  }
+
+  private def buildNumItemsStat(name: String, jsonMap: HashMap[String, Object]) : HashMap[String, Int] = {
+      val map = new HashMap[String, Int]
+      map.put(name, jsonMap.get(numItems).asInstanceOf[Int])
+      map
+  }
+
+  private def buildItemSizeStat(name: String, jsonMap: HashMap[String, Object]) : HashMap[String, Int] = {
+     val map = new HashMap[String, Int]
+     map.put(name, jsonMap.get(itemSize).asInstanceOf[Int])
+     map
+  }
+
+  private def buildItem(name: String, jsonMap: HashMap[String, Object]) : HashMap[String, HashMap[String, Object]] = {
+     val map = new HashMap[String, HashMap[String, Object]]
+     map.put(name, jsonMap)
+     map
   }
 
   private def doProcessing(id: Int) = {
@@ -98,8 +119,32 @@ object Application extends Controller {
           delayList.add(buildDelayStat("d", dJSON))
           delayList.add(buildDelayStat("e", eJSON))
           resultMap.put(delay, delayList.asInstanceOf[Object])
-          val mapper = new ObjectMapper
 
+          val numItemList = new ArrayList[HashMap[String, Int]]
+          numItemList.add(buildNumItemsStat("a", aJSON))
+          numItemList.add(buildNumItemsStat("b", bJSON))
+          numItemList.add(buildNumItemsStat("c", cJSON))
+          numItemList.add(buildNumItemsStat("d", dJSON))
+          numItemList.add(buildNumItemsStat("e", eJSON))
+          resultMap.put(numItems, numItemList.asInstanceOf[Object])
+
+          val itemSizeList = new ArrayList[HashMap[String, Int]]
+          itemSizeList.add(buildItemSizeStat("a", aJSON))
+          itemSizeList.add(buildItemSizeStat("b", bJSON))
+          itemSizeList.add(buildItemSizeStat("c", cJSON))
+          itemSizeList.add(buildItemSizeStat("d", dJSON))
+          itemSizeList.add(buildItemSizeStat("e", eJSON))
+          resultMap.put(itemSize, itemSizeList.asInstanceOf[Object])
+
+          val itemList = new ArrayList[HashMap[String, HashMap[String, Object]]]
+          itemList.add(buildItem("a", aJSON))
+          itemList.add(buildItem("b", bJSON))
+          itemList.add(buildItem("c", cJSON))
+          itemList.add(buildItem("d", dJSON))
+          itemList.add(buildItem("e", eJSON))
+          resultMap.put(items, itemList)
+
+          val mapper = new ObjectMapper
           Ok(mapper.writeValueAsString(resultMap))
       }
   }
