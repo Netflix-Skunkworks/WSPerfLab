@@ -17,14 +17,12 @@ public enum PropertyNames {
 
     ClientLoggingEnable("client.log.enable", "true"),
     ClientChunkSize("client.chunk.size", "1048576"),
-    ClientBacklogCleanerThreadCount("client.backlog.cleaner.count", "1"),
 
     MockBackendHost("perf.test.backend.host", "localhost"),
     MockBackendPort("perf.test.backend.port", "8989"),
     MockBackendContextPath("perf.test.backend.context.path", "/ws-backend-mock"),
     MockBackendConnectionsAtStartupPerTest("perf.test.backend.host.startupconn.per.test", "10"),
     MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "10"),
-    MockBackendMaxBacklog("perf.test.backend.host.max.backlog", "1000"),
 
     StatusRetrieverContextPath("http.server.status.endpoint", "status/"),
 

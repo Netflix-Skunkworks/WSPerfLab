@@ -1,7 +1,8 @@
 package perf.test.netty.server;
 
-import org.jboss.netty.logging.InternalLoggerFactory;
-import org.jboss.netty.logging.Slf4JLoggerFactory;
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.Slf4JLoggerFactory;
+import perf.test.netty.client.PoolExhaustedException;
 
 /**
  * Bootsrap that starts {@link NettyBasedHttpServer}
@@ -10,7 +11,7 @@ import org.jboss.netty.logging.Slf4JLoggerFactory;
  */
 public class ServerBootstrap {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, PoolExhaustedException {
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
 
         final NettyBasedHttpServer nettyBasedHttpServer = new NettyBasedHttpServer();

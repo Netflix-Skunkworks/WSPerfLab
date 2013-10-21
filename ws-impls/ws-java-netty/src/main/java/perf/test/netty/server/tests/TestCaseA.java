@@ -1,19 +1,21 @@
 package perf.test.netty.server.tests;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
-import org.jboss.netty.handler.codec.http.HttpVersion;
-import org.jboss.netty.util.CharsetUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.EventLoopGroup;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.util.AttributeKey;
+import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.NettyUtils;
 import perf.test.netty.PropertyNames;
-import perf.test.netty.client.NettyClientPool;
+import perf.test.netty.client.HttpClient;
+import perf.test.netty.client.PoolExhaustedException;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 
@@ -27,7 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class TestCaseA extends TestCaseHandler {
 
-    private static Logger logger = LoggerFactory.getLogger(TestCaseA.class);
+    private static final Logger logger = LoggerFactory.getLogger(TestCaseA.class);
 
     public static final String CALL_A_URI_WITHOUT_ID = constructUri(
             PropertyNames.TestCaseACallANumItems.getValueAsInt(),
@@ -62,51 +64,65 @@ public class TestCaseA extends TestCaseHandler {
         return uri;
     }
 
-    private AtomicLong inflightTests = new AtomicLong();
+    private final AtomicLong inflightTests = new AtomicLong();
 
-    public TestCaseA() throws InterruptedException {
-        super("testA");
+    private static final AttributeKey<Boolean> responseSent = new AttributeKey<Boolean>("response_sent_for_test");
+
+    public TestCaseA(EventLoopGroup eventLoopGroup) throws PoolExhaustedException {
+        super("testA", eventLoopGroup);
     }
 
     @Override
-    protected void executeTestCase(final Channel channel, final boolean keepAlive, String id, final HttpResponse topLevelResponse) throws Throwable {
+    protected void executeTestCase(final Channel channel, final boolean keepAlive, String id,
+                                   final FullHttpResponse topLevelResponse) throws Throwable {
+        channel.attr(responseSent).set(false);
         inflightTests.incrementAndGet();
         final ResponseCollector responseCollector = new ResponseCollector();
 
-        final MoveForwardBarrier topLevelMoveFwdBarrier = new MoveForwardBarrier("top", 2);
+        final MoveForwardBarrier topLevelMoveFwdBarrier = new MoveForwardBarrier(2);
 
         CompletionListener callAListener =
                 new CompletionListener(channel, keepAlive, responseCollector, ResponseCollector.RESPONSE_A_INDEX) {
 
                     @Override
                     protected void onResponseReceived() {
-                        final MoveForwardBarrier callAMoveFwdBarrier = new MoveForwardBarrier("callA", 2);
+                        final MoveForwardBarrier callAMoveFwdBarrier = new MoveForwardBarrier(2);
 
                         CompletionListener callCListener =
-                                new CompletionListener(channel, keepAlive, responseCollector, ResponseCollector.RESPONSE_C_INDEX) {
+                                new CompletionListener(channel, keepAlive, responseCollector,
+                                                       ResponseCollector.RESPONSE_C_INDEX) {
 
                                     @Override
                                     protected void onResponseReceived() {
-                                        if (callAMoveFwdBarrier.shouldProceedOnResponse() && topLevelMoveFwdBarrier.shouldProceedOnResponse()) {
-                                            buildFinalResponseAndFinish(channel, keepAlive, topLevelResponse, responseCollector);
+                                        if (callAMoveFwdBarrier.shouldProceedOnResponse() && topLevelMoveFwdBarrier
+                                                .shouldProceedOnResponse()) {
+                                            buildFinalResponseAndFinish(channel, keepAlive, topLevelResponse,
+                                                                        responseCollector);
                                         }
                                     }
                                 };
 
                         CompletionListener callDListener =
-                                new CompletionListener(channel, keepAlive, responseCollector, ResponseCollector.RESPONSE_D_INDEX) {
+                                new CompletionListener(channel, keepAlive, responseCollector,
+                                                       ResponseCollector.RESPONSE_D_INDEX) {
 
                                     @Override
                                     protected void onResponseReceived() {
-                                        if (callAMoveFwdBarrier.shouldProceedOnResponse() && topLevelMoveFwdBarrier.shouldProceedOnResponse()) {
-                                            buildFinalResponseAndFinish(channel, keepAlive, topLevelResponse, responseCollector);
+                                        if (callAMoveFwdBarrier.shouldProceedOnResponse() && topLevelMoveFwdBarrier
+                                                .shouldProceedOnResponse()) {
+                                            buildFinalResponseAndFinish(channel, keepAlive, topLevelResponse,
+                                                                        responseCollector);
                                         }
                                     }
                                 };
 
-                        get(CALL_C_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX].getResponseKey(),
+                        get(channel.eventLoop().next(),
+                            CALL_C_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX]
+                                    .getResponseKey(),
                             callCListener, topLevelResponse, channel, keepAlive);
-                        get(CALL_D_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX] .getResponseKey(),
+                        get(channel.eventLoop().next(),
+                            CALL_D_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX]
+                                    .getResponseKey(),
                             callDListener, topLevelResponse, channel, keepAlive);
                     }
                 };
@@ -116,22 +132,27 @@ public class TestCaseA extends TestCaseHandler {
                     @Override
                     protected void onResponseReceived() {
                         CompletionListener callEListener =
-                                new CompletionListener(channel, keepAlive, responseCollector, ResponseCollector.RESPONSE_E_INDEX) {
+                                new CompletionListener(channel, keepAlive, responseCollector,
+                                                       ResponseCollector.RESPONSE_E_INDEX) {
 
                                     @Override
                                     protected void onResponseReceived() {
                                         if (topLevelMoveFwdBarrier.shouldProceedOnResponse()) {
-                                            buildFinalResponseAndFinish(channel, keepAlive, topLevelResponse, responseCollector);
+                                            buildFinalResponseAndFinish(channel, keepAlive, topLevelResponse,
+                                                                        responseCollector);
                                         }
                                     }
                                 };
-                        get(CALL_E_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_B_INDEX]
-                                .getResponseKey(),
+                        get(channel.eventLoop().next(),
+                            CALL_E_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_B_INDEX]
+                                    .getResponseKey(),
                             callEListener, topLevelResponse, channel, keepAlive);
                     }
                 };
-        get(CALL_A_URI_WITHOUT_ID + id, callAListener, topLevelResponse, channel, keepAlive);
-        get(CALL_B_URI_WITHOUT_ID + id, callBListener, topLevelResponse, channel, keepAlive);
+        get(channel.eventLoop().next(), CALL_A_URI_WITHOUT_ID + id, callAListener, topLevelResponse, channel,
+            keepAlive);
+        get(channel.eventLoop().next(), CALL_B_URI_WITHOUT_ID + id, callBListener, topLevelResponse, channel,
+            keepAlive);
     }
 
     @Override
@@ -139,27 +160,29 @@ public class TestCaseA extends TestCaseHandler {
         return inflightTests.get();
     }
 
-    private void buildFinalResponseAndFinish(Channel channel, boolean keepAlive, HttpResponse topLevelResponse,
+    private void buildFinalResponseAndFinish(Channel channel, boolean keepAlive, FullHttpResponse topLevelResponse,
                                              ResponseCollector responseCollector) {
         ByteArrayOutputStream outputStream;
         try {
             outputStream = ServiceResponseBuilder.buildTestAResponse(jsonFactory, responseCollector.responses);
             // output to stream
-            topLevelResponse.setContent(ChannelBuffers.copiedBuffer(outputStream.toByteArray()));
+            topLevelResponse.content().writeBytes(Unpooled.copiedBuffer(outputStream.toByteArray()));
             NettyUtils.sendResponse(channel, keepAlive, jsonFactory, topLevelResponse);
         } catch (IOException e) {
-            HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+            FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
             NettyUtils.createErrorResponse(jsonFactory, response, e.getMessage());
             NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
         } finally {
-            inflightTests.decrementAndGet();
+            if (channel.attr(responseSent).compareAndSet(false, true)) {
+                inflightTests.decrementAndGet();
+            }
         }
     }
 
 
     public static class ResponseCollector {
 
-        private BackendResponse[] responses = new BackendResponse[5];
+        private final BackendResponse[] responses = new BackendResponse[5];
 
         private static final int RESPONSE_A_INDEX = 0;
         private static final int RESPONSE_B_INDEX = 1;
@@ -170,12 +193,10 @@ public class TestCaseA extends TestCaseHandler {
 
     private static class MoveForwardBarrier {
 
-        private final String name;
         private final int expectedCalls;
-        private AtomicInteger responseReceivedCounter;
+        private final AtomicInteger responseReceivedCounter;
 
-        private MoveForwardBarrier(String name, int expectedCalls) {
-            this.name = name;
+        private MoveForwardBarrier(int expectedCalls) {
             this.expectedCalls = expectedCalls;
             responseReceivedCounter = new AtomicInteger();
         }
@@ -186,15 +207,15 @@ public class TestCaseA extends TestCaseHandler {
         }
     }
 
-    private static abstract class CompletionListener implements NettyClientPool.ClientCompletionListener {
+    private abstract class CompletionListener implements HttpClient.ClientResponseHandler<FullHttpResponse> {
 
         private final Channel channel;
         private final boolean keepAlive;
         private final ResponseCollector responseCollector;
         private final int responseIndex;
 
-        public CompletionListener(Channel channel, boolean keepAlive, ResponseCollector responseCollector,
-                                  int responseIndex) {
+        protected CompletionListener(Channel channel, boolean keepAlive, ResponseCollector responseCollector,
+                                     int responseIndex) {
             this.channel = channel;
             this.keepAlive = keepAlive;
             this.responseCollector = responseCollector;
@@ -202,19 +223,19 @@ public class TestCaseA extends TestCaseHandler {
         }
 
         @Override
-        public void onComplete(HttpResponse response) {
+        public void onComplete(FullHttpResponse response) {
             HttpResponseStatus status = response.getStatus();
             if (status.equals(HttpResponseStatus.OK)) {
-                ChannelBuffer responseContent = response.getContent();
-                if (responseContent.readable()) {
+                ByteBuf responseContent = response.content();
+                if (responseContent.isReadable()) {
                     String content = responseContent.toString(CharsetUtil.UTF_8);
                     try {
                         responseCollector.responses[responseIndex] = BackendResponse.fromJson(jsonFactory, content);
                         onResponseReceived();
                     } catch (Exception e) {
                         logger.error("Failed to parse the received backend response.", e);
-                        response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
-                                                           HttpResponseStatus.INTERNAL_SERVER_ERROR);
+                        response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
+                                                               HttpResponseStatus.INTERNAL_SERVER_ERROR);
                         NettyUtils.createErrorResponse(jsonFactory, response, e.getMessage());
                         NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
                     }
@@ -226,15 +247,22 @@ public class TestCaseA extends TestCaseHandler {
         }
 
         @Override
-        public void onError(ExceptionEvent exceptionEvent) {
-            if (!channel.isConnected()) {
-                logger.error("Client completion listener got an exception when the server channel is disconnected. Nothing else to do.", exceptionEvent.getCause());
+        public void onError(Throwable cause) {
+            if (!channel.isActive()) {
+                logger.error("Client completion listener got an exception when the server channel is disconnected. Nothing else to do.",
+                             cause);
                 return;
             }
-            HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
-                                                            HttpResponseStatus.INTERNAL_SERVER_ERROR);
-            Throwable cause = exceptionEvent.getCause();
-            NettyUtils.createErrorResponse(jsonFactory, response, (null != cause) ? cause.getMessage() : "Unknown");
+            if (channel.attr(responseSent).compareAndSet(false, true)) {
+                inflightTests.decrementAndGet();
+            }
+            HttpResponseStatus status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+            if (cause instanceof PoolExhaustedException) {
+                status = HttpResponseStatus.SERVICE_UNAVAILABLE;
+            }
+            FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
+                                                                    HttpResponseStatus.INTERNAL_SERVER_ERROR);
+            NettyUtils.createErrorResponse(status, jsonFactory, response, null != cause ? cause.getMessage() : "Unknown");
             NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
         }
 
