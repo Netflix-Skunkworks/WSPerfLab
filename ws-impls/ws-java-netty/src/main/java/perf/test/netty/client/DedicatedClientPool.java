@@ -79,17 +79,18 @@ class DedicatedClientPool<T, R extends HttpRequest> {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
+                        logger.info("New client connected for host {} and port {}", serverAddress.getHostName(),
+                                    serverAddress.getPort());
+                        final DedicatedHttpClient<T, R> httpClient = getHttpClient(future.channel());
                         future.channel().closeFuture().addListener(new ChannelFutureListener() {
                             @Override
                             public void operationComplete(ChannelFuture future) throws Exception {
                                 logger.info("Client disconnected from host {} and port {}", serverAddress.getHostName(),
                                             serverAddress.getPort());
                                 clientLimitEnforcer.remove(clientLimitEnforcingToken);
+                                availableClients.remove(httpClient);
                             }
                         });
-                        logger.info("New client connected for host {} and port {}", serverAddress.getHostName(),
-                                    serverAddress.getPort());
-                        DedicatedHttpClient<T, R> httpClient = getHttpClient(future.channel());
                         if (null == completionPromise) {
                             addAvailableClient(httpClient);
                         } else {
