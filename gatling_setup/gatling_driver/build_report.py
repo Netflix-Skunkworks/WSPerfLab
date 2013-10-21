@@ -1,9 +1,8 @@
 import sys
 import math
 
-rampTime = 10
-runTime = 50
-numLoops = 10
+rampTime = 5
+runTime = 25
 firstLine = True
 startTime = 0
 startSend = 4
@@ -16,7 +15,7 @@ currentIndex = -1
 okCount = 0
 koCount = 0
 latencyList=[]
-usersPerRamp = 20
+usersPerRamp = 750
 latencies=[10, 25, 50, 75, 90, 95, 99]
 
 
@@ -43,7 +42,7 @@ def printIndexResults():
         idx = int(pct*latencyListLen/100)
         latencyResults.append(latencyList[idx])
     if (currentIndex >= 0):
-        print("%(idx)s\t%(ok)s\t%(ko)s\t%(l)s" % 
+        print("%(idx)s\t%(ok)s\t%(ko)s\t%(l)s" %
             {'ok': okCount/time, 'ko': koCount/time, 'idx' : (currentIndex+1)*usersPerRamp, 'l' : str(latencyResults) })
     okCount = 0
     koCount = 0
@@ -53,7 +52,7 @@ def printIndexResults():
 for line in sys.stdin:
    elements = line.split()
    if len(elements) >= 9:
-      if(firstLine): 
+      if(firstLine):
         firstLine=False
         startTime=int(elements[startSend])
       thisIndex= getIndex(int(elements[startSend]))
@@ -67,8 +66,8 @@ for line in sys.stdin:
       latencyList.append(latency)
       if (thisIndex != currentIndex):
          printIndexResults()
-         
+
          currentIndex = thisIndex
-         
+
 printIndexResults()
-         
+
