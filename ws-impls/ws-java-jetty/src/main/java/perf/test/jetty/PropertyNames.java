@@ -1,5 +1,6 @@
 package perf.test.jetty;
 
+
 /**
  * All the properties used by netty module. The property values are obtained as {@link System#getProperty(String, String)} for
  * the property name specified by {@link #getPropertyName()} with a default value as specified
@@ -16,9 +17,6 @@ public enum PropertyNames {
     ClientReadTimeout("client.read.timeout", "500"),
     ClientConnectTimeout("client.connect.timeout", "500"),
 
-    MockBackendHost("perf.test.backend.host", "localhost"),
-    MockBackendPort("perf.test.backend.port", "8989"),
-    MockBackendContextPath("perf.test.backend.context.path", "/ws-backend-mock"),
     MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "100"),
     MockBackendClientQueueSize("perf.test.backend.host.client.q.size", "1000"),
 
