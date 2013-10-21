@@ -2,9 +2,6 @@ package perf.test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import javax.servlet.AsyncContext;
 import javax.servlet.ServletException;
@@ -41,8 +38,6 @@ public class TestCaseAServlet extends HttpServlet {
     private final static JsonFactory jsonFactory = new JsonFactory();
 
     final CloseableHttpAsyncClient httpClient;
-    // used for parallel execution of requests
-    private final ThreadPoolExecutor executor;
 
     private final String hostname;
 
@@ -67,9 +62,7 @@ public class TestCaseAServlet extends HttpServlet {
                 .setMaxConnPerRoute(1000)
                 .setMaxConnTotal(1000)
                 .build();
-
-        // used for parallel execution
-        executor = new ThreadPoolExecutor(200, 1000, 1, TimeUnit.HOURS, new LinkedBlockingQueue<Runnable>());
+        this.httpClient.start();
     }
 
     protected void doGet(HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
@@ -81,18 +74,22 @@ public class TestCaseAServlet extends HttpServlet {
                 response.setStatus(500);
                 return;
             }
+
             long id = Long.parseLong(String.valueOf(_id));
 
             Observable<ByteArrayOutputStream> work = defineWork(id);
 
             final AsyncContext async = request.startAsync();
-            Observable<ServletOutputStream> writerAvailable = Observable.create(new AsyncWriterObservable(defineWork(id), request, async, response.getOutputStream()));
+            Observable<ServletOutputStream> writerAvailable = Observable.create(new AsyncWriterObservable(async, response.getOutputStream()));
 
+            // when work and writer are available (concurrently subscribed to in zip) we then write to the output stream
             Observable.merge(Observable.zip(work, writerAvailable, new Func2<ByteArrayOutputStream, ServletOutputStream, Observable<Void>>() {
 
                 @Override
                 public Observable<Void> call(ByteArrayOutputStream workOut, ServletOutputStream servletOut) {
                     try {
+                        // this has to be before writing the output
+                        ServiceResponseBuilder.addResponseHeaders(response, startTime);
                         // Jetty 9.1 supports using ByteBuf instead of copying between arrays like this
                         // so that may be worth exploring
                         servletOut.write(workOut.toByteArray());
@@ -106,12 +103,12 @@ public class TestCaseAServlet extends HttpServlet {
 
                 @Override
                 public void onCompleted() {
-                    ServiceResponseBuilder.addResponseHeaders(response, startTime);
                     async.complete();
                 }
 
                 @Override
                 public void onError(Throwable e) {
+                    e.printStackTrace();
                     // error that needs to be returned
                     response.setStatus(500);
                     try {
@@ -250,7 +247,7 @@ public class TestCaseAServlet extends HttpServlet {
 
             @Override
             public BackendResponse[] call(BackendResponse[] acd, BackendResponse[] be) {
-                return new BackendResponse[] { acd[0], acd[1], acd[2], be[0], be[1] };
+                return new BackendResponse[] { acd[0], be[0], acd[1], acd[2], be[1] };
             };
 
         });
@@ -270,14 +267,10 @@ public class TestCaseAServlet extends HttpServlet {
     }
 
     private final class AsyncWriterObservable implements OnSubscribeFunc<ServletOutputStream> {
-        private final HttpServletRequest request;
         private final AsyncContext async;
         private final ServletOutputStream out;
-        private final Observable<ByteArrayOutputStream> observable;
 
-        private AsyncWriterObservable(Observable<ByteArrayOutputStream> observable, HttpServletRequest request, AsyncContext async, ServletOutputStream out) {
-            this.observable = observable;
-            this.request = request;
+        private AsyncWriterObservable(AsyncContext async, ServletOutputStream out) {
             this.async = async;
             this.out = out;
         }
@@ -292,6 +285,9 @@ public class TestCaseAServlet extends HttpServlet {
                     if (!s.isUnsubscribed()) {
                         o.onNext(out);
                     }
+
+                    // TODO fix hack to work around zip bug
+                    o.onCompleted();
                 }
 
                 public void onError(Throwable t) {
