@@ -35,10 +35,9 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     public static final String PROCESSING_COMPLETE_PROMISE_KEY_NAME = "processing_complete_promise";
     public static final AttributeKey<AtomicInteger> RETRY_COUNT_KEY = new AttributeKey<AtomicInteger>("retry_count");
 
-    private final AttributeKey<HttpClient.ClientResponseHandler<T>> responseHandlerKey =
-            new AttributeKey<HttpClient.ClientResponseHandler<T>>(RESPONSE_HANDLER_ATTR_KEY_NAME);
-    private final AttributeKey<Promise<T>> processingCompletePromiseKey =
-            new AttributeKey<Promise<T>>(PROCESSING_COMPLETE_PROMISE_KEY_NAME);
+    private final String keyPrefix;
+    private final AttributeKey<HttpClient.ClientResponseHandler<T>> responseHandlerKey;
+    private final AttributeKey<Promise<T>> processingCompletePromiseKey;
 
     protected final Bootstrap bootstrap;
     protected final InetSocketAddress serverAddress;
@@ -52,6 +51,10 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     private final int coreConnections;
 
     DedicatedClientPool(InetSocketAddress serverAddress, Bootstrap bootstrap, int maxConnections, int coreConnections) {
+        keyPrefix = serverAddress.getHostName() + ':' + serverAddress.getPort();
+        responseHandlerKey = new AttributeKey<HttpClient.ClientResponseHandler<T>>(keyPrefix + RESPONSE_HANDLER_ATTR_KEY_NAME);
+        processingCompletePromiseKey = new AttributeKey<Promise<T>>(keyPrefix + PROCESSING_COMPLETE_PROMISE_KEY_NAME);
+
         this.coreConnections = coreConnections;
         Preconditions.checkArgument(coreConnections <= maxConnections,
                                     "Core connection count can not be more than max connections.");
@@ -156,9 +159,11 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     }
 
     public void populateStatus(StatusRetriever.TestCaseStatus testCaseStatus) {
-        testCaseStatus.setAvailConnectionsCount(availableClients.size());
-        testCaseStatus.setTotalConnectionsCount(clientLimitEnforcer.size());
-        testCaseStatus.setUnhandledRequestsSinceStartUp(unhandledRequests.get());
+        StatusRetriever.ConnPoolStatus connPoolStatus = new StatusRetriever.ConnPoolStatus();
+        testCaseStatus.addConnPoolStats(serverAddress, connPoolStatus);
+        connPoolStatus.setAvailableConnectionsCount(availableClients.size());
+        connPoolStatus.setTotalConnectionsCount(clientLimitEnforcer.size());
+        connPoolStatus.setUnhandledRequestsSinceStartUp(unhandledRequests.get());
     }
 
     void onUnhandledRequest() {

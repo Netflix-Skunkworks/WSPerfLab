@@ -119,11 +119,11 @@ public class TestCaseA extends TestCaseHandler {
                         get(channel.eventLoop().next(),
                             CALL_C_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX]
                                     .getResponseKey(),
-                            callCListener, topLevelResponse, channel, keepAlive);
+                            callCListener);
                         get(channel.eventLoop().next(),
                             CALL_D_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX]
                                     .getResponseKey(),
-                            callDListener, topLevelResponse, channel, keepAlive);
+                            callDListener);
                     }
                 };
 
@@ -146,13 +146,13 @@ public class TestCaseA extends TestCaseHandler {
                         get(channel.eventLoop().next(),
                             CALL_E_URI_WITHOUT_ID + responseCollector.responses[ResponseCollector.RESPONSE_B_INDEX]
                                     .getResponseKey(),
-                            callEListener, topLevelResponse, channel, keepAlive);
+                            callEListener);
                     }
                 };
-        get(channel.eventLoop().next(), CALL_A_URI_WITHOUT_ID + id, callAListener, topLevelResponse, channel,
-            keepAlive);
-        get(channel.eventLoop().next(), CALL_B_URI_WITHOUT_ID + id, callBListener, topLevelResponse, channel,
-            keepAlive);
+        get(channel.eventLoop().next(), CALL_A_URI_WITHOUT_ID + id, callAListener
+        );
+        get(channel.eventLoop().next(), CALL_B_URI_WITHOUT_ID + id, callBListener
+        );
     }
 
     @Override
