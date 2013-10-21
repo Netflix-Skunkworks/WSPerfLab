@@ -13,9 +13,9 @@ class LoadDriver extends Simulation {
       "Keep-Alive" -> "1200")
 
     // your code starts here
-  val scn = scenario("My scenario")
+  val scn = scenario("My-scenario")
             .repeat(LoadDriverConstants.repetitions) {
-               exec(http("My Page")
+               exec(http("My-Page")
                  .get(LoadDriverConstants.nextURL())
                  .headers(headers_1)
                  .check(status.is(200)))
@@ -23,7 +23,26 @@ class LoadDriver extends Simulation {
 
 
 
-  setUp(scn.inject(nothingFor(LoadDriverConstants.warmup seconds),
-      ramp (LoadDriverConstants.totalUsers users) over (LoadDriverConstants.rampTime seconds)))
-  // your code ends here
+  setUp(scn.inject(
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds),
+      ramp (LoadDriverConstants.usersPerRamp users) over (LoadDriverConstants.rampTime seconds),
+      nothingFor(LoadDriverConstants.runTime seconds)
+      ))
 }

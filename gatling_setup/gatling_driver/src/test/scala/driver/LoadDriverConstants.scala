@@ -4,10 +4,11 @@ object LoadDriverConstants {
     import java.lang.ThreadLocal
     import java.util.Random
 
-    val repetitions = 250
+    val repetitions = 7500
     val warmup = 5
-    val totalUsers = 8000
-    val rampTime = totalUsers/1000+1
+    val usersPerRamp = 20
+    val rampTime = 10
+    val runTime = 50
     var urlfile = "/tmp/loadtesturl.txt"
 
     val randomPerThread : ThreadLocal[Random] = {
@@ -33,6 +34,6 @@ object LoadDriverConstants {
 
     def nextURL() : String = {
         val id = randomPerThread.get.nextInt(90000)+10000 // pattern from validate.py script [10000, 100000) range
-        return url + "testA?id=" + id
+        url + "testA?id=" + id
     }
 }
