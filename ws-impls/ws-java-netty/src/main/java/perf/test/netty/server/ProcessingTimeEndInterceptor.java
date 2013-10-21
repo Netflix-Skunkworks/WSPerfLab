@@ -1,11 +1,12 @@
 package perf.test.netty.server;
 
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelDownstreamHandler;
-import org.jboss.netty.handler.codec.http.HttpMessage;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http.HttpMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import perf.test.netty.ProcessingTimesStartInterceptor;
 import perf.test.utils.ServiceResponseBuilder;
 
 import java.util.Map;
@@ -13,28 +14,29 @@ import java.util.Map;
 /**
  * @author Nitesh Kant (nkant@netflix.com)
  */
-public class ProcessingTimeEndInterceptor extends SimpleChannelDownstreamHandler {
+public class ProcessingTimeEndInterceptor extends ChannelOutboundHandlerAdapter {
 
-    private Logger logger = LoggerFactory.getLogger(ProcessingTimeEndInterceptor.class);
+    private final Logger logger = LoggerFactory.getLogger(ProcessingTimeEndInterceptor.class);
 
     @Override
-    public void writeRequested(ChannelHandlerContext ctx, final MessageEvent e) throws Exception {
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         try {
-            final Long startTime = (Long) ctx.getChannel().getAttachment();
-            try {
-                Object msg = e.getMessage();
-                if (msg instanceof HttpMessage) {
-                    HttpMessage message = (HttpMessage) msg;
-                    Map<String, String> headers = ServiceResponseBuilder.getPerfResponseHeaders(startTime);
-                    for (Map.Entry<String, String> entry : headers.entrySet()) {
-                        message.addHeader(entry.getKey(), entry.getValue());
+            final Long startTime = ctx.channel().attr(ProcessingTimesStartInterceptor.START_TIME_ATTR_KEY).get();
+            if (null != startTime) {
+                try {
+                    if (msg instanceof HttpMessage) {
+                        HttpMessage message = (HttpMessage) msg;
+                        Map<String, String> headers = ServiceResponseBuilder.getPerfResponseHeaders(startTime);
+                        for (Map.Entry<String, String> entry : headers.entrySet()) {
+                            message.headers().add(entry.getKey(), entry.getValue());
+                        }
                     }
+                } catch (Exception ex) {
+                    logger.error("Error occurred while setting processing end times.", ex);
                 }
-            } catch (Exception ex) {
-                logger.error("Error occurred while setting processing end times.", ex);
             }
         } finally {
-            ctx.sendDownstream(e);
+            ctx.write(msg, promise);
         }
     }
 }

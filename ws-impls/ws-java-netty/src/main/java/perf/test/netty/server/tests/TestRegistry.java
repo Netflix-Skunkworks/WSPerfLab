@@ -1,5 +1,8 @@
 package perf.test.netty.server.tests;
 
+import io.netty.channel.nio.NioEventLoopGroup;
+import perf.test.netty.client.PoolExhaustedException;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,9 +21,10 @@ public class TestRegistry {
      *
      * @throws InterruptedException If the client pool (if initialized) in the underlying client could not startup all
      * the connections and was interrupted.
+     * @param eventLoopGroup
      */
-    public static synchronized void init() throws InterruptedException {
-        TestCaseA caseA = new TestCaseA();
+    public static synchronized void init(NioEventLoopGroup eventLoopGroup) throws PoolExhaustedException {
+        TestCaseA caseA = new TestCaseA(eventLoopGroup);
         handlers.put(caseA.getTestCaseName(), caseA);
     }
 

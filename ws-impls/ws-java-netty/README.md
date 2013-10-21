@@ -38,14 +38,6 @@ A netty based non-blocking client for outbound requests to the mock backend.
 This client uses a connection pool for all outbound backend requests. All the test cases uses a different connection
 pool for the purpose of isolation.
 
-### Request Backlog
-
-If there are more concurrent requests than the maximum backend connections, new requests are added to a queue (queue
-size is configurable). There are a fixed number of background threads that cleans this queue using a dedicated
-connection. If this queue is full then the client rejects new requests.
-
-For details about the client implementation, see the javadocs for perf.test.netty.client.NettyClientPool
-
 ## Client configuration
 
 The client can be configured using the following optional system properties:
@@ -56,8 +48,6 @@ The client can be configured using the following optional system properties:
   configured in the client pipeline.
 * perf.test.backend.host.maxconn.per.test: Maximum number of connections to the mock backend. Default: 10
 * perf.test.backend.host.startupconn.per.test: Number of connections to the mock backend at startup. Default: 10
-* perf.test.backend.host.max.backlog: Queue size for backlog requests. Default: 1000
-* client.backlog.cleaner.count: Number of background workers to clean up backlog.
 
 # Mock backend
 
@@ -72,7 +62,3 @@ following system properties:
 
 The netty server provides a status endpoint that provides details about the status of the server, it is available at
 /ws-java-netty/status
-
-# Netty threads
-
-All the netty thread pools (boss and worker) are created as java cached executors.

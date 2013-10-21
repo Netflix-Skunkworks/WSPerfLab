@@ -1,15 +1,15 @@
 package perf.test.netty;
 
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import org.codehaus.jackson.JsonEncoding;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -19,7 +19,11 @@ import java.io.IOException;
  */
 public class NettyUtils {
 
-    public static void createErrorResponse(JsonFactory jsonFactory, HttpResponse response, String errorMsg) {
+    public static void createErrorResponse(JsonFactory jsonFactory, FullHttpResponse response, String errorMsg) {
+        createErrorResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR, jsonFactory, response, errorMsg);
+    }
+
+    public static void createErrorResponse(HttpResponseStatus responseStatus, JsonFactory jsonFactory, FullHttpResponse response, String errorMsg) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         JsonGenerator jsonGenerator;
         try {
@@ -31,22 +35,22 @@ public class NettyUtils {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
-        response.setContent(ChannelBuffers.copiedBuffer(out.toByteArray()));
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json");
+        response.setStatus(responseStatus);
+        response.content().writeBytes(Unpooled.copiedBuffer(out.toByteArray()));
+        response.headers().set(HttpHeaders.Names.CONTENT_TYPE, "application/json");
     }
 
-    public static void sendResponse(Channel channel, boolean keepAlive, JsonFactory jsonFactory, HttpResponse response) {
+    public static void sendResponse(Channel channel, boolean keepAlive, JsonFactory jsonFactory, FullHttpResponse response) {
 
         if (keepAlive) {
             // Add 'Content-Length' header only for a keep-alive connection.
-            response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, response.getContent().readableBytes());
+            response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, response.content().readableBytes());
             // Add keep alive header as per:
             // - http://www.w3.org/Protocols/HTTP/1.1/draft-ietf-http-v11-spec-01.html#Connection
-            response.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
+            response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
         }
 
-        ChannelFuture writeFuture = channel.write(response);
+        ChannelFuture writeFuture = channel.writeAndFlush(response);
 
         if (!keepAlive) {
             writeFuture.addListener(ChannelFutureListener.CLOSE);
