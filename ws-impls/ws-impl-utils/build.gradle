@@ -7,6 +7,8 @@ dependencies {
     compile 'junit:junit-dep:4.10'
     compile 'javax.servlet:javax.servlet-api:3.1.0'
     compile 'com.netflix.rxjava:rxjava-core:0.14+'
+    compile 'com.google.guava:guava:15.0'
+    compile 'org.apache.commons:commons-lang3:3.1'
 }
 
 eclipse {
