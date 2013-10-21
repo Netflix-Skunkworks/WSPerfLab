@@ -60,6 +60,7 @@ public class TestCaseAServlet extends HttpServlet {
                 .setMaxConnPerRoute(1000)
                 .setMaxConnTotal(1000)
                 .build();
+        this.httpClient.start();
 
         // used for parallel execution
         executor = new ThreadPoolExecutor(200, 1000, 1, TimeUnit.HOURS, new LinkedBlockingQueue<Runnable>());
@@ -187,7 +188,7 @@ public class TestCaseAServlet extends HttpServlet {
 
     public Observable<String> get(String url) {
         String uri = hostname + url;
-        return ObservableHttp.createGet("uri", httpClient).toObservable().flatMap(new Func1<ObservableHttpResponse, Observable<String>>() {
+        return ObservableHttp.createGet(uri, httpClient).toObservable().flatMap(new Func1<ObservableHttpResponse, Observable<String>>() {
 
             @Override
             public Observable<String> call(ObservableHttpResponse response) {
