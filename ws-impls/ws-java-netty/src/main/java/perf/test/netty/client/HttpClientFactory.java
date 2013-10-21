@@ -1,7 +1,7 @@
 package perf.test.netty.client;
 
 import com.google.common.base.Preconditions;
-import com.sun.istack.internal.Nullable;
+import javax.annotation.Nullable;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;

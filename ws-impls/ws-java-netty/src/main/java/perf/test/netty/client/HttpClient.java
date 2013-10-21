@@ -1,6 +1,6 @@
 package perf.test.netty.client;
 
-import com.sun.istack.internal.Nullable;
+import javax.annotation.Nullable;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;

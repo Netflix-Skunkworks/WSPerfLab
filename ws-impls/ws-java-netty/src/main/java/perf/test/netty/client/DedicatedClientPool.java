@@ -1,7 +1,6 @@
 package perf.test.netty.client;
 
 import com.google.common.base.Preconditions;
-import com.sun.istack.internal.Nullable;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -17,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.server.StatusRetriever;
 
+import javax.annotation.Nullable;
 import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
