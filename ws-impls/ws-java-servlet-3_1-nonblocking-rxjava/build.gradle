@@ -1,0 +1,34 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'war'
+
+dependencies {
+    compile project(':ws-impls:ws-impl-utils')
+    provided 'junit:junit-dep:4.10'
+    compile 'javax.servlet:javax.servlet-api:3.1.0'
+    compile 'javax:javaee-api:7.0'
+    compile 'com.netflix.rxjava:rxjava-apache-http:0.14.5'
+    compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
+    compile 'org.slf4j:slf4j-api:1.7.0'
+}
+
+eclipse {
+  classpath {
+    plusConfigurations += configurations.provided
+    downloadSources = true
+    downloadJavadoc = true
+  }
+}
+
+/**
+ * jettyRun doesn't work as it uses Jetty 6.x and we need 9.1
+ * I tried getting Cargo + Jetty 9.1 working and wasted 2 hours on it unsuccessfully.
+ */
+//jettyRun.doFirst {
+//    // use the default port of the ws-backend-simulation module
+//    System.setProperty("perf.test.backend.hostname","http://localhost:8989/ws-backend-mock")
+//}
+//
+//jettyRun {
+//    httpPort = 8888
+//}

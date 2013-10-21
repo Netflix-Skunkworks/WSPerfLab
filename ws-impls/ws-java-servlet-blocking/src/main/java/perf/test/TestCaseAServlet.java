@@ -55,12 +55,12 @@ public class TestCaseAServlet extends HttpServlet {
 
         cm = new PoolingClientConnectionManager();
         // set the limit high so this isn't throttling us while we push to the limit
-        cm.setMaxTotal(1000);
-        cm.setDefaultMaxPerRoute(1000);
+        cm.setMaxTotal(10000);
+        cm.setDefaultMaxPerRoute(10000);
         httpclient = new DefaultHttpClient(cm);
 
         // used for parallel execution
-        executor = new ThreadPoolExecutor(200, 1000, 1, TimeUnit.HOURS, new LinkedBlockingQueue<Runnable>());
+        executor = new ThreadPoolExecutor(200, 10000, 1, TimeUnit.HOURS, new LinkedBlockingQueue<Runnable>());
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {

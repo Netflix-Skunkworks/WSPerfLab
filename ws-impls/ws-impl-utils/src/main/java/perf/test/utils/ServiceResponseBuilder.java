@@ -98,6 +98,9 @@ public class ServiceResponseBuilder {
         for (Map.Entry<String, String> entry : perfResponseHeaders.entrySet()) {
             response.addHeader(entry.getKey(), entry.getValue());
         }
+
+        // all of them should be application/json
+        response.addHeader("content-type", "application/json");
     }
 
     public static Map<String, String> getPerfResponseHeaders(long startTime) {
