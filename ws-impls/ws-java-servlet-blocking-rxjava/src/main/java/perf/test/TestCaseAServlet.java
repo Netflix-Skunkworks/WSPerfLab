@@ -164,7 +164,7 @@ public class TestCaseAServlet extends HttpServlet {
 
                     @Override
                     public BackendResponse[] call(BackendResponse[] acd, BackendResponse[] be) {
-                        return new BackendResponse[] { acd[0], acd[1], acd[2], be[0], be[1] };
+                        return new BackendResponse[] { acd[0], be[0], acd[1], acd[2], be[1] };
                     };
 
                 });
