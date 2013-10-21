@@ -4,7 +4,7 @@ object LoadDriverConstants {
     import java.lang.ThreadLocal
     import java.util.Random
 
-    val repetitions = 750000
+    val repetitions = 10000
     val warmup = 5
     val usersPerRamp = 750
     val rampTime = 5
