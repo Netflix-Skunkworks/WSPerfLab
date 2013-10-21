@@ -15,8 +15,8 @@ currentIndex = -1
 okCount = 0
 koCount = 0
 latencyList=[]
-usersPerRamp = 750
-latencies=[10, 25, 50, 75, 90, 95, 99]
+usersPerRamp = 75
+latencies=[0, 10, 25, 50, 75, 90, 95, 99]
 
 
 def getIndex(requestTime):
@@ -36,14 +36,14 @@ def printIndexResults():
     global latencyList
     latencyList.sort()
     latencyResults = []
-    time = runTime*1000.0
+
     for pct in latencies:
         latencyListLen = len(latencyList)
         idx = int(pct*latencyListLen/100)
         latencyResults.append(latencyList[idx])
     if (currentIndex >= 0):
         print("%(idx)s\t%(ok)s\t%(ko)s\t%(l)s" %
-            {'ok': okCount/time, 'ko': koCount/time, 'idx' : (currentIndex+1)*usersPerRamp, 'l' : str(latencyResults) })
+            {'ok': okCount/float(runTime), 'ko': koCount/float(runTime), 'idx' : (currentIndex+1)*usersPerRamp, 'l' : str(latencyResults) })
     okCount = 0
     koCount = 0
     latencyList=[]
