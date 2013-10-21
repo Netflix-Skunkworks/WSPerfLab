@@ -2,6 +2,7 @@ package perf.test.netty.server;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -49,7 +50,7 @@ public class NettyBasedHttpServer {
         connectedClientsCounter = new ConnectedClientsCounter();
         final StatusRetriever statusRetriever = new StatusRetriever(connectedClientsCounter);
         bootstrap.group(new NioEventLoopGroup())
-                 .channel(NioServerSocketChannel.class)
+                 .channel(NioServerSocketChannel.class).childOption(ChannelOption.SO_KEEPALIVE, true)
                  .childHandler(new ChannelInitializer<SocketChannel>() {
                      @Override
                      protected void initChannel(SocketChannel ch) throws Exception {
