@@ -4,11 +4,11 @@ object LoadDriverConstants {
     import java.lang.ThreadLocal
     import java.util.Random
 
-    val repetitions = 7500
+    val repetitions = 750000
     val warmup = 5
-    val usersPerRamp = 20
-    val rampTime = 10
-    val runTime = 50
+    val usersPerRamp = 750
+    val rampTime = 5
+    val runTime = 25
     var urlfile = "/tmp/loadtesturl.txt"
 
     val randomPerThread : ThreadLocal[Random] = {
