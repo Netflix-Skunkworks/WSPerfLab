@@ -75,7 +75,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         createNewClientOnDemand(null);
     }
 
-    private void createNewClientOnDemand(@Nullable final Promise<DedicatedHttpClient<T, R>> completionPromise) {
+    private Promise<DedicatedHttpClient<T, R>> createNewClientOnDemand(@Nullable final Promise<DedicatedHttpClient<T, R>> completionPromise) {
         final Object clientLimitEnforcingToken = new Object();
         if (clientLimitEnforcer.offer(clientLimitEnforcingToken)) {
             bootstrap.connect(serverAddress).addListener(new ChannelFutureListener() {
@@ -124,6 +124,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
                 completionPromise.setFailure(new PoolExhaustedException(serverAddress, maxConnections));
             }
         }
+        return completionPromise;
     }
 
     private void addAvailableClient(DedicatedHttpClient<T, R> httpClient) {
@@ -131,15 +132,20 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     }
 
     Future<DedicatedHttpClient<T, R>> getClient(EventExecutor executor) {
-
-        @Nullable DedicatedHttpClient<T, R> availableClient = availableClients.poll();
-        final Promise<DedicatedHttpClient<T, R>> clientCreationPromise = new DefaultPromise<DedicatedHttpClient<T, R>>(executor);
-        if (null == availableClient) {
-            createNewClientOnDemand(clientCreationPromise);
-        } else {
-            clientCreationPromise.setSuccess(availableClient);
+        while (true) {
+            @Nullable DedicatedHttpClient<T, R> availableClient = availableClients.poll();
+            final Promise<DedicatedHttpClient<T, R>> clientCreationPromise =
+                    new DefaultPromise<DedicatedHttpClient<T, R>>(executor);
+            if (null == availableClient) {
+                return createNewClientOnDemand(clientCreationPromise);
+            } else if(availableClient.isActive()){
+                clientCreationPromise.setSuccess(availableClient);
+                return clientCreationPromise;
+            } else {
+                logger.info("Got an inactive client from available pool. Throwing it away.");
+                continue;
+            }
         }
-        return clientCreationPromise;
     }
 
     AttributeKey<HttpClient.ClientResponseHandler<T>> getResponseHandlerKey() {

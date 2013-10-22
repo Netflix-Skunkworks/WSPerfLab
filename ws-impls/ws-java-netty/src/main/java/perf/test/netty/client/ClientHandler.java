@@ -57,8 +57,8 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
     public void exceptionCaught(final ChannelHandlerContext ctx, Throwable cause) throws Exception {
         // Handlers are thread-safe i.e. they do not get invoked concurrently by netty, so you can safely assume that
         // error & success do not happen concurrently.
-        logger.error("Client id: " + id + ". Client handler got an error.", cause);
         final int retryCount = ctx.channel().attr(DedicatedClientPool.RETRY_COUNT_KEY).get().incrementAndGet();
+        logger.error("Client id: " + id + ". Client handler got an error. Retry count: " + retryCount, cause);
 
         if (retryCount > MAX_RETRIES) {
             notifyOfError(ctx, cause);
@@ -78,11 +78,6 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
                         }
                     }
                 });
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        super.channelInactive(ctx);
     }
 
     private void notifyOfError(ChannelHandlerContext ctx, Throwable cause) {

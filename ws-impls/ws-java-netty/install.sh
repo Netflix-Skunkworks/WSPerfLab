@@ -1,5 +1,6 @@
 #!/bin/bash
 
+: ${REPO_NAME:="benjchristensen"}
 sshCommand="ssh"
 update=false
 
@@ -54,7 +55,7 @@ else
 	echo "--- Kill all java processes"
 	eval "$sshCommand $hostname 'sudo killall java'"
 	echo "--- Git clone WSPerfLab"
-	eval "$sshCommand $hostname 'git clone git://github.com/NiteshKant/WSPerfLab.git'"
+	eval "$sshCommand $hostname 'git clone git://github.com/${REPO_NAME}/WSPerfLab.git'"
 fi
 
 echo "--- Build ws-java-netty"
