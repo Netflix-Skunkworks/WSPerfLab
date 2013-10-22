@@ -2,8 +2,6 @@ package controllers
 
 import play.api._
 import scala.io.Source
-import java.util.Random
-import java.lang.ThreadLocal
 
 import play.api.mvc._
 import play.api.libs.ws._
@@ -26,12 +24,8 @@ object Application extends Controller {
      source.getLines.toArray
   }
 
-  private val localRandom = new ThreadLocal[Random] {
-     override protected def initialValue() = new Random
-  }
-
   private def chooseHost() = {
-      fileVector(localRandom.get.nextInt(fileVector.length))
+      fileVector(ThreadLocalRandom.current().nextInt(fileVector.length))
   }
 
   private def chooseURLBase() : String = {
