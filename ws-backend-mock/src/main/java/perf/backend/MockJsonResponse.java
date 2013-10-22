@@ -1,10 +1,14 @@
 package perf.backend;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
+import javax.servlet.AsyncContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -30,6 +34,40 @@ public class MockJsonResponse extends HttpServlet {
 
     private static String RAW_ITEM_LONG;
     private static int MAX_ITEM_LENGTH = 1024 * 50;
+    private static final int SLEEP_THREADS_PER_CORE = 128;
+
+    private static final ScheduledExecutorService sleepPool = Executors.newScheduledThreadPool(SLEEP_THREADS_PER_CORE * Runtime.getRuntime().availableProcessors());
+
+    private static class DelayCallback implements Runnable {
+        private final AsyncContext context;
+        private final String json;
+        private final int delay;
+
+        public DelayCallback(final AsyncContext context, final String json, final int delay) {
+            this.context = context;
+            this.json = json;
+            this.delay = delay;
+        }
+
+        @Override
+        public void run() {
+            sleepPool.schedule(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                context.getResponse().getWriter().write(json);
+                            }
+                            catch (Exception e) {
+                                System.err.println("warning, write failed with exception " + e);
+                            }
+                            finally {
+                                context.complete();
+                            }
+                        }
+                   }, delay, TimeUnit.MILLISECONDS);
+        }
+    }
 
     static {
         StringBuilder builder = new StringBuilder(MAX_ITEM_LENGTH);
@@ -77,14 +115,8 @@ public class MockJsonResponse extends HttpServlet {
         }
 
         String json = generateJson(id, delay, itemSize, numItems);
-
-        try {
-            Thread.sleep(delay);
-        } catch (InterruptedException e) {
-            // do nothing
-        }
-
-        response.getWriter().write(json);
+        final AsyncContext context = request.startAsync();
+        context.start(new DelayCallback(context, json, delay));
     }
 
     protected static String generateJson(long id, int delay, int itemSize, int numItems) throws IOException, JsonGenerationException {
