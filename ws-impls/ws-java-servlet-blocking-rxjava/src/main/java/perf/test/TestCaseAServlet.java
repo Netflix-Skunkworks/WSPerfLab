@@ -44,8 +44,8 @@ public class TestCaseAServlet extends HttpServlet {
         this.httpClient = HttpAsyncClients.custom()
                 .setDefaultRequestConfig(requestConfig)
                 // set the limit high so this isn't throttling us while we push to the limit
-                .setMaxConnPerRoute(1000)
-                .setMaxConnTotal(1000)
+                .setMaxConnPerRoute(5000)
+                .setMaxConnTotal(5000)
                 .build();
         this.httpClient.start();
     }
