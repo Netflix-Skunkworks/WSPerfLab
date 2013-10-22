@@ -10,6 +10,7 @@ dependencies {
     compile 'io.netty:netty-codec-http:4.0.9.Final'
     compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
     compile 'com.google.guava:guava:r05'
+    compile 'com.google.code.findbugs:jsr305:2.0.2'
     provided 'junit:junit-dep:4.10'
     compile project(':ws-impls:ws-impl-utils')
 }

@@ -3,14 +3,15 @@
 sshCommand="ssh"
 update=false
 jettyVersion="9.1.0.RC0"
+gitRepo="benjchristensen"
 
 while getopts "h:s:t:b:u" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
       ;;
-    b)
- 	  backend=$OPTARG
+	r)
+      gitRepo=$OPTARG
       ;;
     s)
       sshCommand=$OPTARG
@@ -29,13 +30,7 @@ done
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
-	echo "$0 -h [HOSTNAME] -b [BACKEND_HOSTNAME ie http://ec2-54-234-88-75.compute-1.amazonaws.com:8080] -t [tomcat version(optional defaults to 7.0.40] -s [SSH COMMAND (optional)] -u (to update only)"
-	exit
-fi
-
-if [ -z "$backend" ]; then
-	echo $'\a'-b required for backend hostname
-	echo "$0 -h [HOSTNAME] -b [BACKEND_HOSTNAME ie http://ec2-54-234-88-75.compute-1.amazonaws.com:8080] -t [tomcat version(optional defaults to 7.0.40] -s [SSH COMMAND (optional)] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)]  -r [Github repo username (optional: defaults to 'benjchristensen')] -u (to update only)"
 	exit
 fi
 
@@ -59,11 +54,12 @@ else
 	eval "$sshCommand $hostname 'wget http://mirrors.ibiblio.org/pub/mirrors/eclipse/jetty/${jettyVersion}/dist/jetty-distribution-${jettyVersion}.tar.gz'"
 	echo "--- Extract Jetty ${jettyVersion}"
 	eval "$sshCommand $hostname 'tar xzvf jetty-distribution-${jettyVersion}.tar.gz'"
-	echo "--- Add perf.test.backend.hostname property to catalina.sh"
-	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; echo \"99a100,101\" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; echo \"> JAVA_OPTS=\\\"\\\$JAVA_OPTS -Dperf.test.backend.hostname=$backend/ws-backend-mock\\\"\" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; echo \"> \" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; patch catalina.sh catalina.patch'"
+	echo "--- Add perf.test.backend.hostname property to jetty.sh"
+	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; echo \"43a44,46\" >> jetty_sh.patch'"
+	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; echo \"> \" >> jetty_sh.patch'"
+	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; echo \"> JAVA_OPTIONS=\\\"-Xms1024m -Xmx1024m -server -XX:+UseConcMarkSweepGC\\\"\" >> jetty_sh.patch'"
+	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; echo \"> \" >> jetty_sh.patch'"
+	eval "$sshCommand $hostname 'cd jetty-distribution-${jettyVersion}/bin; patch jetty.sh jetty_sh.patch'"
 fi
 
 echo "--- Build WSPerfLab"

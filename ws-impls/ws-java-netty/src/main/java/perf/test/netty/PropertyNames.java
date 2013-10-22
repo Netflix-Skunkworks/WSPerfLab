@@ -17,9 +17,7 @@ public enum PropertyNames {
 
     ClientLoggingEnable("client.log.enable", "true"),
     ClientChunkSize("client.chunk.size", "1048576"),
-
-    MockBackendHost("perf.test.backend.host", "localhost"),
-    MockBackendPort("perf.test.backend.port", "8989"),
+    
     MockBackendContextPath("perf.test.backend.context.path", "/ws-backend-mock"),
     MockBackendConnectionsAtStartupPerTest("perf.test.backend.host.startupconn.per.test", "10"),
     MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "10"),
@@ -45,7 +43,7 @@ public enum PropertyNames {
     TestCaseACallENumItems("perf.test.testA.callE.numItems", "100"),
     TestCaseACallEItemSize("perf.test.testA.callE.itemSize", "30"),
     TestCaseACallEItemDelay("perf.test.testA.callE.delay", "40");
-
+    
     private String propertyName;
     private String defaultVal;
 

@@ -1,16 +1,19 @@
 #!/bin/bash
 
-: ${REPO_NAME:="benjchristensen"}
 sshCommand="ssh"
 update=false
+gitRepo="benjchristensen"
 
-while getopts "h:s:b:u" opt; do
+while getopts "h:s:b:r:u" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
       ;;
     b)
 	  backendHost=$OPTARG
+      ;;
+	r)
+      gitRepo=$OPTARG
       ;;
     s)
       sshCommand=$OPTARG
@@ -26,18 +29,19 @@ done
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
-	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -b [backend host] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -b [backend host] -r [Github repo username (optional: defaults to 'benjchristensen')] -u (to update only)"
 	exit
 fi
 
 if [ -z "$backendHost" ]; then
 	echo $'\a'-b required for backend hostname
-	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -b [backend host] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -b [backend host] -r [Github repo username (optional: defaults to 'benjchristensen')] -u (to update only)"
 	exit
 fi
 
 echo "Installing to host: $hostname"
 echo "Backend host: $backendHost"
+echo "Git repo: $gitRepo"
 echo "SSH command: $sshCommand"
 
 if $update ; then
@@ -55,7 +59,7 @@ else
 	echo "--- Kill all java processes"
 	eval "$sshCommand $hostname 'sudo killall java'"
 	echo "--- Git clone WSPerfLab"
-	eval "$sshCommand $hostname 'git clone git://github.com/${REPO_NAME}/WSPerfLab.git'"
+	eval "$sshCommand $hostname 'git clone git://github.com/$gitRepo/WSPerfLab.git'"
 fi
 
 echo "--- Build ws-java-netty"
@@ -63,4 +67,4 @@ eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-netty/; ../../gradlew
 echo "--- Copy distribution"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-netty/build/distributions/ws-java-netty-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-netty-*-SNAPSHOT.zip'"
 echo "--- Start Netty impl"
-eval "$sshCommand $hostname 'export SERVER_PORT=8080; export BACKEND_HOST=${backendHost}; cd ws-java-netty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"
+eval "$sshCommand $hostname 'export BACKEND_HOST=${backendHost}; cd ws-java-netty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"

@@ -2,15 +2,16 @@
 
 sshCommand="ssh"
 update=false
-tomcatVersion="7.0.40"
+tomcatVersion="7.0.42"
+gitRepo="benjchristensen"
 
-while getopts "h:s:t:b:u" opt; do
+while getopts "h:s:t:u:r" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
       ;;
-    b)
- 	  backend=$OPTARG
+	r)
+      gitRepo=$OPTARG
       ;;
     s)
       sshCommand=$OPTARG
@@ -29,13 +30,7 @@ done
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
-	echo "$0 -h [HOSTNAME] -b [BACKEND_HOSTNAME ie http://ec2-54-234-88-75.compute-1.amazonaws.com:8080] -t [tomcat version(optional defaults to 7.0.40] -s [SSH COMMAND (optional)] -u (to update only)"
-	exit
-fi
-
-if [ -z "$backend" ]; then
-	echo $'\a'-b required for backend hostname
-	echo "$0 -h [HOSTNAME] -b [BACKEND_HOSTNAME ie http://ec2-54-234-88-75.compute-1.amazonaws.com:8080] -t [tomcat version(optional defaults to 7.0.40] -s [SSH COMMAND (optional)] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)]  -r [Github repo username (optional: defaults to 'benjchristensen')] -u (to update only)"
 	exit
 fi
 
@@ -56,16 +51,14 @@ else
 	echo "--- Kill all java processes"
 	eval "$sshCommand $hostname 'sudo killall java'"
 	echo "--- Git clone WSPerfLab"
-	eval "$sshCommand $hostname 'git clone git://github.com/benjchristensen/WSPerfLab.git'"
+	eval "$sshCommand $hostname 'git clone git://github.com/$gitRepo/WSPerfLab.git'"
 	echo "--- Download Tomcat 7"
 	eval "$sshCommand $hostname 'wget http://mirrors.gigenet.com/apache/tomcat/tomcat-7/v${tomcatVersion}/bin/apache-tomcat-${tomcatVersion}.tar.gz'"
 	echo "--- Extract Tomcat 7"
 	eval "$sshCommand $hostname 'tar xzvf apache-tomcat-${tomcatVersion}.tar.gz'"
 	echo "--- Delete demo apps from Tomcat 7"
 	eval "$sshCommand $hostname '/bin/rm -R apache-tomcat-${tomcatVersion}/webapps/docs/ apache-tomcat-${tomcatVersion}/webapps/examples/ apache-tomcat-${tomcatVersion}/webapps/host-manager/ apache-tomcat-${tomcatVersion}/webapps/manager/'"
-	echo "--- Add perf.test.backend.hostname property to catalina.sh"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"99a100,101\" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"> JAVA_OPTS=\\\"\\\$JAVA_OPTS -Dperf.test.backend.hostname=$backend/ws-backend-mock\\\"\" >> catalina.patch'"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"> \" >> catalina.patch'"
 	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; patch catalina.sh catalina.patch'"
 fi
