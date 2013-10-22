@@ -70,6 +70,8 @@
     <Connector port="8080" protocol="org.apache.coyote.http11.Http11NioProtocol"
                connectionTimeout="20000"
                redirectPort="8443"
+               maxThreads="5000"
+               maxConnections="5000" 
                />
     <!-- A "Connector" using the shared thread pool-->
     <!--
