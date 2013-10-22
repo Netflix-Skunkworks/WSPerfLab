@@ -2,15 +2,15 @@
 
 sshCommand="ssh"
 update=false
-
-if [ -z $GIT_COMMAND ]; then
-    GIT_COMMAND='git clone -b gatling_setup git://github.com/katzseth22202/WSPerfLab.git'
-fi
+gitRepo="benjchristensen"
 
 while getopts "h:s:u" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
+      ;;
+	r)
+      gitRepo=$OPTARG
       ;;
     s)
       sshCommand=$OPTARG
@@ -26,7 +26,7 @@ done
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
-	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)]  -r [Github repo username (optional: defaults to 'benjchristensen')] -u (to update only)"
 	exit
 fi
 
@@ -48,7 +48,7 @@ else
 	echo "--- Kill all java processes"
 	eval "$sshCommand $hostname 'sudo killall java'"
 	echo "--- Git clone WSPerfLab"
-	eval "$sshCommand $hostname '$GIT_COMMAND'"
+	eval "$sshCommand $hostname 'git clone git://github.com/$gitRepo/WSPerfLab.git'"
 fi
 
 echo "--- Build ws-java-jetty"
@@ -56,4 +56,4 @@ eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-jetty/; ../../gradlew
 echo "--- Copy distribution"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-jetty/build/distributions/ws-java-jetty-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-jetty-*-SNAPSHOT.zip'"
 echo "--- Start Netty impl"
-eval "$sshCommand $hostname 'export BACKEND_HOST=${backendHost}; cd ws-java-jetty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"
+eval "$sshCommand $hostname 'cd ws-java-jetty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"

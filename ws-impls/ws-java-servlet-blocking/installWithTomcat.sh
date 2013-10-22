@@ -3,15 +3,15 @@
 sshCommand="ssh"
 update=false
 tomcatVersion="7.0.42"
+gitRepo="benjchristensen"
 
-if [ -z $GIT_COMMAND ]; then
-    GIT_COMMAND='git clone -b gatling_setup git://github.com/katzseth22202/WSPerfLab.git'
-fi
-
-while getopts "h:s:t:u" opt; do
+while getopts "h:s:t:u:r" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
+      ;;
+	r)
+      gitRepo=$OPTARG
       ;;
     s)
       sshCommand=$OPTARG
@@ -30,7 +30,7 @@ done
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
-	echo "$0 -h [HOSTNAME] -t [tomcat version(optional defaults to 7.0.42] -s [SSH COMMAND (optional)] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)]  -r [Github repo username (optional: defaults to 'benjchristensen')] -u (to update only)"
 	exit
 fi
 
@@ -51,7 +51,7 @@ else
 	echo "--- Kill all java processes"
 	eval "$sshCommand $hostname 'sudo killall java'"
 	echo "--- Git clone WSPerfLab"
-	eval "$sshCommand $hostname '$GIT_COMMAND'"
+	eval "$sshCommand $hostname 'git clone git://github.com/$gitRepo/WSPerfLab.git'"
 	echo "--- Download Tomcat 7"
 	eval "$sshCommand $hostname 'wget http://mirrors.gigenet.com/apache/tomcat/tomcat-7/v${tomcatVersion}/bin/apache-tomcat-${tomcatVersion}.tar.gz'"
 	echo "--- Extract Tomcat 7"
