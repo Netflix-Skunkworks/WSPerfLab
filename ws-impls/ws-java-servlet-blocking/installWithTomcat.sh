@@ -4,23 +4,24 @@ sshCommand="ssh"
 update=false
 tomcatVersion="7.0.42"
 gitRepo="benjchristensen"
+connector=
 
-while getopts "h:s:t:u:r:c" opt; do
+while getopts "h:s:t:u:r:c:" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
       ;;
-    r)
-      gitRepo=$OPTARG
-      ;;
     s)
       sshCommand=$OPTARG
+      ;;
+    t)
+      tomcatVersion=$OPTARG
       ;;
     u)
       update=true
       ;;
-    t)
-      tomcatVersion=$OPTARG
+    r)
+      gitRepo=$OPTARG
       ;;
     c)
       connector=$OPTARG
@@ -33,7 +34,8 @@ done
 
 if [ -z "$connector" ]; then
 	echo $'\a'-c required for connector 
-	echo 	Options include: JavaBIO JavaNIO NativeAPR
+	echo Options include: JavaBIO JavaNIO NativeAPR
+	exit
 fi
 
 if [ -z "$hostname" ]; then
@@ -45,6 +47,9 @@ fi
 echo "Install to host: $hostname"
 echo "Using tomcat version: $tomcatVersion"
 echo "SSH command: $sshCommand"
+echo "Using Github repo: $gitRepo"
+echo "Using Tomcat Connector: $connector"
+echo "------------------------------------------------"
 
 if $update ; then
 	echo "--- Kill all java processes"
