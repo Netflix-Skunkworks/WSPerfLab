@@ -2,6 +2,7 @@
 
 sshCommand="ssh"
 update=false
+version='2.2.0'
 
 if [ -z $GIT_COMMAND ]; then
     GIT_COMMAND='git clone -b gatling_setup git://github.com/katzseth22202/WSPerfLab.git'
@@ -30,18 +31,16 @@ if [ -z "$hostname" ]; then
 	exit
 fi
 
-echo "Installing to host: $hostname"
+echo "Install to host: $hostname"
+echo "play version: $version"
 echo "SSH command: $sshCommand"
 
 if $update ; then
-	echo "--- Shutdown Netflix Tomcat"
-	eval "$sshCommand $hostname 'sudo /etc/init.d/nflx-tomcat stop'" # need to use a different AMI so this can be removed
 	echo "--- Kill all java processes"
 	eval "$sshCommand $hostname 'sudo killall java'"
-	echo "--- Remove previously installed ws-java-jetty.zip"
-	eval "$sshCommand $hostname '/bin/rm -R ws-java-jetty*'"
 	echo "--- Update from Git"
-	eval "$sshCommand $hostname 'cd ~/WSPerfLab/; git pull'"
+	eval "$sshCommand $hostname 'cd WSPerfLab/; git pull'"
+	echo "--- Remove previously installed ws-java-servlet-blocking.war"
 else
 	echo "--- Shutdown Netflix Tomcat"
 	eval "$sshCommand $hostname 'sudo /etc/init.d/nflx-tomcat stop'" # need to use a different AMI so this can be removed
@@ -49,11 +48,15 @@ else
 	eval "$sshCommand $hostname 'sudo killall java'"
 	echo "--- Git clone WSPerfLab"
 	eval "$sshCommand $hostname '$GIT_COMMAND'"
+	echo "--- Download play"
+	eval "$sshCommand $hostname 'wget http://downloads.typesafe.com/play/${version}/play-${version}.zip'"
+	echo "--- Unzip play"
+	eval "$sshCommand $hostname 'unzip play-${version}.zip'"
+	echo "--- Link play"
+	eval "$sshCommand $hostname 'ln -s ~/play-${version}/play WSPerfLab/ws-impls/ws-play-scala/play'"
 fi
 
-echo "--- Build ws-java-jetty"
-eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-jetty/; ../../gradlew clean build distZip'"
-echo "--- Copy distribution"
-eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-jetty/build/distributions/ws-java-jetty-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-jetty-*-SNAPSHOT.zip'"
-echo "--- Start Netty impl"
-eval "$sshCommand $hostname 'export BACKEND_HOST=${backendHost}; cd ws-java-jetty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"
+echo "--- Stage play"
+eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-play-scala; ./play clean compile stage'"
+echo "--- Run play"
+eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-play-scala; bash run_in_background.sh'"
