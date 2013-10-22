@@ -22,6 +22,7 @@ import org.apache.http.impl.conn.PoolingClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.JsonFactory;
 
+import perf.test.utils.BackendMockHostSelector;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 
@@ -39,20 +40,7 @@ public class TestCaseAServlet extends HttpServlet {
     // used for parallel execution of requests
     private final ThreadPoolExecutor executor;
 
-    private final String hostname;
-
     public TestCaseAServlet() {
-
-        // hostname via properties
-        String host = System.getProperty("perf.test.backend.hostname");
-        if (host == null) {
-            throw new IllegalStateException("The perf.test.backend.hostname property must be set.");
-        }
-        if (host.endsWith("/")) {
-            host = host.substring(0, host.length() - 1);
-        }
-        hostname = host;
-
         cm = new PoolingClientConnectionManager();
         // set the limit high so this isn't throttling us while we push to the limit
         cm.setMaxTotal(10000);
@@ -138,7 +126,7 @@ public class TestCaseAServlet extends HttpServlet {
     }
 
     public String get(String url) {
-        String uri = hostname + url;
+        String uri = BackendMockHostSelector.getRandomBackendPathPrefix() + url;
         HttpGet httpGet = new HttpGet(uri);
         try {
             HttpResponse response = httpclient.execute(httpGet);

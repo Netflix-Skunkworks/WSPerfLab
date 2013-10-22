@@ -26,7 +26,7 @@ eclipse {
  */
 //jettyRun.doFirst {
 //    // use the default port of the ws-backend-simulation module
-//    System.setProperty("perf.test.backend.hostname","http://localhost:8989/ws-backend-mock")
+//    System.setProperty("perf.test.backend.hostname","http://localhost")
 //}
 //
 //jettyRun {

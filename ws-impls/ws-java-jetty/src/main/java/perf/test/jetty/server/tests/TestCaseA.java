@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import perf.test.jetty.PropertyNames;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
-import perf.test.utils.URLSelector;
+import perf.test.utils.BackendMockHostSelector;
 
 /**
  * @author Nitesh Kant
@@ -169,7 +169,7 @@ public class TestCaseA extends TestCaseHandler {
 
     private static String constructUri(int numItems, int itemSize, int delay) {
         String uri = String.format("%s/mock.json?numItems=%d&itemSize=%d&delay=%d&id=",
-                                      URLSelector.chooseURLBase(), numItems, itemSize,
+                                      BackendMockHostSelector.getRandomBackendHost(), numItems, itemSize,
                                       delay);
         if (logger.isDebugEnabled()) {
             logger.debug("Created a new uri: " + uri);

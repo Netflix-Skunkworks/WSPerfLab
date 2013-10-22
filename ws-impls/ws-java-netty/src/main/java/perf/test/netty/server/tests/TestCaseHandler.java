@@ -24,6 +24,7 @@ import perf.test.netty.client.HttpClient;
 import perf.test.netty.client.HttpClientFactory;
 import perf.test.netty.client.PoolExhaustedException;
 import perf.test.netty.server.StatusRetriever;
+import perf.test.utils.BackendMockHostSelector;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -39,9 +40,7 @@ public abstract class TestCaseHandler {
     private final String testCaseName;
     protected final static JsonFactory jsonFactory = new JsonFactory();
     protected final HttpClientFactory clientFactory;
-    private final InetSocketAddress mockBackendServerAddress =
-            new InetSocketAddress(PropertyNames.MockBackendHost.getValueAsString(),
-                                  PropertyNames.MockBackendPort.getValueAsInt());
+    private final InetSocketAddress mockBackendServerAddress = BackendMockHostSelector.getRandomBackendHost();
 
     protected TestCaseHandler(String testCaseName, EventLoopGroup eventLoopGroup) throws PoolExhaustedException {
         this.testCaseName = testCaseName;

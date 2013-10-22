@@ -16,6 +16,7 @@ import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.codehaus.jackson.JsonFactory;
 
+import perf.test.utils.BackendMockHostSelector;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 import rx.Observable;
@@ -34,23 +35,9 @@ public class TestCaseAServlet extends HttpServlet {
     private final static JsonFactory jsonFactory = new JsonFactory();
 
     final CloseableHttpAsyncClient httpClient;
-    // used for parallel execution of requests
-    private final ThreadPoolExecutor executor;
 
-    private final String hostname;
 
     public TestCaseAServlet() {
-
-        // hostname via properties
-        String host = System.getProperty("perf.test.backend.hostname");
-        if (host == null) {
-            throw new IllegalStateException("The perf.test.backend.hostname property must be set.");
-        }
-        if (host.endsWith("/")) {
-            host = host.substring(0, host.length() - 1);
-        }
-        hostname = host;
-
         final RequestConfig requestConfig = RequestConfig.custom()
                 .setSocketTimeout(3000)
                 .setConnectTimeout(500).build();
@@ -61,9 +48,6 @@ public class TestCaseAServlet extends HttpServlet {
                 .setMaxConnTotal(1000)
                 .build();
         this.httpClient.start();
-
-        // used for parallel execution
-        executor = new ThreadPoolExecutor(200, 1000, 1, TimeUnit.HOURS, new LinkedBlockingQueue<Runnable>());
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -187,7 +171,7 @@ public class TestCaseAServlet extends HttpServlet {
     }
 
     public Observable<String> get(String url) {
-        String uri = hostname + url;
+        String uri = BackendMockHostSelector.getRandomBackendPathPrefix() + url;
         return ObservableHttp.createGet(uri, httpClient).toObservable().flatMap(new Func1<ObservableHttpResponse, Observable<String>>() {
 
             @Override
