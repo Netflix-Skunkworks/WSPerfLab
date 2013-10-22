@@ -5,12 +5,12 @@ update=false
 tomcatVersion="7.0.42"
 gitRepo="benjchristensen"
 
-while getopts "h:s:t:u:r" opt; do
+while getopts "h:s:t:u:r:c" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
       ;;
-	r)
+    r)
       gitRepo=$OPTARG
       ;;
     s)
