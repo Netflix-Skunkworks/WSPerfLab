@@ -81,6 +81,7 @@ public class TestCaseAServlet extends HttpServlet {
                         // Jetty 9.1 supports using ByteBuf instead of copying between arrays like this
                         // so that may be worth exploring
                         servletOut.write(workOut.toByteArray());
+                        servletOut.flush();
                         return Observable.empty();
                     } catch (IOException e) {
                         return Observable.error(e);

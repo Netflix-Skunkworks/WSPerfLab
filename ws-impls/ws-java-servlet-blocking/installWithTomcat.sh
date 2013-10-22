@@ -4,29 +4,39 @@ sshCommand="ssh"
 update=false
 tomcatVersion="7.0.42"
 gitRepo="benjchristensen"
+connector=
 
-while getopts "h:s:t:u:r" opt; do
+while getopts "h:s:t:u:r:c:" opt; do
   case $opt in
     h)
 	  hostname=$OPTARG
       ;;
-	r)
-      gitRepo=$OPTARG
-      ;;
     s)
       sshCommand=$OPTARG
+      ;;
+    t)
+      tomcatVersion=$OPTARG
       ;;
     u)
       update=true
       ;;
-    t)
-      tomcatVersion=$OPTARG
+    r)
+      gitRepo=$OPTARG
+      ;;
+    c)
+      connector=$OPTARG
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
       ;;
   esac
 done
+
+if [ -z "$connector" ]; then
+	echo $'\a'-c required for connector 
+	echo Options include: JavaBIO JavaNIO NativeAPR
+	exit
+fi
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
@@ -37,6 +47,9 @@ fi
 echo "Install to host: $hostname"
 echo "Using tomcat version: $tomcatVersion"
 echo "SSH command: $sshCommand"
+echo "Using Github repo: $gitRepo"
+echo "Using Tomcat Connector: $connector"
+echo "------------------------------------------------"
 
 if $update ; then
 	echo "--- Kill all java processes"
@@ -58,13 +71,14 @@ else
 	eval "$sshCommand $hostname 'tar xzvf apache-tomcat-${tomcatVersion}.tar.gz'"
 	echo "--- Delete demo apps from Tomcat 7"
 	eval "$sshCommand $hostname '/bin/rm -R apache-tomcat-${tomcatVersion}/webapps/docs/ apache-tomcat-${tomcatVersion}/webapps/examples/ apache-tomcat-${tomcatVersion}/webapps/host-manager/ apache-tomcat-${tomcatVersion}/webapps/manager/'"
-	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"99a100,101\" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"> \" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; patch catalina.sh catalina.patch'"
+	eval "$sshCommand $hostname 'cp apache-tomcat-${tomcatVersion}/conf/server.xml apache-tomcat-${tomcatVersion}/conf/server.orig'"
+	eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-blocking/server_$connector-Connector.xml apache-tomcat-${tomcatVersion}/conf/server.xml'"
+	eval "$sshCommand $hostname 'cp apache-tomcat-${tomcatVersion}/bin/catalina.sh apache-tomcat-${tomcatVersion}/bin/catalina.orig'"
+	eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-blocking/catalina.sh apache-tomcat-${tomcatVersion}/bin/catalina.sh'"
 fi
 
 echo "--- Build WSPerfLab"
-eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew clean build'"
+eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew build'"
 echo "--- Copy ws-java-servlet-blocking.war to Tomcat 7"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-blocking/build/libs/ws-java-servlet-blocking-*-SNAPSHOT.war apache-tomcat-${tomcatVersion}/webapps/ws-java-servlet-blocking.war'"
 echo "--- Start Tomcat 7"
