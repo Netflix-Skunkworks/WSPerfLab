@@ -1,4 +1,4 @@
 if [ -e WSPerfLab ]
     then echo "already got WSPerfLab"
-else $GIT_COMMAND
+else git clone https://github.com/benjchristensen/WSPerfLab
 fi
