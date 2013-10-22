@@ -1,0 +1,76 @@
+################################################### ws-impls
+
+####### ws-java-servlet-blocking [Java BIO Connector] (m1.xlarge) 
+
+Host: ec2-54-202-138-86.us-west-2.compute.amazonaws.com
+Install Command: ./installWithTomcat.sh -h ec2-54-202-138-86.us-west-2.compute.amazonaws.com -s oq-ssh -c JavaBIO
+URL: http://ec2-54-202-138-86.us-west-2.compute.amazonaws.com:8080/ws-java-servlet-blocking/testA?id=2342
+
+
+####### ws-java-servlet-blocking [Java NIO Connector] (m1.xlarge) 
+
+Host: ec2-54-244-147-192.us-west-2.compute.amazonaws.com
+Install Command: ./installWithTomcat.sh -h ec2-54-244-147-192.us-west-2.compute.amazonaws.com -s oq-ssh -c JavaNIO
+URL: http://ec2-54-244-147-192.us-west-2.compute.amazonaws.com:8080/ws-java-servlet-blocking/testA?id=2342
+
+
+####### ws-java-servlet-blocking [Native AJP Connector] (m1.xlarge) 
+
+Host: ec2-54-245-55-57.us-west-2.compute.amazonaws.com
+Install Command: ./installWithTomcat.sh -h ec2-54-245-55-57.us-west-2.compute.amazonaws.com -s oq-ssh -c NativeAJP
+URL: http://ec2-54-245-55-57.us-west-2.compute.amazonaws.com:8080/ws-java-servlet-blocking/testA?id=2342
+
+
+####### ws-java-servlet-blocking-rxjava [Java NIO Connector] (m1.xlarge)
+
+Host: ec2-54-202-6-247.us-west-2.compute.amazonaws.com
+Install Command: ./installWithTomcat.sh -h ec2-54-202-6-247.us-west-2.compute.amazonaws.com -s oq-ssh -c JavaNIO
+URL: http://ec2-54-202-6-247.us-west-2.compute.amazonaws.com:8080/ws-java-servlet-blocking-rxjava/testA?id=2342
+
+
+####### ws-java-servlet-3_1-nonblocking-rxjava  (m1.xlarge)
+
+Host: ec2-54-212-138-235.us-west-2.compute.amazonaws.com
+Install Command: ./installWithJetty.sh -h ec2-54-212-138-235.us-west-2.compute.amazonaws.com -s oq-ssh 
+URL: http://ec2-54-212-138-235.us-west-2.compute.amazonaws.com:8080/ws-java-servlet-3_1-nonblocking-rxjava/testA?id=2342
+
+
+####### ws-java-jetty  (m1.xlarge)
+
+Host: ec2-54-202-41-247.us-west-2.compute.amazonaws.com
+<not yet installed>
+
+
+####### ws-java-netty  (m1.xlarge)
+
+Host: ec2-54-218-232-254.us-west-2.compute.amazonaws.com
+Install Command: ./install.sh -h ec2-54-218-232-254.us-west-2.compute.amazonaws.com -s oq-ssh -b 'ec2-54-212-9-163.us-west-2.compute.amazonaws.com,ec2-50-112-37-179.us-west-2.compute.amazonaws.com,ec2-54-202-68-84.us-west-2.compute.amazonaws.com,ec2-54-212-66-212.us-west-2.compute.amazonaws.com,ec2-54-212-28-210.us-west-2.compute.amazonaws.com' -r NiteshKant
+URL: http://ec2-54-218-232-254.us-west-2.compute.amazonaws.com:8080/ws-java-netty/testA?id=2342
+
+-> Need to make use BackendMockHostSelector
+
+
+####### ws-play-scala  (m1.xlarge)
+
+Host: ec2-54-245-157-20.us-west-2.compute.amazonaws.com
+
+<not yet installed>
+
+
+
+###################################################  ws-client / gatling  (m2.4xlarge)
+
+ec2-54-212-183-247.us-west-2.compute.amazonaws.com
+
+<not yet installed>
+
+
+###################################################  backend-mocks  (m1.xlarge)
+
+For "/tmp/wsmock_servers.txt" on each ws-impl server =>
+
+http://ec2-54-212-9-163.us-west-2.compute.amazonaws.com
+http://ec2-50-112-37-179.us-west-2.compute.amazonaws.com
+http://ec2-54-202-68-84.us-west-2.compute.amazonaws.com
+http://ec2-54-212-66-212.us-west-2.compute.amazonaws.com
+http://ec2-54-212-28-210.us-west-2.compute.amazonaws.com
