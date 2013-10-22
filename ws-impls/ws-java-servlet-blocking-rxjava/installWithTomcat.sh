@@ -78,7 +78,7 @@ else
 fi
 
 echo "--- Build WSPerfLab"
-eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew clean build'"
+eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew build'"
 echo "--- Copy ws-java-servlet-blocking-rxjava.war to Tomcat 7"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-blocking-rxjava/build/libs/ws-java-servlet-blocking-rxjava*-SNAPSHOT.war apache-tomcat-${tomcatVersion}/webapps/ws-java-servlet-blocking-rxjava.war'"
 echo "--- Start Tomcat 7"

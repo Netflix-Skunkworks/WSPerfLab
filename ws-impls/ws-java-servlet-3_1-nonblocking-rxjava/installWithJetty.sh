@@ -63,7 +63,7 @@ else
 fi
 
 echo "--- Build WSPerfLab"
-eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew clean build'"
+eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew build'"
 echo "--- Copy ws-java-servlet-3_1-nonblocking-rxjava.war to Jetty ${jettyVersion}"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-3_1-nonblocking-rxjava/build/libs/ws-java-servlet-3_1-nonblocking-rxjava-*-SNAPSHOT.war jetty-distribution-${jettyVersion}/webapps/ws-java-servlet-3_1-nonblocking-rxjava.war'"
 echo "--- Start Jetty ${jettyVersion}"

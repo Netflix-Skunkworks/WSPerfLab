@@ -61,7 +61,7 @@ else
 fi
 
 echo "--- Build WSPerfLab"
-eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew clean build'"
+eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew build'"
 echo "--- Copy ws-backend-mock.war to Tomcat 7"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-backend-mock/build/libs/ws-backend-mock-0.1-SNAPSHOT.war apache-tomcat-${tomcatVersion}/webapps/ws-backend-mock.war'"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-backend-mock/server.xml apache-tomcat-${tomcatVersion}/conf/server.xml'"
