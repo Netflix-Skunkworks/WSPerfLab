@@ -6,7 +6,7 @@ object LoadDriverConstants {
 
     val repetitions = 10000
     val warmup = 5
-    val usersPerRamp = 750
+    val usersPerRamp = 75
     val rampTime = 5
     val runTime = 25
     var urlfile = "/tmp/loadtesturl.txt"
