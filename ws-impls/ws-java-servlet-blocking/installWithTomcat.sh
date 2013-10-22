@@ -73,6 +73,8 @@ else
 	eval "$sshCommand $hostname '/bin/rm -R apache-tomcat-${tomcatVersion}/webapps/docs/ apache-tomcat-${tomcatVersion}/webapps/examples/ apache-tomcat-${tomcatVersion}/webapps/host-manager/ apache-tomcat-${tomcatVersion}/webapps/manager/'"
 	eval "$sshCommand $hostname 'cp apache-tomcat-${tomcatVersion}/conf/server.xml apache-tomcat-${tomcatVersion}/conf/server.orig'"
 	eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-blocking/server_$connector-Connector.xml apache-tomcat-${tomcatVersion}/conf/server.xml'"
+	eval "$sshCommand $hostname 'cp apache-tomcat-${tomcatVersion}/bin/catalina.sh apache-tomcat-${tomcatVersion}/bin/catalina.orig'"
+	eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-blocking/catalina.sh apache-tomcat-${tomcatVersion}/bin/catalina.sh'"
 fi
 
 echo "--- Build WSPerfLab"
