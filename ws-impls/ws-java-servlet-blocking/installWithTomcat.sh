@@ -22,11 +22,19 @@ while getopts "h:s:t:u:r" opt; do
     t)
       tomcatVersion=$OPTARG
       ;;
+    c)
+      connector=$OPTARG
+      ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
       ;;
   esac
 done
+
+if [ -z "$connector" ]; then
+	echo $'\a'-c required for connector 
+	echo 	Options include: JavaBIO JavaNIO NativeAPR
+fi
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
@@ -58,9 +66,8 @@ else
 	eval "$sshCommand $hostname 'tar xzvf apache-tomcat-${tomcatVersion}.tar.gz'"
 	echo "--- Delete demo apps from Tomcat 7"
 	eval "$sshCommand $hostname '/bin/rm -R apache-tomcat-${tomcatVersion}/webapps/docs/ apache-tomcat-${tomcatVersion}/webapps/examples/ apache-tomcat-${tomcatVersion}/webapps/host-manager/ apache-tomcat-${tomcatVersion}/webapps/manager/'"
-	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"99a100,101\" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; echo \"> \" >> catalina.patch'"
-	eval "$sshCommand $hostname 'cd apache-tomcat-${tomcatVersion}/bin; patch catalina.sh catalina.patch'"
+	eval "$sshCommand $hostname 'cp apache-tomcat-${tomcatVersion}/conf/server.xml apache-tomcat-${tomcatVersion}/conf/server.orig'"
+	eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-blocking/server_$connector-Connector.xml apache-tomcat-${tomcatVersion}/conf/server.xml'"
 fi
 
 echo "--- Build WSPerfLab"
