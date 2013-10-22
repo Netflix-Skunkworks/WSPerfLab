@@ -22,30 +22,42 @@ import perf.test.netty.NettyUtils;
 import perf.test.netty.PropertyNames;
 import perf.test.netty.client.HttpClient;
 import perf.test.netty.client.HttpClientFactory;
+import perf.test.netty.client.LBAwareHttpClientImpl;
 import perf.test.netty.client.PoolExhaustedException;
+import perf.test.netty.client.RoundRobinLB;
 import perf.test.netty.server.StatusRetriever;
-import perf.test.utils.BackendMockHostSelector;
 
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
  */
 public abstract class TestCaseHandler {
 
+    private static final Pattern HOSTS_SPLITTER = Pattern.compile(",");
     private final Logger logger = LoggerFactory.getLogger(TestCaseHandler.class);
 
     private final String testCaseName;
     protected final static JsonFactory jsonFactory = new JsonFactory();
     protected final HttpClientFactory clientFactory;
-    private final InetSocketAddress mockBackendServerAddress = BackendMockHostSelector.getRandomBackendHost();
+    private final HttpClient<FullHttpResponse,FullHttpRequest> httpClient;
 
     protected TestCaseHandler(String testCaseName, EventLoopGroup eventLoopGroup) throws PoolExhaustedException {
         this.testCaseName = testCaseName;
         clientFactory = new HttpClientFactory(null, eventLoopGroup);
-        clientFactory.getHttpClient(mockBackendServerAddress); // Warm up @ startup
+        String hosts = PropertyNames.MockBackendHost.getValueAsString();
+        String[] splittedHosts = HOSTS_SPLITTER.split(hosts);
+        int serverPort = PropertyNames.MockBackendPort.getValueAsInt();
+        if (splittedHosts.length > 1) {
+            RoundRobinLB<FullHttpRequest> lb = new RoundRobinLB<FullHttpRequest>(splittedHosts,
+                                                                                 serverPort);
+            httpClient = new LBAwareHttpClientImpl(lb, clientFactory);
+        } else {
+            httpClient = clientFactory.getHttpClient(new InetSocketAddress(hosts, serverPort));
+        }
     }
 
     public void processRequest(Channel channel, boolean keepAlive, HttpRequest request, QueryStringDecoder qpDecoder) {
@@ -78,15 +90,12 @@ public abstract class TestCaseHandler {
     }
 
     protected void get(EventExecutor eventExecutor, String path,
-                       final HttpClient.ClientResponseHandler<FullHttpResponse> responseHandler,
-                       final FullHttpResponse topLevelResponse, final Channel channel, final boolean keepAlive) {
+                       final HttpClient.ClientResponseHandler<FullHttpResponse> responseHandler) {
         Preconditions.checkNotNull(eventExecutor, "Event executor can not be null");
         String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
         path = basePath + path;
         FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path);
-        HttpClient<FullHttpResponse, FullHttpRequest> httpClient = null;
         try {
-            httpClient = clientFactory.getHttpClient(mockBackendServerAddress);
             final String fullPath = path;
             httpClient.execute(eventExecutor, request, responseHandler).addListener(new GenericFutureListener<Future<FullHttpResponse>>() {
 
@@ -106,7 +115,7 @@ public abstract class TestCaseHandler {
 
     public void populateStatus(StatusRetriever.Status statusToPopulate) {
         StatusRetriever.TestCaseStatus testCaseStatus = new StatusRetriever.TestCaseStatus();
-        clientFactory.populateStatus(mockBackendServerAddress, testCaseStatus);
+        httpClient.populateStatus(testCaseStatus);
         testCaseStatus.setInflightTests(getTestsInFlight());
         statusToPopulate.addTestStatus(testCaseName, testCaseStatus);
     }

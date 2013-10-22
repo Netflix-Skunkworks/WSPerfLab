@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import javax.annotation.Nullable;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -91,7 +92,7 @@ public class HttpClientFactory {
 
     private Bootstrap newBootstrap() {
         Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(group).channel(NioSocketChannel.class);
+        bootstrap.group(group).channel(NioSocketChannel.class).option(ChannelOption.SO_KEEPALIVE, true);
         return bootstrap;
     }
 

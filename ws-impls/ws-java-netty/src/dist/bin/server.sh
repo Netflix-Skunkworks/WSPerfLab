@@ -9,7 +9,7 @@ SERVER_LOG="false"
 CLIENT_LOG="false"
 
 : ${BACKEND_HOST:="localhost"}
-: ${BACKEND_PORT:=8080}
+: ${BACKEND_PORT:=8989}
 
 echo "Using backend host ${BACKEND_HOST} and port ${BACKEND_PORT}"
 BACKEND_MAX_CONN_PER_TEST=2000

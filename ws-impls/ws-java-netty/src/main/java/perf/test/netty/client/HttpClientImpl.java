@@ -9,6 +9,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import perf.test.netty.server.StatusRetriever;
 
 /**
  * @author Nitesh Kant
@@ -27,7 +28,8 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
 
     @Override
     public Future<FullHttpResponse> execute(@Nullable EventExecutor executor, final FullHttpRequest request,
-                                            final ClientResponseHandler<FullHttpResponse> responseHandler) {
+                                            final ClientResponseHandler<FullHttpResponse> responseHandler)
+            throws PoolExhaustedException{
         final EventExecutor _executor;
         if (null == executor) {
             _executor = this.executor;
@@ -48,6 +50,11 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
         clientGetFuture.addListener(new ConnectFutureListener(request, responseHandler, processingFinishPromise));
 
         return processingFinishPromise;
+    }
+
+    @Override
+    public void populateStatus(StatusRetriever.TestCaseStatus testCaseStatus) {
+        pool.populateStatus(testCaseStatus);
     }
 
     private static class RequestProcessingPromise extends DefaultPromise<FullHttpResponse> {
