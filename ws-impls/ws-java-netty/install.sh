@@ -67,4 +67,4 @@ eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-netty/; ../../gradlew
 echo "--- Copy distribution"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-netty/build/distributions/ws-java-netty-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-netty-*-SNAPSHOT.zip'"
 echo "--- Start Netty impl"
-eval "$sshCommand $hostname 'SERVER_PORT=8080; export BACKEND_HOST=${backendHost}; cd ws-java-netty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"
+eval "$sshCommand $hostname 'export SERVER_PORT=8080; export BACKEND_HOST=${backendHost}; cd ws-java-netty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"
