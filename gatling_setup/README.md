@@ -4,7 +4,9 @@ Use ./install_gatling_all.py to install gatling on servers.
 
 the parameter -r is a file of hosts to install on. (one host per line)
 
-Note that the program will also run the gatlings concurrently.  Logs are in the logs.sh directory.   Since the first gatling run will also download artifacts from Maven, its suggested to discard the first run and then pay attention to the second run.
+To run the gatlings on the local gatling server directly, cd ~WSPerfLab/gatling_setup/gatling_driver/run_gatling_locally.py <URL_base_to_test>
 
-Getting the reports:
-  After you run the gatling, copy the simulation logs to your local directory by doing cd gatling_driver/get_reports.py script
+To get the reports:
+cd ~WSPerfLab/gatling_setup/gatling_driver; bash build_report.sh <path_to_simulation.log>
+
+Report output format is concurrency[TAB][success per second][TAB][failure per second][TAB][python list of latencies at percentiles]
