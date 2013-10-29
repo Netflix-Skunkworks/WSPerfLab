@@ -272,11 +272,12 @@ public class TestCaseAServlet extends HttpServlet {
 
                 public void onWritePossible() throws IOException {
                     if (!s.isUnsubscribed()) {
-                        o.onNext(out);
+                        if (out.isReady()) {
+                            o.onNext(out);
+                            // TODO fix hack to work around zip bug
+                            o.onCompleted();
+                        }
                     }
-
-                    // TODO fix hack to work around zip bug
-                    o.onCompleted();
                 }
 
                 public void onError(Throwable t) {
