@@ -10,13 +10,13 @@ endSend = 5
 startReceive = 6
 endReceive = 7
 outCome = 8
-maxIndex = 9
+maxIndex = 18
 currentIndex = -1
 okCount = 0
 koCount = 0
 latencyList=[]
 usersPerRamp = 75
-latencies=[0, 10, 25, 50, 75, 90, 95, 99]
+latencies=[0, 10, 25, 50, 75, 90, 95, 99, 99.99]
 
 
 def getIndex(requestTime):
