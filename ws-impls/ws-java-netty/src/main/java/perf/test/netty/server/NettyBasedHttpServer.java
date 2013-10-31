@@ -23,14 +23,13 @@ import perf.test.netty.server.tests.TestRegistry;
 import java.net.InetSocketAddress;
 
 /**
- * A simple server based on netty. The server starts on port as specified by {@link PropertyNames#ServerPort}. The netty
- * server pipeline is as defined by {@link ServerPipelineFactory}
+ * A simple server based on netty. The server starts on port as specified by {@link PropertyNames#ServerPort}.
  *
  * @author Nitesh Kant (nkant@netflix.com)
  */
 public class NettyBasedHttpServer {
 
-    private Logger logger = LoggerFactory.getLogger(NettyBasedHttpServer.class);
+    private final Logger logger = LoggerFactory.getLogger(NettyBasedHttpServer.class);
 
     private final int port;
     private ServerBootstrap bootstrap;

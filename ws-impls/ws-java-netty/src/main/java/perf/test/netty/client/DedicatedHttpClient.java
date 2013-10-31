@@ -1,16 +1,18 @@
 package perf.test.netty.client;
 
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import perf.test.netty.PropertyNames;
 
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static perf.test.netty.client.HttpClient.ClientResponseHandler;
 
 /**
  * @author Nitesh Kant
@@ -27,8 +29,8 @@ class DedicatedHttpClient<T, R extends HttpRequest> {
         this.owningPool = owningPool;
     }
 
-    Future<T> execute(R request, final ClientResponseHandler<T> responseHandler) {
-        return executeRequest(request, new ResponseHandlerWrapper<T>(request, responseHandler), 0);
+    Future<T> execute(R request, HttpClientImpl.RequestProcessingPromise processingFinishPromise) {
+        return executeRequest(request, new ResponseHandlerWrapper<T>(request, processingFinishPromise), 0);
     }
 
     Future<T> retry(final ChannelHandlerContext failedContext, int retryCount) {
@@ -36,14 +38,30 @@ class DedicatedHttpClient<T, R extends HttpRequest> {
         return executeRequest(handler.request, handler, retryCount);
     }
 
-    private Future<T> executeRequest(R request, ResponseHandlerWrapper<T> responseHandler, int retryCount) {
+    private Future<T> executeRequest(R request, final ResponseHandlerWrapper<T> responseHandler, int retryCount) {
         request.headers().set(HttpHeaders.Names.HOST, host);
         channel.attr(DedicatedClientPool.RETRY_COUNT_KEY).setIfAbsent(new AtomicInteger(retryCount));
         channel.attr(owningPool.getResponseHandlerKey()).set(responseHandler);
         ChannelPromise promise = channel.newPromise();
-        channel.writeAndFlush(request, promise);
+        channel.writeAndFlush(request, promise).addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if (future.isSuccess()) {
+                    if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+                        responseHandler.processingFinishPromise.checkpoint("Write success.");
+                    }
+                } else {
+                    responseHandler.processingFinishPromise.tryFailure(future.cause()); // TODO: See if we can retry.
+                    if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+                        responseHandler.processingFinishPromise.checkpoint("Write failed." + future.cause());
+                    }
+                }
+            }
+        });
+        responseHandler.processingFinishPromise.checkpoint("Request Written. Retry count: " + retryCount);
         DefaultPromise<T> processingCompletePromise = new RequestProcessingPromise(channel, promise);
         channel.attr(owningPool.getProcessingCompletePromiseKey()).set(processingCompletePromise);
+        processingCompletePromise.addListener(responseHandler);
         return processingCompletePromise;
     }
 
@@ -51,26 +69,23 @@ class DedicatedHttpClient<T, R extends HttpRequest> {
         return channel.isActive();
     }
 
-    class ResponseHandlerWrapper<T> implements ClientResponseHandler<T> {
+    public class ResponseHandlerWrapper<T> implements GenericFutureListener<Future<T>> {
 
         private final R request;
-        private final ClientResponseHandler<T> actualHandler;
+        private final HttpClientImpl.RequestProcessingPromise processingFinishPromise;
 
-        ResponseHandlerWrapper(R request, ClientResponseHandler<T> actualHandler) {
+        ResponseHandlerWrapper(R request, HttpClientImpl.RequestProcessingPromise processingFinishPromise) {
             this.request = request;
-            this.actualHandler = actualHandler;
+            this.processingFinishPromise = processingFinishPromise;
         }
 
         @Override
-        public void onComplete(T response) {
+        public void operationComplete(Future<T> future) throws Exception {
             owningPool.returnClient(DedicatedHttpClient.this);
-            actualHandler.onComplete(response);
         }
 
-        @Override
-        public void onError(Throwable throwable) {
-            owningPool.returnClient(DedicatedHttpClient.this);
-            actualHandler.onError(throwable);
+        public HttpClientImpl.RequestProcessingPromise getProcessingFinishPromise() {
+            return processingFinishPromise;
         }
     }
 

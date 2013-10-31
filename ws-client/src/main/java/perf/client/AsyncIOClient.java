@@ -56,7 +56,7 @@ public class AsyncIOClient {
         for (int loaderCount = 0; loaderCount < concurrentClients; loaderCount++) {
             loaderThreadPool.execute(new Runnable() {
 
-                private AtomicLong responseReceived = new AtomicLong();
+                private final AtomicLong responseReceived = new AtomicLong();
 
                 @Override
                 public void run() {
@@ -66,19 +66,22 @@ public class AsyncIOClient {
                             final long start = System.nanoTime();
                             beforeSendRequest();
                             String uriWithId = String.format("%s?id=%d", testUri, Math.abs(idGenerator.nextLong()));
+                            result.incrementRequestSent();
                             httpClient.newRequest(uriWithId).timeout(requestTimeoutMs, TimeUnit.MILLISECONDS).send(new Response.CompleteListener() {
                                 @Override
                                 public void onComplete(Result result) {
                                     processResponse(result, start);
                                     if (responseReceived.incrementAndGet() >= maxRequestsPerThread) {
+/*
                                         System.out.println("Loader thread: " + Thread.currentThread().getName()
                                                            + " got all responses. Stopping the loader.");
+*/
                                         finishingLatch.countDown();
                                     }
                                 }
                             });
                         }
-                        System.out.println("Loader thread: " + Thread.currentThread().getName() + " finished enqueing all requests to the selector. ");
+                        //System.out.println("Loader thread: " + Thread.currentThread().getName() + " finished enqueing all requests to the selector. ");
                     } catch (Exception e) {
                         System.err.println("Error while sending a request from worker: " + Thread.currentThread().getName());
                         e.printStackTrace();
@@ -97,6 +100,7 @@ public class AsyncIOClient {
         stopped = true;
         statusUpdater.stop();
         System.out.println("Stopped the Status updater.");
+/*
         try {
             httpClient.stop();
         } catch (Exception e) {
@@ -104,6 +108,7 @@ public class AsyncIOClient {
             e.printStackTrace();
         }
         System.out.println("Stopped the http client.");
+*/
         loaderThreadPool.shutdown();
         System.out.println("Shutdown the loader threadpool.");
         resultStatsCollector.calculateResult(result);

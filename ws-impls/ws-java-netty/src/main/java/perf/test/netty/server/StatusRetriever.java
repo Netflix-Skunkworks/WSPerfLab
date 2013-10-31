@@ -1,6 +1,7 @@
 package perf.test.netty.server;
 
 import perf.test.netty.ConnectedClientsCounter;
+import perf.test.netty.PropertyNames;
 import perf.test.netty.server.tests.TestCaseHandler;
 import perf.test.netty.server.tests.TestRegistry;
 
@@ -8,6 +9,7 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Nitesh Kant
@@ -20,8 +22,7 @@ public class StatusRetriever {
         this.connectedClientsCounter = connectedClientsCounter;
     }
 
-    public String getStatus() {
-        Status status = new Status();
+    public String getStatus(Status status) {
         Collection<TestCaseHandler> allHandlers = TestRegistry.getAllHandlers();
         for (TestCaseHandler handler : allHandlers) {
             handler.populateStatus(status);
@@ -56,11 +57,29 @@ public class StatusRetriever {
                 statusBuilder.append("Unhandled requests since startup: ");
                 statusBuilder.append(connPoolStatusEntry.getValue().getUnhandledRequestsSinceStartUp());
                 statusBuilder.append('\n');
+                statusBuilder.append("HTTP Client request recieved: ");
+                statusBuilder.append(testCaseStatus.getHttpClientReqRecvCount());
+                statusBuilder.append('\n');
+                statusBuilder.append("HTTP Client request inflight: ");
+                statusBuilder.append(testCaseStatus.getHttpClientInflightRequests());
+                statusBuilder.append('\n');
                 statusBuilder.append("***************************************************************");
             }
             statusBuilder.append('\n');
             statusBuilder.append("Inflight tests: ");
             statusBuilder.append(testCaseStatus.getInflightTests());
+            statusBuilder.append('\n');
+            statusBuilder.append("Total request recieved: ");
+            statusBuilder.append(testCaseStatus.getRequestRecvCount());
+            statusBuilder.append('\n');
+            statusBuilder.append("Response Code counts: ");
+            statusBuilder.append(testCaseStatus.getRespCodeVsCount());
+            statusBuilder.append('\n');
+            statusBuilder.append("Send failed count: ");
+            statusBuilder.append(testCaseStatus.getSendFailedCount());
+            statusBuilder.append('\n');
+            statusBuilder.append("Duplicate send attempt count: ");
+            statusBuilder.append(testCaseStatus.getDuplicateResponseSendCount());
             statusBuilder.append('\n');
             statusBuilder.append("------------------------------------------------------------------");
             statusBuilder.append('\n');
@@ -71,6 +90,14 @@ public class StatusRetriever {
     public static class TestCaseStatus {
 
         private long inflightTests;
+        private Map<Integer, AtomicLong> respCodeVsCount;
+        private long requestRecvCount;
+        private long httpClientReqRecvCount;
+        private long httpClientInflightRequests;
+        private long sendFailedCount;
+        private long duplicateResponseSendCount;
+        private long testWithErrors;
+
         private final Map<InetSocketAddress, ConnPoolStatus> serverVsConnPoolStatus =
                 new HashMap<InetSocketAddress, ConnPoolStatus>();
 
@@ -86,8 +113,64 @@ public class StatusRetriever {
             this.inflightTests = inflightTests;
         }
 
+        public Map<Integer, AtomicLong> getRespCodeVsCount() {
+            return respCodeVsCount;
+        }
+
+        public void setRespCodeVsCount(Map<Integer, AtomicLong> respCodeVsCount) {
+            this.respCodeVsCount = respCodeVsCount;
+        }
+
         public Map<InetSocketAddress, ConnPoolStatus> getServerVsConnPoolStatus() {
             return serverVsConnPoolStatus;
+        }
+
+        public long getSendFailedCount() {
+            return sendFailedCount;
+        }
+
+        public void setSendFailedCount(long sendFailedCount) {
+            this.sendFailedCount = sendFailedCount;
+        }
+
+        public long getDuplicateResponseSendCount() {
+            return duplicateResponseSendCount;
+        }
+
+        public void setDuplicateResponseSendCount(long duplicateResponseSendCount) {
+            this.duplicateResponseSendCount = duplicateResponseSendCount;
+        }
+
+        public long getTestWithErrors() {
+            return testWithErrors;
+        }
+
+        public void setTestWithErrors(long testWithErrors) {
+            this.testWithErrors = testWithErrors;
+        }
+
+        public long getRequestRecvCount() {
+            return requestRecvCount;
+        }
+
+        public void setRequestRecvCount(long requestRecvCount) {
+            this.requestRecvCount = requestRecvCount;
+        }
+
+        public long getHttpClientReqRecvCount() {
+            return httpClientReqRecvCount;
+        }
+
+        public void setHttpClientReqRecvCount(long httpClientReqRecvCount) {
+            this.httpClientReqRecvCount = httpClientReqRecvCount;
+        }
+
+        public long getHttpClientInflightRequests() {
+            return httpClientInflightRequests;
+        }
+
+        public void setHttpClientInflightRequests(long httpClientInflightRequests) {
+            this.httpClientInflightRequests = httpClientInflightRequests;
         }
     }
 

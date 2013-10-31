@@ -8,6 +8,7 @@ import org.eclipse.jetty.client.api.Response;
 import org.eclipse.jetty.http.HttpFields;
 
 import java.util.Arrays;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -22,6 +23,7 @@ public class ResultStatsCollector {
     private AtomicLong failedRequestsOrResponse = new AtomicLong();
     private AtomicLong non200Responses = new AtomicLong();
     private AtomicLong responses200 = new AtomicLong();
+    private ConcurrentHashMap<Integer, AtomicLong> respCodeVsCount = new ConcurrentHashMap<Integer, AtomicLong>();
 
     public void addResponseDetails(org.eclipse.jetty.client.api.Result result, long timeTakenInMillis) {
         if (result.isFailed()) {
@@ -40,7 +42,16 @@ public class ResultStatsCollector {
                 e.printStackTrace();
             }
         }
-        if (response.getStatus() >= 200 && response.getStatus() < 300) {
+        int status = response.getStatus();
+        AtomicLong respCodeCount = new AtomicLong();
+        AtomicLong existing = respCodeVsCount.putIfAbsent(status, respCodeCount);
+        if (null != existing) {
+            respCodeCount = existing;
+        }
+
+        respCodeCount.incrementAndGet();
+
+        if (status >= 200 && status < 300) {
             responses200.incrementAndGet();
         } else {
             non200Responses.incrementAndGet();
@@ -52,11 +63,11 @@ public class ResultStatsCollector {
         StatsResult serverTimeStats = calculateStatsResult(serverResponseTimesInMillis);
 
         result.setTotal2XXResponses(responses200.get());
-        result.setTotalRequestsSent(totalTimeStats.getSampleSize());
         result.setTotalTimeStats(totalTimeStats);
         result.setServerTimeStats(serverTimeStats);
         result.setTotalNon2XXResponses(non200Responses.get());
         result.setTotalFailedRequestsOrResponse(failedRequestsOrResponse.get());
+        result.setRespCodeVsCount(respCodeVsCount);
     }
 
     private StatsResult calculateStatsResult(ConcurrentLinkedQueue<Double> allTimes) {

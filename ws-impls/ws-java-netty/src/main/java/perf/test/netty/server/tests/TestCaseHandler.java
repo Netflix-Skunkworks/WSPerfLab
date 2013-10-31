@@ -4,9 +4,9 @@ import com.google.common.base.Preconditions;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -15,21 +15,25 @@ import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.Promise;
 import org.codehaus.jackson.JsonFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import perf.test.netty.NettyUtils;
 import perf.test.netty.PropertyNames;
 import perf.test.netty.client.HttpClient;
 import perf.test.netty.client.HttpClientFactory;
 import perf.test.netty.client.LBAwareHttpClientImpl;
 import perf.test.netty.client.PoolExhaustedException;
 import perf.test.netty.client.RoundRobinLB;
+import perf.test.netty.server.RequestProcessingFailedException;
+import perf.test.netty.server.RequestProcessingPromise;
+import perf.test.netty.server.ServerHandler;
 import perf.test.netty.server.StatusRetriever;
 
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
 /**
@@ -44,8 +48,11 @@ public abstract class TestCaseHandler {
     protected final static JsonFactory jsonFactory = new JsonFactory();
     protected final HttpClientFactory clientFactory;
     private final HttpClient<FullHttpResponse,FullHttpRequest> httpClient;
+    private final AtomicLong testWithErrors = new AtomicLong();
+    private final AtomicLong inflightTests = new AtomicLong();
+    private final AtomicLong requestRecvCount = new AtomicLong();
 
-    protected TestCaseHandler(String testCaseName, EventLoopGroup eventLoopGroup) throws PoolExhaustedException {
+    protected TestCaseHandler(String testCaseName, EventLoopGroup eventLoopGroup) {
         this.testCaseName = testCaseName;
         clientFactory = new HttpClientFactory(null, eventLoopGroup);
         String hosts = PropertyNames.MockBackendHost.getValueAsString();
@@ -60,26 +67,37 @@ public abstract class TestCaseHandler {
         }
     }
 
-    public void processRequest(Channel channel, boolean keepAlive, HttpRequest request, QueryStringDecoder qpDecoder) {
+    public void processRequest(Channel channel, HttpRequest request, QueryStringDecoder qpDecoder,
+                               RequestProcessingPromise requestProcessingPromise) {
+        inflightTests.incrementAndGet();
+        requestRecvCount.incrementAndGet();
+        requestProcessingPromise.addListener(new GenericFutureListener<Future<? super FullHttpResponse>>() {
+            @Override
+            public void operationComplete(Future<? super FullHttpResponse> future) throws Exception {
+                inflightTests.decrementAndGet();
+            }
+        });
+
+        boolean keepAlive = HttpHeaders.isKeepAlive(request);
         Map<String,List<String>> parameters = qpDecoder.parameters();
         List<String> id = parameters.get("id");
-        FullHttpResponse response;
         if (null == id || id.isEmpty()) {
-            response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST);
-            NettyUtils.createErrorResponse(jsonFactory, response, "query parameter id not provided.");
-            NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
+            requestProcessingPromise.tryFailure(new RequestProcessingFailedException(HttpResponseStatus.BAD_REQUEST, new IllegalArgumentException( "query parameter id not provided.")));
         } else {
-            response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
             try {
-                executeTestCase(channel, keepAlive, id.get(0), response);
+                String thisId = id.get(0);
+                requestProcessingPromise.setTestCaseId(thisId);
+                executeTestCase(channel, keepAlive, thisId, requestProcessingPromise);
             } catch (Throwable throwable) {
-                logger.error("Test case execution threw an exception.", throwable);
-                NettyUtils.sendResponse(channel, keepAlive, jsonFactory, response);
+                logger.error("Test case execution failed.", throwable);
+                testWithErrors.incrementAndGet();
+                requestProcessingPromise.tryFailure(new RequestProcessingFailedException(HttpResponseStatus.INTERNAL_SERVER_ERROR,throwable));
             }
         }
     }
 
-    protected abstract void executeTestCase(Channel channel, boolean keepAlive, String id, FullHttpResponse response) throws Throwable;
+    protected abstract void executeTestCase(Channel channel, boolean keepAlive, String id,
+                                            RequestProcessingPromise requestProcessingPromise);
 
     public void dispose() {
         clientFactory.shutdown();
@@ -89,36 +107,26 @@ public abstract class TestCaseHandler {
         return testCaseName;
     }
 
-    protected void get(EventExecutor eventExecutor, String path,
-                       final HttpClient.ClientResponseHandler<FullHttpResponse> responseHandler) {
+    protected Future<FullHttpResponse> get(EventExecutor eventExecutor, String path,
+                                           final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
         Preconditions.checkNotNull(eventExecutor, "Event executor can not be null");
         String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
         path = basePath + path;
         FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path);
-        try {
-            final String fullPath = path;
-            httpClient.execute(eventExecutor, request, responseHandler).addListener(new GenericFutureListener<Future<FullHttpResponse>>() {
-
-                @Override
-                public void operationComplete(Future<FullHttpResponse> future) throws Exception {
-                    if (!future.isSuccess()) {
-                        logger.error("Failed to execute backend get request: " + fullPath);
-                        responseHandler.onError(future.cause());
-                    }
-
-                }
-            });
-        } catch (PoolExhaustedException e) {
-            responseHandler.onError(e);
-        }
+        return httpClient.execute(eventExecutor, request).addListener(responseHandler);
     }
 
     public void populateStatus(StatusRetriever.Status statusToPopulate) {
         StatusRetriever.TestCaseStatus testCaseStatus = new StatusRetriever.TestCaseStatus();
         httpClient.populateStatus(testCaseStatus);
-        testCaseStatus.setInflightTests(getTestsInFlight());
+        ServerHandler.populateStatus(testCaseStatus);
+        testCaseStatus.setInflightTests(inflightTests.get());
+        testCaseStatus.setRequestRecvCount(requestRecvCount.get());
+        testCaseStatus.setTestWithErrors(testWithErrors.get());
         statusToPopulate.addTestStatus(testCaseName, testCaseStatus);
     }
 
-    protected abstract long getTestsInFlight();
+    public void populateTrace(StringBuilder traceBuilder) {
+        httpClient.populateTrace(traceBuilder);
+    }
 }

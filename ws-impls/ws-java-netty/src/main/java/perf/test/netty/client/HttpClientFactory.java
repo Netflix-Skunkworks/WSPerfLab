@@ -51,8 +51,7 @@ public class HttpClientFactory {
         this.group = group;
     }
 
-    public HttpClient<FullHttpResponse, FullHttpRequest> getHttpClient(InetSocketAddress serverAddress)
-            throws PoolExhaustedException {
+    public HttpClient<FullHttpResponse, FullHttpRequest> getHttpClient(InetSocketAddress serverAddress) {
         Preconditions.checkNotNull(serverAddress, "Server address can not be null.");
         HttpClient<FullHttpResponse, FullHttpRequest> client = httpClientsPerServer.get(serverAddress);
         if (null != client) {
@@ -65,17 +64,12 @@ public class HttpClientFactory {
             pool = poolsPerServer.get(serverAddress);
             if (null == pool) {
                 Bootstrap bootstrap = newBootstrap();
-                try {
-                    pool = new DedicatedClientPool<FullHttpResponse, FullHttpRequest>(serverAddress, bootstrap,
-                                                                                      PropertyNames.MockBackendMaxConnectionsPerTest.getValueAsInt(),
-                                                                                      PropertyNames.MockBackendConnectionsAtStartupPerTest.getValueAsInt());
-                    populateChannelInitializer(bootstrap, pool);
-                    pool.init();
-                    poolsPerServer.put(serverAddress, pool);
-                } catch (PoolExhaustedException e) {
-                    logger.error("Client pool creation failed.", e);
-                    throw e;
-                }
+                pool = new DedicatedClientPool<FullHttpResponse, FullHttpRequest>(serverAddress, bootstrap,
+                                                                                  PropertyNames.MockBackendMaxConnectionsPerTest.getValueAsInt(),
+                                                                                  PropertyNames.MockBackendConnectionsAtStartupPerTest.getValueAsInt());
+                populateChannelInitializer(bootstrap, pool);
+                pool.init();
+                poolsPerServer.put(serverAddress, pool);
             }
         }
 

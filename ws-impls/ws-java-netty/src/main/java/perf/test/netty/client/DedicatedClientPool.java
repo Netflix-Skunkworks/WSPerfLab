@@ -11,6 +11,7 @@ import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +37,8 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     public static final AttributeKey<AtomicInteger> RETRY_COUNT_KEY = new AttributeKey<AtomicInteger>("retry_count");
 
     private final String keyPrefix;
-    private final AttributeKey<HttpClient.ClientResponseHandler<T>> responseHandlerKey;
     private final AttributeKey<Promise<T>> processingCompletePromiseKey;
+    private final AttributeKey<GenericFutureListener<Future<T>>> responseHandlerKey;
 
     protected final Bootstrap bootstrap;
     protected final InetSocketAddress serverAddress;
@@ -52,7 +53,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
 
     DedicatedClientPool(InetSocketAddress serverAddress, Bootstrap bootstrap, int maxConnections, int coreConnections) {
         keyPrefix = serverAddress.getHostName() + ':' + serverAddress.getPort();
-        responseHandlerKey = new AttributeKey<HttpClient.ClientResponseHandler<T>>(keyPrefix + RESPONSE_HANDLER_ATTR_KEY_NAME);
+        responseHandlerKey = new AttributeKey<GenericFutureListener<Future<T>>>(keyPrefix + RESPONSE_HANDLER_ATTR_KEY_NAME);
         processingCompletePromiseKey = new AttributeKey<Promise<T>>(keyPrefix + PROCESSING_COMPLETE_PROMISE_KEY_NAME);
 
         this.coreConnections = coreConnections;
@@ -65,7 +66,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         availableClients = new ConcurrentLinkedQueue<DedicatedHttpClient<T, R>>();
     }
 
-    void init() throws PoolExhaustedException {
+    void init() {
         for (int i = 0; i < coreConnections; i++) {
             createNewClientEagerly();
         }
@@ -82,14 +83,15 @@ class DedicatedClientPool<T, R extends HttpRequest> {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
-                        logger.info("New client connected for host {} and port {}", serverAddress.getHostName(),
-                                    serverAddress.getPort());
+                        logger.debug("New client connected for host {} and port {}", serverAddress.getHostName(),
+                                     serverAddress.getPort());
                         final DedicatedHttpClient<T, R> httpClient = getHttpClient(future.channel());
                         future.channel().closeFuture().addListener(new ChannelFutureListener() {
                             @Override
                             public void operationComplete(ChannelFuture future) throws Exception {
-                                logger.info("Client disconnected from host {} and port {}", serverAddress.getHostName(),
-                                            serverAddress.getPort());
+                                logger.debug("Client disconnected from host {} and port {}",
+                                             serverAddress.getHostName(),
+                                             serverAddress.getPort());
                                 clientLimitEnforcer.remove(clientLimitEnforcingToken);
                                 availableClients.remove(httpClient);
                             }
@@ -132,23 +134,24 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     }
 
     Future<DedicatedHttpClient<T, R>> getClient(EventExecutor executor) {
+        int retryCount = 0;
         while (true) {
             @Nullable DedicatedHttpClient<T, R> availableClient = availableClients.poll();
-            final Promise<DedicatedHttpClient<T, R>> clientCreationPromise =
-                    new DefaultPromise<DedicatedHttpClient<T, R>>(executor);
+            final Promise<DedicatedHttpClient<T, R>> clientCreationPromise = new DefaultPromise<DedicatedHttpClient<T, R>>(executor);
             if (null == availableClient) {
                 return createNewClientOnDemand(clientCreationPromise);
             } else if(availableClient.isActive()){
                 clientCreationPromise.setSuccess(availableClient);
                 return clientCreationPromise;
             } else {
-                logger.info("Got an inactive client from available pool. Throwing it away.");
+                logger.info("Got an inactive client from available pool. Throwing it away. Retry count: " + retryCount);
+                retryCount++;
                 continue;
             }
         }
     }
 
-    AttributeKey<HttpClient.ClientResponseHandler<T>> getResponseHandlerKey() {
+    AttributeKey<GenericFutureListener<Future<T>>> getResponseHandlerKey() {
         return responseHandlerKey;
     }
 

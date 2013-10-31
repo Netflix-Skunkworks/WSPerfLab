@@ -9,7 +9,11 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import perf.test.netty.PropertyNames;
 import perf.test.netty.server.StatusRetriever;
+
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Nitesh Kant
@@ -21,15 +25,19 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
     private final DedicatedClientPool<FullHttpResponse, FullHttpRequest> pool;
     @Nullable private final EventExecutor executor;
 
+    private final AtomicLong inflighRequests = new AtomicLong();
+    private final AtomicLong recvRequests = new AtomicLong();
+    private static final ConcurrentLinkedQueue<RequestProcessingPromise> allPromises = new ConcurrentLinkedQueue<RequestProcessingPromise>();
+
     HttpClientImpl(@Nullable EventExecutor executor, DedicatedClientPool<FullHttpResponse, FullHttpRequest> pool) {
         this.executor = executor;
         this.pool = pool;
     }
 
     @Override
-    public Future<FullHttpResponse> execute(@Nullable EventExecutor executor, final FullHttpRequest request,
-                                            final ClientResponseHandler<FullHttpResponse> responseHandler)
-            throws PoolExhaustedException{
+    public Future<FullHttpResponse> execute(@Nullable EventExecutor executor, final FullHttpRequest request) {
+        inflighRequests.incrementAndGet();
+        recvRequests.incrementAndGet();
         final EventExecutor _executor;
         if (null == executor) {
             _executor = this.executor;
@@ -46,8 +54,19 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
         final Future<DedicatedHttpClient<FullHttpResponse,FullHttpRequest>> clientGetFuture = pool.getClient(_executor);
 
         final RequestProcessingPromise processingFinishPromise = new RequestProcessingPromise(_executor, clientGetFuture);
-
-        clientGetFuture.addListener(new ConnectFutureListener(request, responseHandler, processingFinishPromise));
+        if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+            allPromises.add(processingFinishPromise);
+        }
+        processingFinishPromise.addListener(new GenericFutureListener<Future<? super FullHttpResponse>>() {
+            @Override
+            public void operationComplete(Future<? super FullHttpResponse> future) throws Exception {
+                inflighRequests.decrementAndGet();
+                if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+                    allPromises.remove(processingFinishPromise);
+                }
+            }
+        });
+        clientGetFuture.addListener(new ConnectFutureListener(request, processingFinishPromise));
 
         return processingFinishPromise;
     }
@@ -55,12 +74,24 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
     @Override
     public void populateStatus(StatusRetriever.TestCaseStatus testCaseStatus) {
         pool.populateStatus(testCaseStatus);
+        testCaseStatus.setHttpClientInflightRequests(inflighRequests.get());
+        testCaseStatus.setHttpClientReqRecvCount(recvRequests.get());
     }
 
-    private static class RequestProcessingPromise extends DefaultPromise<FullHttpResponse> {
+    @Override
+    public void populateTrace(StringBuilder traceBuilder) {
+        if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+            for (RequestProcessingPromise aPromise : allPromises) {
+                aPromise.populateTrace(traceBuilder);
+            }
+        }
+    }
+
+    public class RequestProcessingPromise extends DefaultPromise<FullHttpResponse> {
 
         private final Future<DedicatedHttpClient<FullHttpResponse, FullHttpRequest>> clientGetFuture;
         private Future<FullHttpResponse> clientProcessingFuture;
+        private final ConcurrentLinkedQueue<String> checkpoints = new ConcurrentLinkedQueue<String>();
 
         public RequestProcessingPromise(EventExecutor _executor,
                                         Future<DedicatedHttpClient<FullHttpResponse,FullHttpRequest>> clientGetFuture) {
@@ -79,6 +110,10 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
             return super.cancel(mayInterruptIfRunning);
         }
 
+        public void checkpoint(String checkpoint) {
+            checkpoints.add(checkpoint);
+        }
+
         void setClientProcessingFuture(Future<FullHttpResponse> clientProcessingFuture) {
             this.clientProcessingFuture = clientProcessingFuture;
             this.clientProcessingFuture.addListener(new GenericFutureListener<Future<FullHttpResponse>>() {
@@ -92,18 +127,27 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
                 }
             });
         }
+
+        public void populateTrace(StringBuilder traceBuilder) {
+            traceBuilder.append('\n');
+            traceBuilder.append("****************************************");
+            traceBuilder.append('\n');
+            for (String checkpoint : checkpoints) {
+                traceBuilder.append("->");
+                traceBuilder.append(checkpoint);
+            }
+            traceBuilder.append('\n');
+            traceBuilder.append("****************************************");
+        }
     }
 
-    private static class ConnectFutureListener
+    private class ConnectFutureListener
             implements GenericFutureListener<Future<DedicatedHttpClient<FullHttpResponse, FullHttpRequest>>> {
         private final FullHttpRequest request;
-        private final ClientResponseHandler<FullHttpResponse> responseHandler;
         private final RequestProcessingPromise processingFinishPromise;
 
-        public ConnectFutureListener(FullHttpRequest request, ClientResponseHandler<FullHttpResponse> responseHandler,
-                                     RequestProcessingPromise processingFinishPromise) {
+        public ConnectFutureListener(FullHttpRequest request, RequestProcessingPromise processingFinishPromise) {
             this.request = request;
-            this.responseHandler = responseHandler;
             this.processingFinishPromise = processingFinishPromise;
         }
 
@@ -112,10 +156,14 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
                 Future<DedicatedHttpClient<FullHttpResponse, FullHttpRequest>> future)
                 throws Exception {
             if (future.isSuccess()) {
+                processingFinishPromise.checkpoints.add("Connect success");
                 DedicatedHttpClient<FullHttpResponse, FullHttpRequest> dedicatedClient = future.get();
-                Future<FullHttpResponse> clientProcessingFuture = dedicatedClient.execute(request, responseHandler);
+                processingFinishPromise.checkpoints.add("Going to enqueue request.");
+                Future<FullHttpResponse> clientProcessingFuture = dedicatedClient.execute(request, processingFinishPromise);
+                processingFinishPromise.checkpoints.add("Request enqueued");
                 processingFinishPromise.setClientProcessingFuture(clientProcessingFuture);
             } else {
+                processingFinishPromise.checkpoints.add("Connect failed.");
                 processingFinishPromise.setFailure(future.cause());
             }
         }
