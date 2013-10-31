@@ -37,7 +37,7 @@ public class ConnectedClientsCounter extends ChannelInboundHandlerAdapter {
             if (clientAddr instanceof InetSocketAddress) {
                 remoteAddr = (InetSocketAddress) clientAddr;
             }
-            logger.info("New client connected on server port {} and remote host {}, port {}", serverPort,
+            logger.debug("New client connected on server port {} and remote host {}, port {}", serverPort,
                         null != remoteAddr ? remoteAddr.getHostName() : "Unknown",
                         null != remoteAddr ? remoteAddr.getPort() : "Unknown");
         }
@@ -60,7 +60,7 @@ public class ConnectedClientsCounter extends ChannelInboundHandlerAdapter {
             if (clientAddr instanceof InetSocketAddress) {
                 remoteAddr = (InetSocketAddress) clientAddr;
             }
-            logger.info("Client disconnected from server port {} and remote host {}, port {}", serverPort,
+            logger.debug("Client disconnected from server port {} and remote host {}, port {}", serverPort,
                         null != remoteAddr ? remoteAddr.getHostName() : "Unknown",
                         null != remoteAddr ? remoteAddr.getPort() : "Unknown");
         }

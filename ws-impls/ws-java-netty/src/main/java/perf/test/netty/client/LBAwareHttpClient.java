@@ -22,11 +22,10 @@ public abstract class LBAwareHttpClient<T, R extends HttpRequest> implements Htt
     }
 
     @Override
-    public Future<T> execute(@Nullable EventExecutor executor, R request,
-                             ClientResponseHandler<T> responseHandler) throws PoolExhaustedException {
+    public Future<T> execute(@Nullable EventExecutor executor, R request) {
         InetSocketAddress nextServer = loadBalancer.nextServer(request);
         HttpClient<T, R> httpClient = getClient(clientFactory, nextServer);
-        return httpClient.execute(executor, request, responseHandler);
+        return httpClient.execute(executor, request);
     }
 
     @Override
@@ -36,6 +35,5 @@ public abstract class LBAwareHttpClient<T, R extends HttpRequest> implements Htt
         }
     }
 
-    protected abstract HttpClient<T, R> getClient(HttpClientFactory clientFactory, InetSocketAddress nextServer)
-            throws PoolExhaustedException;
+    protected abstract HttpClient<T, R> getClient(HttpClientFactory clientFactory, InetSocketAddress nextServer);
 }

@@ -11,15 +11,10 @@ import perf.test.netty.server.StatusRetriever;
  */
 public interface HttpClient<T, R extends HttpRequest> {
 
-    Future<T> execute(@Nullable EventExecutor executor, R request, ClientResponseHandler<T> responseHandler)
-            throws PoolExhaustedException;
+    Future<T> execute(@Nullable EventExecutor executor, R request);
 
     void populateStatus(StatusRetriever.TestCaseStatus testCaseStatus);
 
-    interface ClientResponseHandler<T> {
+    void populateTrace(StringBuilder traceBuilder);
 
-        void onComplete(T response);
-
-        void onError(Throwable throwable);
-    }
 }

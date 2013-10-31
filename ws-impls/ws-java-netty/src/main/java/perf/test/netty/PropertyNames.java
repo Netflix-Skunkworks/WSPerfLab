@@ -13,6 +13,7 @@ public enum PropertyNames {
     ServerPort("http.server.port", "8798"),
     ServerLoggingEnable("server.log.enable", "true"),
     ServerChunkSize("server.chunk.size", "1048576"),
+    ServerTraceRequests("server.trace.requests", "false"),
     ServerCloseConnectionOnError("server.close.conn.on.error", "false"), // Since we always serve HTTP - 1.1., we assume its keep alive.
 
     ClientLoggingEnable("client.log.enable", "true"),
@@ -25,6 +26,7 @@ public enum PropertyNames {
     MockBackendMaxConnectionsPerTest("perf.test.backend.host.maxconn.per.test", "10"),
 
     StatusRetrieverContextPath("http.server.status.endpoint", "status/"),
+    RequestTracerContentPath("http.server.tracer.endpoint", "trace/"),
 
     TestCaseACallANumItems("perf.test.testA.callA.numItems", "2"),
     TestCaseACallAItemSize("perf.test.testA.callA.itemSize", "50"),

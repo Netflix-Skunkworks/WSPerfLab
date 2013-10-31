@@ -9,10 +9,9 @@ import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import perf.test.netty.PropertyNames;
 
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static perf.test.netty.client.HttpClient.ClientResponseHandler;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
@@ -32,24 +31,22 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse response) throws Exception {
-        ClientResponseHandler<FullHttpResponse> responseHandler =
-                                                        ctx.channel().attr(pool.getResponseHandlerKey()).get();
         AtomicInteger retries = ctx.channel().attr(DedicatedClientPool.RETRY_COUNT_KEY).get();
 
         if (logger.isDebugEnabled()) {
             logger.debug("Response completed after {} retries", null == retries ? 0 : retries);
         }
+        if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+            checkpoint(ctx, "Response completed after retries: " + retries);
+        }
 
         retries.set(0); // Response received so reset retry.
 
         Promise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
+        response.content().retain();
         completionPromise.setSuccess(response);
-
-        if (null != responseHandler) {
-            responseHandler.onComplete(response);
-        } else {
-            logger.error("Client id: " + id + ". No listener found on message complete.");
-            pool.onUnhandledRequest();
+        if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+            checkpoint(ctx, "Promise completed.");
         }
     }
 
@@ -60,8 +57,14 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
         final int retryCount = ctx.channel().attr(DedicatedClientPool.RETRY_COUNT_KEY).get().incrementAndGet();
         logger.error("Client id: " + id + ". Client handler got an error. Retry count: " + retryCount, cause);
 
+        if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+            checkpoint(ctx, "Exception on client handler" + cause);
+        }
+
+        final Promise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
+
         if (retryCount > MAX_RETRIES) {
-            notifyOfError(ctx, cause);
+            completionPromise.setFailure(cause);
             return;
         }
 
@@ -74,14 +77,28 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
                         if (future.isSuccess()) {
                             future.get().retry(ctx, retryCount);
                         } else {
-                            notifyOfError(ctx, future.cause());
+                            completionPromise.setFailure(future.cause());
                         }
                     }
                 });
     }
 
-    private void notifyOfError(ChannelHandlerContext ctx, Throwable cause) {
-        ClientResponseHandler<FullHttpResponse> responseHandler = ctx.channel().attr(pool.getResponseHandlerKey()).get();
-        responseHandler.onError(cause);
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+            checkpoint(ctx, "Channel Inactive.");
+        }
+    }
+
+    private void checkpoint(ChannelHandlerContext ctx, String checkpoint) {
+        checkpoint = "ClientId: " + id + ' ' + checkpoint;
+        final GenericFutureListener<Future<FullHttpResponse>> responseHandler = ctx.channel().attr(
+                pool.getResponseHandlerKey()).get();
+        if (DedicatedHttpClient.ResponseHandlerWrapper.class.isAssignableFrom(responseHandler.getClass())) {
+            @SuppressWarnings("rawtypes")
+            DedicatedHttpClient.ResponseHandlerWrapper wrapper =
+                    (DedicatedHttpClient.ResponseHandlerWrapper) responseHandler;
+            wrapper.getProcessingFinishPromise().checkpoint(checkpoint);
+        }
     }
 }

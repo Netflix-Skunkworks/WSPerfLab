@@ -17,8 +17,7 @@ public class LBAwareHttpClientImpl extends LBAwareHttpClient<FullHttpResponse, F
 
     @Override
     protected HttpClient<FullHttpResponse, FullHttpRequest> getClient(HttpClientFactory clientFactory,
-                                                                      InetSocketAddress nextServer)
-            throws PoolExhaustedException {
+                                                                      InetSocketAddress nextServer) {
         return clientFactory.getHttpClient(nextServer);
     }
 }

@@ -3,7 +3,9 @@ package perf.client;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Nitesh Kant
@@ -15,11 +17,12 @@ public class TestResult {
     private ConcurrentLinkedQueue<IndividualResult> individualResults = new ConcurrentLinkedQueue<IndividualResult>();
     private String testUri;
     private int concurrentClients;
-    private long totalRequestsSent;
+    private AtomicLong totalRequestsSent = new AtomicLong();
     private long total2XXResponses;
     private long totalNon2XXResponses;
     private long totalFailedRequestsOrResponse;
     private boolean collectIndividualResults = true;
+    private Map<Integer, AtomicLong> respCodeVsCount;
 
     public ResultStatsCollector.StatsResult getServerTimeStats() {
         return serverTimeStats;
@@ -58,11 +61,11 @@ public class TestResult {
     }
 
     public long getTotalRequestsSent() {
-        return totalRequestsSent;
+        return totalRequestsSent.get();
     }
 
-    public void setTotalRequestsSent(long totalRequestsSent) {
-        this.totalRequestsSent = totalRequestsSent;
+    public void incrementRequestSent() {
+        this.totalRequestsSent.incrementAndGet();
     }
 
     public long getTotal2XXResponses() {
@@ -87,6 +90,14 @@ public class TestResult {
 
     public void setTotalFailedRequestsOrResponse(long totalFailedRequestsOrResponse) {
         this.totalFailedRequestsOrResponse = totalFailedRequestsOrResponse;
+    }
+
+    public void setRespCodeVsCount(Map<Integer, AtomicLong> respCodeVsCount) {
+        this.respCodeVsCount = respCodeVsCount;
+    }
+
+    public Map<Integer, AtomicLong> getRespCodeVsCount() {
+        return respCodeVsCount;
     }
 
     public String toJson() {
