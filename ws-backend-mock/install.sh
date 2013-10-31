@@ -2,7 +2,7 @@
 
 sshCommand="ssh"
 update=false
-tomcatVersion="7.0.42"
+tomcatVersion="7.0.47"
 gitRepo="benjchristensen"
 
 while getopts "h:s:t:u" opt; do

@@ -34,10 +34,10 @@ Default: 128
 Example Requests:
 
 ```
-http://hostname/ws-backend-simulation/mock.json?id=123
-http://hostname/ws-backend-simulation/mock.json?id=123&delay=500
-http://hostname/ws-backend-simulation/mock.json?id=123&numItems=25&itemSize=256
-http://hostname/ws-backend-simulation/mock.json?id=123&numItems=25&itemSize=256&delay=400
+http://hostname:8989/ws-backend-mock/mock.json?id=123
+http://hostname:8989/ws-backend-mock/mock.json?id=123&delay=500
+http://hostname:8989/ws-backend-mock/mock.json?id=123&numItems=25&itemSize=256
+http://hostname:8989/ws-backend-mock/mock.json?id=123&numItems=25&itemSize=256&delay=400
 ```
 
 Example Response:
