@@ -6,7 +6,7 @@ dependencies {
     compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
     compile 'org.slf4j:slf4j-api:1.7.0'
     compile 'com.netflix.rxjava:rxjava-core:0.14+'
-    compile 'com.netflix.rxjava:rxjava-apache-http:0.14.5'
+    compile 'com.netflix.rxjava:rxjava-apache-http:0.14.7'
     compile project(':ws-impls:ws-impl-utils')
     provided 'junit:junit-dep:4.10'
     compile 'javax.servlet:javax.servlet-api:3.0.1'
