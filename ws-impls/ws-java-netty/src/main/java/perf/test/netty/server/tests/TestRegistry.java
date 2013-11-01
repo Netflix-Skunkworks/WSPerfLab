@@ -1,5 +1,6 @@
 package perf.test.netty.server.tests;
 
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import perf.test.netty.client.PoolExhaustedException;
 
@@ -23,7 +24,7 @@ public class TestRegistry {
      * the connections and was interrupted.
      * @param eventLoopGroup
      */
-    public static synchronized void init(NioEventLoopGroup eventLoopGroup) throws PoolExhaustedException {
+    public static synchronized void init(EventLoopGroup eventLoopGroup) throws PoolExhaustedException {
         TestCaseA caseA = new TestCaseA(eventLoopGroup);
         handlers.put(caseA.getTestCaseName(), caseA);
     }

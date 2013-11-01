@@ -9,13 +9,16 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.channel.socket.oio.OioSocketChannel;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import io.netty.util.concurrent.EventExecutor;
+import io.netty.util.concurrent.EventExecutorGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.PropertyNames;
@@ -45,10 +48,16 @@ public class HttpClientFactory {
             new HashMap<InetSocketAddress, DedicatedClientPool<FullHttpResponse, FullHttpRequest>>();
 
     private final AtomicInteger clientHandlerId = new AtomicInteger();
+    private final Class<? extends SocketChannel> channelClass;
 
     public HttpClientFactory(@Nullable EventExecutor eventExecutor, EventLoopGroup group) {
         this.eventExecutor = eventExecutor;
         this.group = group;
+        if (PropertyNames.ClientIOBlocking.getValueAsBoolean()) {
+            channelClass = OioSocketChannel.class; // TODO: If server is non blocking we shd use a thread pool?
+        } else {
+            channelClass = NioSocketChannel.class;
+        }
     }
 
     public HttpClient<FullHttpResponse, FullHttpRequest> getHttpClient(InetSocketAddress serverAddress) {
@@ -86,7 +95,9 @@ public class HttpClientFactory {
 
     private Bootstrap newBootstrap() {
         Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(group).channel(NioSocketChannel.class).option(ChannelOption.SO_KEEPALIVE, true);
+        bootstrap.group(group)
+                 .channel(channelClass)
+                 .option(ChannelOption.SO_KEEPALIVE, true);
         return bootstrap;
     }
 
@@ -112,6 +123,13 @@ public class HttpClientFactory {
         @Nullable DedicatedClientPool<FullHttpResponse, FullHttpRequest> pool = poolsPerServer.get(mockBackendServerAddress);
         if (null != pool) {
             pool.populateStatus(testCaseStatus);
+        }
+    }
+
+    public void populateTrace(InetSocketAddress serverAddr, StringBuilder traceBuilder) {
+        @Nullable DedicatedClientPool<FullHttpResponse, FullHttpRequest> pool = poolsPerServer.get(serverAddr);
+        if (null != pool) {
+            pool.populateTrace(traceBuilder);
         }
     }
 }
