@@ -35,5 +35,12 @@ public abstract class LBAwareHttpClient<T, R extends HttpRequest> implements Htt
         }
     }
 
+    @Override
+    public void populateTrace(StringBuilder traceBuilder) {
+        for (InetSocketAddress serverAddr : loadBalancer.getAllServers()) {
+            clientFactory.populateTrace(serverAddr, traceBuilder);
+        }
+    }
+
     protected abstract HttpClient<T, R> getClient(HttpClientFactory clientFactory, InetSocketAddress nextServer);
 }

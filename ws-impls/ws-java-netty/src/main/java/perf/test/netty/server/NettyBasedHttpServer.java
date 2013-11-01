@@ -4,9 +4,13 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.oio.OioEventLoopGroup;
+import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.socket.oio.OioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
@@ -48,8 +52,17 @@ public class NettyBasedHttpServer {
         bootstrap = new ServerBootstrap();
         connectedClientsCounter = new ConnectedClientsCounter();
         final StatusRetriever statusRetriever = new StatusRetriever(connectedClientsCounter);
-        bootstrap.group(new NioEventLoopGroup())
-                 .channel(NioServerSocketChannel.class).childOption(ChannelOption.SO_KEEPALIVE, true)
+        final EventLoopGroup serverEventLoopGrp;
+        final Class<? extends ServerSocketChannel> channelClass;
+        if (PropertyNames.ServerIOBlocking.getValueAsBoolean()) {
+            channelClass = OioServerSocketChannel.class;
+            serverEventLoopGrp = new OioEventLoopGroup(PropertyNames.ServerEventLoopCount.getValueAsInt());
+        } else {
+            channelClass = NioServerSocketChannel.class;
+            serverEventLoopGrp = new NioEventLoopGroup(PropertyNames.ServerEventLoopCount.getValueAsInt());
+        }
+        bootstrap.group(serverEventLoopGrp)
+                 .channel(channelClass).childOption(ChannelOption.SO_KEEPALIVE, true)
                  .childHandler(new ChannelInitializer<SocketChannel>() {
                      @Override
                      protected void initChannel(SocketChannel ch) throws Exception {
@@ -70,7 +83,13 @@ public class NettyBasedHttpServer {
                      }
                  });
         bootstrap.bind(new InetSocketAddress(port));
-        TestRegistry.init(new NioEventLoopGroup());
+        final EventLoopGroup clientEventLoopGrp;
+        if (PropertyNames.ClientIOBlocking.getValueAsBoolean()) {
+            clientEventLoopGrp = new OioEventLoopGroup(PropertyNames.ClientEventLoopCount.getValueAsInt());
+        } else {
+            clientEventLoopGrp = new NioEventLoopGroup(PropertyNames.ClientEventLoopCount.getValueAsInt());
+        }
+        TestRegistry.init(clientEventLoopGrp);
 
         logger.info("Netty server started at port: " + port);
     }

@@ -185,4 +185,8 @@ class DedicatedClientPool<T, R extends HttpRequest> {
 
     public void shutdown() {
     }
+
+    public void populateTrace(StringBuilder traceBuilder) {
+        // TODO: Populate trace.
+    }
 }

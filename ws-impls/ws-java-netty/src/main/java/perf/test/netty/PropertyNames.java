@@ -9,6 +9,8 @@ package perf.test.netty;
  */
 public enum PropertyNames {
 
+    ServerIOBlocking("http.server.io.blocking", "false"),
+    ServerEventLoopCount("http.server.eventloop.count", "0"), // 0 means default, should be set if io is blocking
     ServerContextPath("http.server.context.path", "/ws-java-netty/"),
     ServerPort("http.server.port", "8798"),
     ServerLoggingEnable("server.log.enable", "true"),
@@ -16,6 +18,8 @@ public enum PropertyNames {
     ServerTraceRequests("server.trace.requests", "false"),
     ServerCloseConnectionOnError("server.close.conn.on.error", "false"), // Since we always serve HTTP - 1.1., we assume its keep alive.
 
+    ClientIOBlocking("client.io.blocking", "false"),
+    ClientEventLoopCount("http.client.eventloop.count", "0"), // 0 means default, should be set if io is blocking
     ClientLoggingEnable("client.log.enable", "true"),
     ClientChunkSize("client.chunk.size", "1048576"),
 
