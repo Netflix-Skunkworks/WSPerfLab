@@ -94,7 +94,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
         checkpoint = "ClientId: " + id + ' ' + checkpoint;
         final GenericFutureListener<Future<FullHttpResponse>> responseHandler = ctx.channel().attr(
                 pool.getResponseHandlerKey()).get();
-        if (DedicatedHttpClient.ResponseHandlerWrapper.class.isAssignableFrom(responseHandler.getClass())) {
+        if (null != responseHandler && DedicatedHttpClient.ResponseHandlerWrapper.class.isAssignableFrom(responseHandler.getClass())) {
             @SuppressWarnings("rawtypes")
             DedicatedHttpClient.ResponseHandlerWrapper wrapper =
                     (DedicatedHttpClient.ResponseHandlerWrapper) responseHandler;
