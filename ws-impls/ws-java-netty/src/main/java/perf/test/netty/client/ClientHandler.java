@@ -62,9 +62,17 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
         }
 
         final RequestExecutionPromise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
+        if (null == completionPromise) {
+            logger.error("No completion promise available, nothing can be done now. Retry: " + retryCount + ", channel active? " + ctx.channel().isActive());
+            pool.onUnhandledRequest();
+            return;
+        }
 
         if (retryCount > MAX_RETRIES) {
-            checkpoint(ctx, "Retries exhausted.");
+            if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+                checkpoint(ctx, "Retries exhausted.");
+            }
+            pool.onRetryExhausted(cause, retryCount);
             completionPromise.setFailure(cause);
             return;
         }

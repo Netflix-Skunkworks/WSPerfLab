@@ -123,9 +123,9 @@ public class HttpClientFactory {
 
     public void populateStatus(InetSocketAddress mockBackendServerAddress,
                                StatusRetriever.TestCaseStatus testCaseStatus) {
-        @Nullable DedicatedClientPool<FullHttpResponse, FullHttpRequest> pool = poolsPerServer.get(mockBackendServerAddress);
-        if (null != pool) {
-            pool.populateStatus(testCaseStatus);
+        HttpClient<FullHttpResponse, FullHttpRequest> client = httpClientsPerServer.get(mockBackendServerAddress);
+        if (null != client) {
+            client.populateStatus(testCaseStatus);
         }
     }
 

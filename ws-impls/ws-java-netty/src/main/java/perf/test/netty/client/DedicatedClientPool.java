@@ -8,6 +8,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoop;
 import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.EventExecutor;
@@ -23,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  *
@@ -44,7 +46,8 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     protected final Bootstrap bootstrap;
     protected final InetSocketAddress serverAddress;
 
-    private final AtomicInteger unhandledRequests = new AtomicInteger();
+    private final AtomicLong unhandledRequests = new AtomicLong();
+    private final AtomicLong readTimeOuts = new AtomicLong();
 
     private final int maxConnections;
 
@@ -175,10 +178,17 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         connPoolStatus.setAvailableConnectionsCount(availableClients.size());
         connPoolStatus.setTotalConnectionsCount(clientLimitEnforcer.size());
         connPoolStatus.setUnhandledRequestsSinceStartUp(unhandledRequests.get());
+        connPoolStatus.setFatalReadTimeOuts(readTimeOuts.get());
     }
 
     void onUnhandledRequest() {
         unhandledRequests.incrementAndGet();
+    }
+
+    void onRetryExhausted(Throwable cause, int retryCount) {
+        if (cause instanceof ReadTimeoutException) {
+            readTimeOuts.incrementAndGet();
+        }
     }
 
     protected DedicatedHttpClient<T, R> getHttpClient(Channel channel) {

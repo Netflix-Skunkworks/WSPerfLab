@@ -28,6 +28,7 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
 
     private final AtomicLong inflighRequests = new AtomicLong();
     private final AtomicLong recvRequests = new AtomicLong();
+
     private static final ConcurrentLinkedQueue<RequestProcessingPromise> allPromises = new ConcurrentLinkedQueue<RequestProcessingPromise>();
 
     HttpClientImpl(@Nullable EventExecutor executor, DedicatedClientPool<FullHttpResponse, FullHttpRequest> pool) {
