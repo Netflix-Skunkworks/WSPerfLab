@@ -61,9 +61,10 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
             checkpoint(ctx, "Exception on client handler" + cause);
         }
 
-        final Promise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
+        final RequestExecutionPromise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
 
         if (retryCount > MAX_RETRIES) {
+            checkpoint(ctx, "Retries exhausted.");
             completionPromise.setFailure(cause);
             return;
         }
@@ -75,7 +76,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
                     public void operationComplete(Future<DedicatedHttpClient<FullHttpResponse, FullHttpRequest>> future)
                             throws Exception {
                         if (future.isSuccess()) {
-                            future.get().retry(ctx, retryCount);
+                            future.get().retry(ctx, retryCount, completionPromise);
                         } else {
                             completionPromise.setFailure(future.cause());
                         }
@@ -89,6 +90,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
             checkpoint(ctx, "Channel Inactive.");
         }
     }
+
 
     private void checkpoint(ChannelHandlerContext ctx, String checkpoint) {
         checkpoint = "ClientId: " + id + ' ' + checkpoint;

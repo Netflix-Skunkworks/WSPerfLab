@@ -1,6 +1,7 @@
 package perf.test.netty.client;
 
 import javax.annotation.Nullable;
+
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.util.concurrent.DefaultPromise;
@@ -87,15 +88,17 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
         }
     }
 
-    public class RequestProcessingPromise extends DefaultPromise<FullHttpResponse> {
+    public static class RequestProcessingPromise extends DefaultPromise<FullHttpResponse> implements RequestExecutionPromise<FullHttpResponse> {
 
+        @Nullable
+        private EventExecutor _executor;
         private final Future<DedicatedHttpClient<FullHttpResponse, FullHttpRequest>> clientGetFuture;
         private Future<FullHttpResponse> clientProcessingFuture;
         private final ConcurrentLinkedQueue<String> checkpoints = new ConcurrentLinkedQueue<String>();
 
-        public RequestProcessingPromise(EventExecutor _executor,
+        public RequestProcessingPromise(@Nullable EventExecutor _executor,
                                         Future<DedicatedHttpClient<FullHttpResponse,FullHttpRequest>> clientGetFuture) {
-            super(_executor);
+            this._executor = _executor;
             this.clientGetFuture = clientGetFuture;
         }
 
@@ -114,11 +117,12 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
             checkpoints.add(checkpoint);
         }
 
-        void setClientProcessingFuture(Future<FullHttpResponse> clientProcessingFuture) {
+        void setClientProcessingFuture(final RequestExecutionPromise<FullHttpResponse> clientProcessingFuture) {
             this.clientProcessingFuture = clientProcessingFuture;
             this.clientProcessingFuture.addListener(new GenericFutureListener<Future<FullHttpResponse>>() {
                 @Override
                 public void operationComplete(Future<FullHttpResponse> future) throws Exception {
+                    _executor = clientProcessingFuture.getExecutingClientExecutor();
                     if (future.isSuccess()) {
                         setSuccess(future.get());
                     } else {
@@ -139,9 +143,22 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
             traceBuilder.append('\n');
             traceBuilder.append("****************************************");
         }
+
+        @Override
+        protected EventExecutor executor() {
+            return _executor;
+        }
+
+        @Override
+        public EventExecutor getExecutingClientExecutor() {
+            if (null == _executor) {
+                throw new IllegalArgumentException("Executor is available after promise is done.");
+            }
+            return _executor;
+        }
     }
 
-    private class ConnectFutureListener
+    private static class ConnectFutureListener
             implements GenericFutureListener<Future<DedicatedHttpClient<FullHttpResponse, FullHttpRequest>>> {
         private final FullHttpRequest request;
         private final RequestProcessingPromise processingFinishPromise;
@@ -159,9 +176,9 @@ public class HttpClientImpl implements HttpClient<FullHttpResponse, FullHttpRequ
                 processingFinishPromise.checkpoints.add("Connect success");
                 DedicatedHttpClient<FullHttpResponse, FullHttpRequest> dedicatedClient = future.get();
                 processingFinishPromise.checkpoints.add("Going to enqueue request.");
-                Future<FullHttpResponse> clientProcessingFuture = dedicatedClient.execute(request, processingFinishPromise);
+                RequestExecutionPromise<FullHttpResponse> clientProcessingPromise = dedicatedClient.execute(request, processingFinishPromise);
                 processingFinishPromise.checkpoints.add("Request enqueued");
-                processingFinishPromise.setClientProcessingFuture(clientProcessingFuture);
+                processingFinishPromise.setClientProcessingFuture(clientProcessingPromise);
             } else {
                 processingFinishPromise.checkpoints.add("Connect failed.");
                 processingFinishPromise.setFailure(future.cause());

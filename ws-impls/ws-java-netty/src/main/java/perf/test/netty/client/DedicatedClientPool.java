@@ -6,6 +6,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoop;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.DefaultPromise;
@@ -37,7 +38,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     public static final AttributeKey<AtomicInteger> RETRY_COUNT_KEY = new AttributeKey<AtomicInteger>("retry_count");
 
     private final String keyPrefix;
-    private final AttributeKey<Promise<T>> processingCompletePromiseKey;
+    private final AttributeKey<RequestExecutionPromise<T>> processingCompletePromiseKey;
     private final AttributeKey<GenericFutureListener<Future<T>>> responseHandlerKey;
 
     protected final Bootstrap bootstrap;
@@ -54,7 +55,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     DedicatedClientPool(InetSocketAddress serverAddress, Bootstrap bootstrap, int maxConnections, int coreConnections) {
         keyPrefix = serverAddress.getHostName() + ':' + serverAddress.getPort();
         responseHandlerKey = new AttributeKey<GenericFutureListener<Future<T>>>(keyPrefix + RESPONSE_HANDLER_ATTR_KEY_NAME);
-        processingCompletePromiseKey = new AttributeKey<Promise<T>>(keyPrefix + PROCESSING_COMPLETE_PROMISE_KEY_NAME);
+        processingCompletePromiseKey = new AttributeKey<RequestExecutionPromise<T>>(keyPrefix + PROCESSING_COMPLETE_PROMISE_KEY_NAME);
 
         this.coreConnections = coreConnections;
         Preconditions.checkArgument(coreConnections <= maxConnections,
@@ -76,7 +77,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         createNewClientOnDemand(null);
     }
 
-    private Promise<DedicatedHttpClient<T, R>> createNewClientOnDemand(@Nullable final Promise<DedicatedHttpClient<T, R>> completionPromise) {
+    private Promise<DedicatedHttpClient<T, R>> createNewClientOnDemand(@Nullable final ConnectCompletePromise<T, R> completionPromise) {
         final Object clientLimitEnforcingToken = new Object();
         if (clientLimitEnforcer.offer(clientLimitEnforcingToken)) {
             bootstrap.connect(serverAddress).addListener(new ChannelFutureListener() {
@@ -99,6 +100,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
                         if (null == completionPromise) {
                             addAvailableClient(httpClient);
                         } else {
+                            completionPromise.setExecutor(future.channel().eventLoop());
                             completionPromise.setSuccess(httpClient);
                         }
                     } else {
@@ -137,7 +139,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         int retryCount = 0;
         while (true) {
             @Nullable DedicatedHttpClient<T, R> availableClient = availableClients.poll();
-            final Promise<DedicatedHttpClient<T, R>> clientCreationPromise = new DefaultPromise<DedicatedHttpClient<T, R>>(executor);
+            final ConnectCompletePromise<T, R> clientCreationPromise = new ConnectCompletePromise<T, R>(executor);
             if (null == availableClient) {
                 return createNewClientOnDemand(clientCreationPromise);
             } else if(availableClient.isActive()){
@@ -155,7 +157,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         return responseHandlerKey;
     }
 
-    AttributeKey<Promise<T>> getProcessingCompletePromiseKey() {
+    AttributeKey<RequestExecutionPromise<T>> getProcessingCompletePromiseKey() {
         return processingCompletePromiseKey;
     }
 
@@ -188,5 +190,24 @@ class DedicatedClientPool<T, R extends HttpRequest> {
 
     public void populateTrace(StringBuilder traceBuilder) {
         // TODO: Populate trace.
+    }
+
+    private static class ConnectCompletePromise<T, R extends HttpRequest> extends DefaultPromise<DedicatedHttpClient<T, R>> {
+
+        @Nullable private EventExecutor eventExecutor;
+
+        public ConnectCompletePromise(EventExecutor eventExecutor) {
+            super(eventExecutor);
+            this.eventExecutor = eventExecutor; // In case connect failed, we need to respond to the promise in this executor.
+        }
+
+        @Override
+        protected EventExecutor executor() {
+            return eventExecutor;
+        }
+
+        public void setExecutor(EventLoop eventExecutor) {
+            this.eventExecutor = eventExecutor;
+        }
     }
 }

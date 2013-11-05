@@ -16,6 +16,7 @@ import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.EventExecutorGroup;
@@ -28,6 +29,7 @@ import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -113,6 +115,7 @@ public class HttpClientFactory {
                 pipeline.addLast("codec", new HttpClientCodec());
                 pipeline.addLast("aggregator", new HttpObjectAggregator(
                         PropertyNames.ClientChunkSize.getValueAsInt()));
+                pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(PropertyNames.ClientReadTimeOutSeconds.getValueAsInt(), TimeUnit.SECONDS));
                 pipeline.addLast("handler", new ClientHandler(pool, clientHandlerId.incrementAndGet()));
             }
         });
