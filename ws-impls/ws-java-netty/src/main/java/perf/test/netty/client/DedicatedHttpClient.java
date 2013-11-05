@@ -73,10 +73,11 @@ class DedicatedHttpClient<T, R extends HttpRequest> {
         RequestExecutionPromise<T> processingCompletePromise;
         if (null == completionPromise) {
             processingCompletePromise = new RequestProcessingPromise<T>(channel, writeFuture);
-            channel.attr(owningPool.getProcessingCompletePromiseKey()).set(processingCompletePromise);
         } else {
             processingCompletePromise = completionPromise;
         }
+        channel.attr(owningPool.getProcessingCompletePromiseKey()).set(processingCompletePromise);
+
         processingCompletePromise.addListener(responseHandler);
         return processingCompletePromise;
     }
