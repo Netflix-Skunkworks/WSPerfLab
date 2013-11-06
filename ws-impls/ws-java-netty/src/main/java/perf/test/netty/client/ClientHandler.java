@@ -44,7 +44,10 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
 
         Promise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
         response.content().retain();
-        completionPromise.setSuccess(response);
+        if (!completionPromise.trySuccess(response)) {
+            logger.warn("Promise finished before response arrived. Response code: " + response.getStatus().code()
+                        + ". Promise result: " + completionPromise.getNow());
+        }
         if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
             checkpoint(ctx, "Promise completed.");
         }
