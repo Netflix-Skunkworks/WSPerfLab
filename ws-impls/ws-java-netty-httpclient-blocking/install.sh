@@ -2,7 +2,7 @@
 
 sshCommand="ssh"
 update=false
-gitRepo="benjchristensen"
+gitRepo="mhawthorne"
 
 while getopts "h:s:b:r:u" opt; do
   case $opt in
@@ -63,8 +63,8 @@ else
 fi
 
 echo "--- Build ws-java-netty"
-eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-netty/; ../../gradlew clean build distZip'"
+eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-netty-httpclient-blocking/; ../../gradlew clean build distZip'"
 echo "--- Copy distribution"
-eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-netty/build/distributions/ws-java-netty-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-netty-*-SNAPSHOT.zip'"
+eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-netty-httpclient-blocking/build/distributions/ws-java-netty-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-netty-*-SNAPSHOT.zip'"
 echo "--- Start Netty impl"
 eval "$sshCommand $hostname 'export SERVER_PORT=8080; export BACKEND_HOST=${backendHost}; cd ws-java-netty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"
