@@ -3,7 +3,6 @@
 #############################################################
 ################# ws-java-netty options #####################
 
-
 : ${SERVER_PORT:=8798}
 SERVER_LOG="false"
 CLIENT_LOG="false"
@@ -25,7 +24,7 @@ WS_JAVA_NETTY_OPTS="-Dperf.test.backend.host.max.backlog=${MAX_BACKLOG} -Dclient
 
 SCRIPT_DIR=$(dirname $BASH_SOURCE)
 SCRIPTNAME=`basename $0`
-ACTUAL_SCRIPT_NAME='ws-java-netty'
+ACTUAL_SCRIPT_NAME='ws-java-netty-httpclient-blocking'
 
 PIDFILE=${SCRIPT_DIR}/${SCRIPTNAME}.pid
 
@@ -50,7 +49,7 @@ start() {
     echo ${PID} > ${PIDFILE}
     export WS_JAVA_NETTY_OPTS=${WS_JAVA_NETTY_OPTS}
 
-    . $SCRIPT_DIR/ws-java-netty
+    . $SCRIPT_DIR/$ACTUAL_SCRIPT_NAME
     echo "Started netty based ws server...."
 }
 
