@@ -18,9 +18,11 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.codehaus.jackson.JsonFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +40,7 @@ import java.util.regex.Pattern;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
+ * @author mhawthorne
  */
 public abstract class TestCaseHandler {
 
@@ -47,35 +50,88 @@ public abstract class TestCaseHandler {
     private final String testCaseName;
     protected final static JsonFactory jsonFactory = new JsonFactory();
 
-//    protected final HttpClientFactory clientFactory;
-//    private final HttpClient<FullHttpResponse,FullHttpRequest> httpClient;
-
-    private final HttpClient client = new DefaultHttpClient();
+    private final HttpClient client;
 
     private final AtomicLong testWithErrors = new AtomicLong();
     private final AtomicLong inflightTests = new AtomicLong();
     private final AtomicLong requestRecvCount = new AtomicLong();
 
-    protected TestCaseHandler(String testCaseName, EventLoopGroup eventLoopGroup) {
-        this.testCaseName = testCaseName;
-//        clientFactory = new HttpClientFactory(null, eventLoopGroup);
+    private final HostSelector hostSelector;
 
-        String hosts = PropertyNames.MockBackendHost.getValueAsString();
-        String[] splittedHosts = HOSTS_SPLITTER.split(hosts);
-        int serverPort = PropertyNames.MockBackendPort.getValueAsInt();
+    private static interface HostSelector {
+        String next();
+    }
 
-        if (splittedHosts.length > 1) {
-//            RoundRobinLB<FullHttpRequest> lb = new RoundRobinLB<FullHttpRequest>(splittedHosts,
-//            httpClient = new LBAwareHttpClientImpl(lb, clientFactory);
-        } else {
-//            httpClient = clientFactory.getHttpClient(new InetSocketAddress(hosts, serverPort));
+    private static final HostSelector newHostSelector(String... hosts) {
+        return new RandomHostSelector(hosts);
+    }
+
+    private static final class RoundRobinHostSelector implements HostSelector {
+
+        private final String[] hosts;
+        private final int hostCount;
+
+        // trying to store the index in a thread local so that multiple threads won't contend
+        // I can't tell if this is a stupid way to handle this problem or not, my brain isn't working today
+        private static final ThreadLocal<Integer> localIndex = new ThreadLocal<Integer>() {
+            @Override
+            protected Integer initialValue() {
+                return 0;
+            }
+        };
+
+        RoundRobinHostSelector(String ... hosts) {
+            this.hosts = hosts;
+            this.hostCount = hosts.length;
         }
 
-//        try {
-//            this.client = ClientFactory.registerClientFromProperties("client", clientConfig);
-//        } catch (ClientException e) {
-//            throw new RuntimeException(e);
-//        }
+        public String next() {
+            int idx = localIndex.get();
+            if(idx == hostCount)
+                idx = 0;
+            final String host = hosts[idx];
+            localIndex.set(++idx);
+            return host;
+        }
+    }
+
+    private static final class RandomHostSelector implements HostSelector {
+
+        private final String[] hosts;
+        private final int hostCount;
+
+        RandomHostSelector(String ... hosts) {
+            this.hosts = hosts;
+            this.hostCount = hosts.length;
+        }
+
+        @Override
+        public String next() {
+            final int idx = (int) Math.floor(Math.random() * this.hostCount);
+            return this.hosts[idx];
+        }
+    }
+
+    protected TestCaseHandler(String testCaseName, EventLoopGroup eventLoopGroup) {
+        this.testCaseName = testCaseName;
+
+        String hosts = PropertyNames.MockBackendHost.getValueAsString();
+        String[] splitHosts = HOSTS_SPLITTER.split(hosts);
+        int serverPort = PropertyNames.MockBackendPort.getValueAsInt();
+
+        this.hostSelector = newHostSelector(splitHosts);
+
+        final RequestConfig reqConfig = RequestConfig.custom()
+            .setConnectTimeout(1000)
+            .setSocketTimeout(1000)
+            // setting an aggressive pool timeout to avoi queueing
+            .setConnectionRequestTimeout(1)
+            .build();
+
+        this.client = HttpClients.custom()
+            .setDefaultRequestConfig(reqConfig)
+            .setConnectionManager(new PoolingHttpClientConnectionManager())
+            .build();
     }
 
     public void processRequest(Channel channel, HttpRequest request, QueryStringDecoder qpDecoder,
@@ -130,8 +186,11 @@ public abstract class TestCaseHandler {
         path = basePath + path;
 
         try {
-            final String uri = "http://" + PropertyNames.MockBackendHost.getValueAsString() + ":" +
+            final String host = this.hostSelector.next();
+
+            final String uri = "http://" + host + ":" +
                 PropertyNames.MockBackendPort.getValueAsString() + path;
+            logger.debug("backend request URI: " + uri);
             final HttpUriRequest originReq = new HttpGet(uri);
             final HttpResponse originRes = (HttpResponse) this.client.execute(originReq);
             final DefaultPromise<FullHttpResponse> promise = new DefaultPromise<FullHttpResponse>(eventExecutor);
