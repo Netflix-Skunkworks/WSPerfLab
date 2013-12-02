@@ -19,12 +19,13 @@ MAX_BACKLOG=5000
 
 : ${LOG_LEVEL:="DEBUG"}
 
-WS_JAVA_NETTY_OPTS="-Dperf.test.backend.host.max.backlog=${MAX_BACKLOG} \
+WS_JAVA_NETTY_HTTPCLIENT_BLOCKING_OPTS="-Dperf.test.backend.host.max.backlog=${MAX_BACKLOG} \
 -Dclient.backlog.cleaner.count=${BACKLOG_CLEANER_WORKERS_COUNT} \
 -Dhttp.server.port=${SERVER_PORT} \
 -Dserver.log.enable=${SERVER_LOG} \
 -Dclient.read.timeout=${CLIENT_READ_TIMEOUT_MS} \
--Dclient.log.enable=${CLIENT_LOG} -Dperf.test.backend.host=${BACKEND_HOST} \
+-Dclient.log.enable=${CLIENT_LOG} \
+-Dperf.test.backend.host=${BACKEND_HOST} \
 -Dperf.test.backend.port=${BACKEND_PORT} \
 -Dperf.test.backend.host.maxconn.per.test=${BACKEND_MAX_CONN_PER_TEST} \
 -Dperf.test.backend.host.startupconn.per.test=${BACKEND_INIT_CONN_PER_TEST} \

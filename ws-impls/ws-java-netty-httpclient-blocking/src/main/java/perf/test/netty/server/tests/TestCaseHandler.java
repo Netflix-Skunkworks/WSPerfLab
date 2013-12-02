@@ -122,15 +122,16 @@ public abstract class TestCaseHandler {
         this.hostSelector = newHostSelector(splitHosts);
 
         final RequestConfig reqConfig = RequestConfig.custom()
-            .setConnectTimeout(1000)
-            .setSocketTimeout(1000)
-            // setting an aggressive pool timeout to avoi queueing
-            .setConnectionRequestTimeout(1)
+            .setConnectTimeout(PropertyNames.ClientConnectTimeout.getValueAsInt())
+            .setSocketTimeout(PropertyNames.ClientSocketTimeout.getValueAsInt())
+            // setting an aggressive pool timeout to avoid queueing
+            .setConnectionRequestTimeout(PropertyNames.ClientConnectionRequestTimeout.getValueAsInt())
             .build();
 
         this.client = HttpClients.custom()
             .setDefaultRequestConfig(reqConfig)
             .setConnectionManager(new PoolingHttpClientConnectionManager())
+            .setMaxConnTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt())
             .build();
     }
 

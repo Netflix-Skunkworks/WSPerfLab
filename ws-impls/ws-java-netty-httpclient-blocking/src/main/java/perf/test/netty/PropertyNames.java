@@ -9,6 +9,11 @@ package perf.test.netty;
  */
 public enum PropertyNames {
 
+    ClientConnectTimeout("client.connect.timeout", "1000"),
+    ClientSocketTimeout("client.socket.timeout", "1000"),
+    ClientConnectionRequestTimeout("client.connection-request.timeout", "1010"),
+    ClientMaxConnectionsTotal("client.max-connections-total", "1000"),
+
     ServerIOBlocking("http.server.io.blocking", "false"),
     ServerEventLoopCount("http.server.eventloop.count", "0"), // 0 means default, should be set if io is blocking
     ServerContextPath("http.server.context.path", "/ws-java-netty/"),
