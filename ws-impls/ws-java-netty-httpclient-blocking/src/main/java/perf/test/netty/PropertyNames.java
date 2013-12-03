@@ -9,6 +9,8 @@ package perf.test.netty;
  */
 public enum PropertyNames {
 
+    ServerHandlerEventExecutorGroupSize("server-handler.event-executor-group-size", "1000"),
+
     ClientConnectTimeout("client.connect.timeout", "1000"),
     ClientSocketTimeout("client.socket.timeout", "1000"),
     ClientConnectionRequestTimeout("client.connection-request.timeout", "1010"),

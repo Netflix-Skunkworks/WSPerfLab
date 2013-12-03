@@ -16,6 +16,8 @@ import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.util.concurrent.DefaultEventExecutorGroup;
+import io.netty.util.concurrent.EventExecutorGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.ConnectedClientsCounter;
@@ -61,6 +63,9 @@ public class NettyBasedHttpServer {
             channelClass = NioServerSocketChannel.class;
             serverEventLoopGrp = new NioEventLoopGroup(PropertyNames.ServerEventLoopCount.getValueAsInt());
         }
+
+        final EventExecutorGroup group = new DefaultEventExecutorGroup(PropertyNames.ServerHandlerEventExecutorGroupSize.getValueAsInt());
+
         bootstrap.group(serverEventLoopGrp)
                  .channel(channelClass).childOption(ChannelOption.SO_KEEPALIVE, true)
                  .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -77,7 +82,8 @@ public class NettyBasedHttpServer {
                          pipeline.addFirst("timingStart", new ProcessingTimesStartInterceptor());
                          pipeline.addLast("encoder", new HttpResponseEncoder());
                          pipeline.addLast("timingEnd", new ProcessingTimeEndInterceptor());
-                         pipeline.addLast("handler",
+                         pipeline.addLast(group,
+                                          "handler",
                                           new ServerHandler(statusRetriever,
                                                             PropertyNames.ServerContextPath.getValueAsString()));
                      }
