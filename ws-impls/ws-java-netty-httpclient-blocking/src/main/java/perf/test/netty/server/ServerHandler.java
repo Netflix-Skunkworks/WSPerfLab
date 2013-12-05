@@ -85,7 +85,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
         sourceReqState.initRequest(ctx.channel());
         final String reqId = sourceReqState.getRequestId(ctx.channel());
 
-        EventLogger.log("request-start");
+        EventLogger.log(reqId, "request-start");
 
         final PerformanceLogger perfLogger = PerformanceLogger.instance();
         perfLogger.start(reqId, "top");
@@ -236,8 +236,9 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
                                 }
                             }
 
-                            PerformanceLogger.instance().stop(SourceRequestState.instance().getRequestId(channelHandlerContext.channel()), "top");
-                            EventLogger.log("request-end");
+                            final String reqId = SourceRequestState.instance().getRequestId(channelHandlerContext.channel());
+                            PerformanceLogger.instance().stop(reqId, "top");
+                            EventLogger.log(reqId, "request-end");
                         }
                     });
 

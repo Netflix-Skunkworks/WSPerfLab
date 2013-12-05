@@ -191,7 +191,7 @@ public abstract class TestCaseHandler {
         String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
         path = basePath + path;
 
-        EventLogger.log("backend-request-start " + path);
+        EventLogger.log(reqId, "backend-request-start " + path);
         final String perfKey = "backend-request " + path;
         perfLogger.start(reqId, perfKey);
         try {
@@ -199,7 +199,7 @@ public abstract class TestCaseHandler {
 
             final String uri = "http://" + host + ":" +
                 PropertyNames.MockBackendPort.getValueAsString() + path;
-            logger.debug("backend request URI: " + uri);
+//            logger.debug("backend request URI: " + uri);
             final HttpUriRequest originReq = new HttpGet(uri);
             final HttpResponse originRes = (HttpResponse) this.client.execute(originReq);
             final DefaultPromise<FullHttpResponse> promise = new DefaultPromise<FullHttpResponse>(eventExecutor);
@@ -225,7 +225,7 @@ public abstract class TestCaseHandler {
             throw new RuntimeException(e);
         } finally {
             perfLogger.stop(reqId, perfKey);
-            EventLogger.log("backend-request-end " + path);;
+            EventLogger.log(reqId, "backend-request-end " + path);;
         }
     }
 
