@@ -26,6 +26,8 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.codehaus.jackson.JsonFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import perf.test.netty.EventLogger;
+import perf.test.netty.PerformanceLogger;
 import perf.test.netty.PropertyNames;
 import perf.test.netty.server.RequestProcessingFailedException;
 import perf.test.netty.server.RequestProcessingPromise;
@@ -175,17 +177,23 @@ public abstract class TestCaseHandler {
         return testCaseName;
     }
 
-    protected Future<FullHttpResponse> get(EventExecutor eventExecutor, String path,
+    protected Future<FullHttpResponse> get(String reqId, EventExecutor eventExecutor, String path,
                                                final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
-        return this.httpClientGet(eventExecutor, path, responseHandler);
+        return this.httpClientGet(reqId, eventExecutor, path, responseHandler);
     }
 
-    private Future<FullHttpResponse> httpClientGet(EventExecutor eventExecutor, String path,
+    private Future<FullHttpResponse> httpClientGet(String reqId, EventExecutor eventExecutor, String path,
                                            final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
         Preconditions.checkNotNull(eventExecutor, "Event executor can not be null");
+
+        final PerformanceLogger perfLogger = PerformanceLogger.instance();
+
         String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
         path = basePath + path;
 
+        EventLogger.log("backend-request-start " + path);
+        final String perfKey = "backend-request " + path;
+        perfLogger.start(reqId, perfKey);
         try {
             final String host = this.hostSelector.next();
 
@@ -215,6 +223,9 @@ public abstract class TestCaseHandler {
             return promise;
         } catch (Exception e) {
             throw new RuntimeException(e);
+        } finally {
+            perfLogger.stop(reqId, perfKey);
+            EventLogger.log("backend-request-end " + path);;
         }
     }
 

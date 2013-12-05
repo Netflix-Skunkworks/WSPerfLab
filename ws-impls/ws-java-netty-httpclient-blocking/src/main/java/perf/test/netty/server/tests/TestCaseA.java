@@ -16,6 +16,7 @@ import io.netty.util.concurrent.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.PropertyNames;
+import perf.test.netty.SourceRequestState;
 import perf.test.netty.client.PoolExhaustedException;
 import perf.test.netty.server.RequestProcessingFailedException;
 import perf.test.netty.server.RequestProcessingPromise;
@@ -74,6 +75,8 @@ public class TestCaseA extends TestCaseHandler {
     protected void executeTestCase(final Channel channel, final boolean keepAlive, String id,
                                    final RequestProcessingPromise requestProcessingPromise) {
 
+        final String reqId = SourceRequestState.instance().getRequestId(channel);
+
         final ResponseCollector responseCollector = new ResponseCollector();
 
         final MoveForwardBarrier topLevelMoveFwdBarrier = new MoveForwardBarrier(2);
@@ -111,11 +114,11 @@ public class TestCaseA extends TestCaseHandler {
                                     }
                                 };
 
-                        get(channel.eventLoop().next(),
+                        get(reqId, channel.eventLoop().next(),
                             CALL_C_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX].getResponseKey(),
                             callCListener, requestProcessingPromise, ResponseCollector.RESPONSE_C_INDEX);
-                        get(channel.eventLoop().next(),
+                        get(reqId, channel.eventLoop().next(),
                             CALL_D_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX].getResponseKey(),
                             callDListener, requestProcessingPromise, ResponseCollector.RESPONSE_D_INDEX);
@@ -138,23 +141,23 @@ public class TestCaseA extends TestCaseHandler {
                                         }
                                     }
                                 };
-                        get(channel.eventLoop().next(),
+                        get(reqId, channel.eventLoop().next(),
                             CALL_E_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_B_INDEX].getResponseKey(),
                             callEListener, requestProcessingPromise, ResponseCollector.RESPONSE_E_INDEX);
                     }
                 };
-        get(channel.eventLoop().next(), CALL_A_URI_WITHOUT_ID + id, callAListener, requestProcessingPromise, ResponseCollector.RESPONSE_A_INDEX);
-        get(channel.eventLoop().next(), CALL_B_URI_WITHOUT_ID + id, callBListener, requestProcessingPromise, ResponseCollector.RESPONSE_B_INDEX);
+        get(reqId, channel.eventLoop().next(), CALL_A_URI_WITHOUT_ID + id, callAListener, requestProcessingPromise, ResponseCollector.RESPONSE_A_INDEX);
+        get(reqId, channel.eventLoop().next(), CALL_B_URI_WITHOUT_ID + id, callBListener, requestProcessingPromise, ResponseCollector.RESPONSE_B_INDEX);
     }
 
-    protected Future<FullHttpResponse> get(EventExecutor eventExecutor, String path,
+    protected Future<FullHttpResponse> get(String reqId, EventExecutor eventExecutor, String path,
                                            GenericFutureListener<Future<FullHttpResponse>> responseHandler,
                                            final RequestProcessingPromise requestProcessingPromise, int callIndex) {
         if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
             requestProcessingPromise.checkpoint("Sending request for call index: " + callIndex);
         }
-        return get(eventExecutor, path, responseHandler);
+        return get(reqId, eventExecutor, path, responseHandler);
     }
 
     private static void buildFinalResponseAndFinish(ResponseCollector responseCollector,
