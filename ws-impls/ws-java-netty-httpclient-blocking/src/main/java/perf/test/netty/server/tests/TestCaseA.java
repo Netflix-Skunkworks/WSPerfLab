@@ -34,33 +34,33 @@ public class TestCaseA extends TestCaseHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(TestCaseA.class);
 
-    public static final String CALL_A_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_A_URI_WITHOUT_ID = constructUri("A",
             PropertyNames.TestCaseACallANumItems.getValueAsInt(),
             PropertyNames.TestCaseACallAItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallAItemDelay.getValueAsInt());
 
-    public static final String CALL_B_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_B_URI_WITHOUT_ID = constructUri("B",
             PropertyNames.TestCaseACallBNumItems.getValueAsInt(),
             PropertyNames.TestCaseACallBItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallBItemDelay.getValueAsInt());
 
-    public static final String CALL_C_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_C_URI_WITHOUT_ID = constructUri("C",
             PropertyNames.TestCaseACallCNumItems.getValueAsInt(),
             PropertyNames.TestCaseACallCItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallCItemDelay.getValueAsInt());
 
-    public static final String CALL_D_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_D_URI_WITHOUT_ID = constructUri("D",
             PropertyNames.TestCaseACallDNumItems.getValueAsInt(),
             PropertyNames.TestCaseACallDItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallDItemDelay.getValueAsInt());
 
-    public static final String CALL_E_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_E_URI_WITHOUT_ID = constructUri("E",
             PropertyNames.TestCaseACallENumItems.getValueAsInt(),
             PropertyNames.TestCaseACallEItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallEItemDelay.getValueAsInt());
 
-    private static String constructUri(int numItems, int itemSize, int delay) {
-        String uri = String.format("/mock.json?numItems=%d&itemSize=%d&delay=%d&id=", numItems, itemSize, delay);
+    private static String constructUri(String type, int numItems, int itemSize, int delay) {
+        String uri = String.format("/mock.json?type=%s&numItems=%d&itemSize=%d&delay=%d&id=", type, numItems, itemSize, delay);
         if (logger.isDebugEnabled()) {
             logger.debug("Created a new uri: " + uri);
         }

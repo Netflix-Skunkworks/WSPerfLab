@@ -37,6 +37,10 @@ import perf.test.netty.server.StatusRetriever;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
@@ -57,6 +61,10 @@ public abstract class TestCaseHandler {
     private final AtomicLong testWithErrors = new AtomicLong();
     private final AtomicLong inflightTests = new AtomicLong();
     private final AtomicLong requestRecvCount = new AtomicLong();
+
+    private final ScheduledExecutorService requestExecutor =
+        new ScheduledThreadPoolExecutor(PropertyNames.BackendRequestThreadPoolSize.getValueAsInt());
+
 
     private final HostSelector hostSelector;
 
@@ -178,8 +186,32 @@ public abstract class TestCaseHandler {
     }
 
     protected Future<FullHttpResponse> get(String reqId, EventExecutor eventExecutor, String path,
-                                               final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
+        final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
+        return this.asyncGet(reqId, eventExecutor, path, responseHandler);
+//        return this.blockingGet(reqId, eventExecutor, path, responseHandler);
+    }
+
+    protected Future<FullHttpResponse> blockingGet(String reqId, EventExecutor eventExecutor, String path,
+        final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
         return this.httpClientGet(reqId, eventExecutor, path, responseHandler);
+    }
+
+    // "async" meaning blocking IO run in a thread pool
+    // this code is hideous and I have no idea what I am doing
+    protected Future<FullHttpResponse> asyncGet(final String reqId, final EventExecutor eventExecutor, final String path,
+                                                   final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
+        try {
+            return this.requestExecutor.submit(new Callable<Future<FullHttpResponse>> () {
+                @Override
+                public Future<FullHttpResponse> call() throws Exception {
+                    return blockingGet(reqId, eventExecutor, path, responseHandler);
+                }
+            }).get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private Future<FullHttpResponse> httpClientGet(String reqId, EventExecutor eventExecutor, String path,
