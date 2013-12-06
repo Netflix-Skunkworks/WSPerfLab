@@ -72,7 +72,7 @@ public class TestCaseA extends TestCaseHandler {
     }
 
     @Override
-    protected void executeTestCase(final Channel channel, final boolean keepAlive, String id,
+    protected void executeTestCase(Channel channel, final EventExecutor executor, final boolean keepAlive, String id,
                                    final RequestProcessingPromise requestProcessingPromise) {
 
         final String reqId = SourceRequestState.instance().getRequestId(channel);
@@ -114,11 +114,11 @@ public class TestCaseA extends TestCaseHandler {
                                     }
                                 };
 
-                        get(reqId, channel.eventLoop().next(),
+                        get(reqId, executor,
                             CALL_C_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX].getResponseKey(),
                             callCListener, requestProcessingPromise, ResponseCollector.RESPONSE_C_INDEX);
-                        get(reqId, channel.eventLoop().next(),
+                        get(reqId, executor,
                             CALL_D_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX].getResponseKey(),
                             callDListener, requestProcessingPromise, ResponseCollector.RESPONSE_D_INDEX);
@@ -141,23 +141,23 @@ public class TestCaseA extends TestCaseHandler {
                                         }
                                     }
                                 };
-                        get(reqId, channel.eventLoop().next(),
+                        get(reqId, executor,
                             CALL_E_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_B_INDEX].getResponseKey(),
                             callEListener, requestProcessingPromise, ResponseCollector.RESPONSE_E_INDEX);
                     }
                 };
-        get(reqId, channel.eventLoop().next(), CALL_A_URI_WITHOUT_ID + id, callAListener, requestProcessingPromise, ResponseCollector.RESPONSE_A_INDEX);
-        get(reqId, channel.eventLoop().next(), CALL_B_URI_WITHOUT_ID + id, callBListener, requestProcessingPromise, ResponseCollector.RESPONSE_B_INDEX);
+        get(reqId, executor, CALL_A_URI_WITHOUT_ID + id, callAListener, requestProcessingPromise, ResponseCollector.RESPONSE_A_INDEX);
+        get(reqId, executor, CALL_B_URI_WITHOUT_ID + id, callBListener, requestProcessingPromise, ResponseCollector.RESPONSE_B_INDEX);
     }
 
-    protected Future<FullHttpResponse> get(String reqId, EventExecutor eventExecutor, String path,
+    protected void get(String reqId, EventExecutor eventExecutor, String path,
                                            GenericFutureListener<Future<FullHttpResponse>> responseHandler,
                                            final RequestProcessingPromise requestProcessingPromise, int callIndex) {
         if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
             requestProcessingPromise.checkpoint("Sending request for call index: " + callIndex);
         }
-        return get(reqId, eventExecutor, path, responseHandler);
+        get(reqId, eventExecutor, path, responseHandler);
     }
 
     private static void buildFinalResponseAndFinish(ResponseCollector responseCollector,

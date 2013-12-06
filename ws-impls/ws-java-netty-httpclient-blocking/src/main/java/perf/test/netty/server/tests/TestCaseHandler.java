@@ -38,7 +38,6 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -145,7 +144,7 @@ public abstract class TestCaseHandler {
             .build();
     }
 
-    public void processRequest(Channel channel, HttpRequest request, QueryStringDecoder qpDecoder,
+    public void processRequest(Channel channel, EventExecutor executor, HttpRequest request, QueryStringDecoder qpDecoder,
                                RequestProcessingPromise requestProcessingPromise) {
         inflightTests.incrementAndGet();
         requestRecvCount.incrementAndGet();
@@ -165,7 +164,7 @@ public abstract class TestCaseHandler {
             try {
                 String thisId = id.get(0);
                 requestProcessingPromise.setTestCaseId(thisId);
-                executeTestCase(channel, keepAlive, thisId, requestProcessingPromise);
+                executeTestCase(channel, executor, keepAlive, thisId, requestProcessingPromise);
             } catch (Throwable throwable) {
                 logger.error("Test case execution failed.", throwable);
                 testWithErrors.incrementAndGet();
@@ -174,7 +173,7 @@ public abstract class TestCaseHandler {
         }
     }
 
-    protected abstract void executeTestCase(Channel channel, boolean keepAlive, String id,
+    protected abstract void executeTestCase(Channel channel, EventExecutor executor, boolean keepAlive, String id,
                                             RequestProcessingPromise requestProcessingPromise);
 
     public void dispose() {
@@ -185,9 +184,9 @@ public abstract class TestCaseHandler {
         return testCaseName;
     }
 
-    protected Future<FullHttpResponse> get(String reqId, EventExecutor eventExecutor, String path,
+    protected void get(String reqId, EventExecutor eventExecutor, String path,
         final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
-        return this.asyncGet(reqId, eventExecutor, path, responseHandler);
+        this.asyncGet(reqId, eventExecutor, path, responseHandler);
 //        return this.blockingGet(reqId, eventExecutor, path, responseHandler);
     }
 
@@ -198,20 +197,16 @@ public abstract class TestCaseHandler {
 
     // "async" meaning blocking IO run in a thread pool
     // this code is hideous and I have no idea what I am doing
-    protected Future<FullHttpResponse> asyncGet(final String reqId, final EventExecutor eventExecutor, final String path,
-                                                   final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
-        try {
-            return this.requestExecutor.submit(new Callable<Future<FullHttpResponse>> () {
-                @Override
-                public Future<FullHttpResponse> call() throws Exception {
-                    return blockingGet(reqId, eventExecutor, path, responseHandler);
-                }
-            }).get();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+    protected java.util.concurrent.Future<Future<FullHttpResponse>> asyncGet(final String reqId,
+        final EventExecutor eventExecutor,
+        final String path,
+        final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
+        return this.requestExecutor.submit(new Callable<Future<FullHttpResponse>> () {
+            @Override
+            public Future<FullHttpResponse> call() throws Exception {
+                return blockingGet(reqId, eventExecutor, path, responseHandler);
+            }
+        });
     }
 
     private Future<FullHttpResponse> httpClientGet(String reqId, EventExecutor eventExecutor, String path,

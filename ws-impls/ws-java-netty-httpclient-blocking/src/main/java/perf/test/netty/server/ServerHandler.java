@@ -1,7 +1,6 @@
 package perf.test.netty.server;
 
 import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -40,9 +39,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * Server handler to server testcase execution requests. This server expects all the requests to start with a valid test
  * case name as specified by {@link TestCaseHandler#getTestCaseName()}, otherwise, this
  * returns a http response with status {@link HttpResponseStatus#NOT_FOUND}. <br/>
- * If the testcase name matches with a handler registered with the {@link TestRegistry}, this server calls the
- * {@link TestCaseHandler#executeTestCase(Channel, boolean, String, Promise)}
- * on that handler. <br/>
  *
  * In case, there is an error in handling an http request, the client connection is not closed. This can be forced to
  * close on every error by setting {@link PropertyNames#ServerCloseConnectionOnError} to {@code true}
@@ -104,7 +100,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
                 if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
                     allPromises.add(requestProcessingPromise);
                 }
-                handler.processRequest(ctx.channel(), request, qpDecoder, requestProcessingPromise);
+                handler.processRequest(ctx.channel(), ctx.executor(), request, qpDecoder, requestProcessingPromise);
                 handled = true;
             } else if (path.startsWith(PropertyNames.StatusRetrieverContextPath.getValueAsString())) {
                 ctx.channel().attr(testCaseRequest).set(false);
