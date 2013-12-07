@@ -10,7 +10,7 @@ package perf.test.netty;
 public enum PropertyNames {
 
     ServerHandlerEventExecutorGroupSize("server-handler.event-executor-group-size", "1000"),
-    BackendRequestThreadPoolSize("backend-request.thread-pool-size", "2000"),
+    BackendRequestThreadPoolSize("backend-request.max-thread-pool-size", "2000"),
 
     ClientConnectTimeout("client.connect.timeout", "1000"),
     ClientSocketTimeout("client.socket.timeout", "1000"),

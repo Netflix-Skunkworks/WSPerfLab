@@ -61,8 +61,11 @@ public abstract class TestCaseHandler {
     private final AtomicLong inflightTests = new AtomicLong();
     private final AtomicLong requestRecvCount = new AtomicLong();
 
+    final int maxBackendThreadPoolSize = PropertyNames.BackendRequestThreadPoolSize.getValueAsInt();
     private final ScheduledExecutorService requestExecutor =
-        new ScheduledThreadPoolExecutor(PropertyNames.BackendRequestThreadPoolSize.getValueAsInt());
+        new ScheduledThreadPoolExecutor(maxBackendThreadPoolSize) {{
+        this.setMaximumPoolSize(maxBackendThreadPoolSize);
+    }};
 
 
     private final HostSelector hostSelector;
@@ -218,15 +221,17 @@ public abstract class TestCaseHandler {
         String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
         path = basePath + path;
 
-        EventLogger.log(reqId, "backend-request-start " + path);
-        final String perfKey = "backend-request " + path;
-        perfLogger.start(reqId, perfKey);
-        try {
-            final String host = this.hostSelector.next();
+        final String host = this.hostSelector.next();
 
-            final String uri = "http://" + host + ":" +
-                PropertyNames.MockBackendPort.getValueAsString() + path;
+        final String uri = "http://" + host + ":" +
+        PropertyNames.MockBackendPort.getValueAsString() + path;
 //            logger.debug("backend request URI: " + uri);
+
+        EventLogger.log(reqId, "backend-request-start " + uri);
+        final String perfKey = "backend-request " + uri;
+        perfLogger.start(reqId, perfKey);
+
+        try {
             final HttpUriRequest originReq = new HttpGet(uri);
             final HttpResponse originRes = (HttpResponse) this.client.execute(originReq);
             final DefaultPromise<FullHttpResponse> promise = new DefaultPromise<FullHttpResponse>(eventExecutor);
