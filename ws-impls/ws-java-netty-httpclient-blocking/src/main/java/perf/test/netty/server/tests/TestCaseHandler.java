@@ -37,6 +37,7 @@ import perf.test.netty.server.ServerHandler;
 import perf.test.netty.server.StatusRetriever;
 import perf.test.utils.BackendResponse;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
@@ -244,6 +245,8 @@ public abstract class TestCaseHandler {
         final String perfKey = "backend-request " + uri;
         perfLogger.start(reqId, perfKey);
 
+
+        InputStream originResStream = null;
         try {
             final HttpUriRequest originReq = new HttpGet(uri);
             final HttpResponse originRes = (HttpResponse) this.client.execute(originReq);
@@ -253,7 +256,7 @@ public abstract class TestCaseHandler {
 
             final ByteBuf nettyResBytes = Unpooled.buffer();
 
-            final InputStream originResStream = originRes.getEntity().getContent();
+            originResStream = originRes.getEntity().getContent();
             final byte[] b = new byte[1024];
             int read = -1;
             while((read = originResStream.read(b)) != -1) {
@@ -269,6 +272,12 @@ public abstract class TestCaseHandler {
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
+            if(originResStream != null) {
+                try {
+                    originResStream.close();
+                } catch (IOException e) {}
+            }
+
             perfLogger.stop(reqId, perfKey);
             EventLogger.log(reqId, "backend-request-end " + uri);;
         }
