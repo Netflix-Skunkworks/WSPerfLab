@@ -144,13 +144,19 @@ public abstract class TestCaseHandler {
             .setConnectionRequestTimeout(PropertyNames.ClientConnectionRequestTimeout.getValueAsInt())
             .build();
 
+        // don't care about total vs. per-route right now, will set them to the same
+        final PoolingHttpClientConnectionManager connMgr = new PoolingHttpClientConnectionManager();
+        connMgr.setMaxTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt());
+        connMgr.setDefaultMaxPerRoute(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt());
+
         this.client = HttpClients.custom()
             .setDefaultRequestConfig(reqConfig)
-            .setConnectionManager(new PoolingHttpClientConnectionManager())
-            .setMaxConnTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt())
-            // don't care about total vs. per-route right now, will set them to the same
-            .setMaxConnPerRoute(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt())
+            .setConnectionManager(connMgr)
             .build();
+//            .setMaxConnTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt())
+//            // don't care about total vs. per-route right now, will set them to the same
+//            .setMaxConnPerRoute(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt()).set
+
     }
 
     protected static String constructUri(String type, int numItems, int itemSize, int delay) {
