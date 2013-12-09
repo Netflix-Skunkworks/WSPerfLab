@@ -71,7 +71,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
-        final RequestProcessingPromise requestProcessingPromise = new RequestProcessingPromise(ctx.channel().eventLoop());
+        final RequestProcessingPromise requestProcessingPromise = new RequestProcessingPromise(ctx.executor());
 
         requestProcessingPromise.addListener(new RequestProcessingCompleteListener(ctx));
         ctx.channel().attr(promiseKey).set(requestProcessingPromise);

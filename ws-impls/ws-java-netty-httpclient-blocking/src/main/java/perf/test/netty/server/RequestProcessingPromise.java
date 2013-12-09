@@ -1,8 +1,8 @@
 package perf.test.netty.server;
 
-import io.netty.channel.EventLoop;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.EventExecutor;
 import perf.test.netty.PropertyNames;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -15,7 +15,7 @@ public class RequestProcessingPromise extends DefaultPromise<FullHttpResponse> {
     private final ConcurrentLinkedQueue<String> checkpoints = new ConcurrentLinkedQueue<String>();
     private String testCaseId;
 
-    public RequestProcessingPromise(EventLoop eventExecutor) {
+    public RequestProcessingPromise(EventExecutor eventExecutor) {
         super(eventExecutor);
     }
 
