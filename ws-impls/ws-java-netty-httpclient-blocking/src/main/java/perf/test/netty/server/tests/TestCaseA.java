@@ -8,7 +8,6 @@ import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
-import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -20,7 +19,6 @@ import perf.test.netty.SourceRequestState;
 import perf.test.netty.client.PoolExhaustedException;
 import perf.test.netty.server.RequestProcessingFailedException;
 import perf.test.netty.server.RequestProcessingPromise;
-import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 
 import java.io.ByteArrayOutputStream;
@@ -59,13 +57,7 @@ public class TestCaseA extends TestCaseHandler {
             PropertyNames.TestCaseACallEItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallEItemDelay.getValueAsInt());
 
-    private static String constructUri(String type, int numItems, int itemSize, int delay) {
-        String uri = String.format("/mock.json?type=%s&numItems=%d&itemSize=%d&delay=%d&id=", type, numItems, itemSize, delay);
-        if (logger.isDebugEnabled()) {
-            logger.debug("Created a new uri: " + uri);
-        }
-        return uri;
-    }
+
 
     public TestCaseA(EventLoopGroup eventLoopGroup) throws PoolExhaustedException {
         super("testA", eventLoopGroup);
@@ -160,7 +152,7 @@ public class TestCaseA extends TestCaseHandler {
         get(reqId, eventExecutor, path, responseHandler);
     }
 
-    private static void buildFinalResponseAndFinish(ResponseCollector responseCollector,
+    protected static void buildFinalResponseAndFinish(ResponseCollector responseCollector,
                                                     Promise<FullHttpResponse> requestProcessingPromise) {
         ByteArrayOutputStream outputStream;
         try {
@@ -173,17 +165,6 @@ public class TestCaseA extends TestCaseHandler {
         }
     }
 
-
-    public static class ResponseCollector {
-
-        private final BackendResponse[] responses = new BackendResponse[5];
-
-        private static final int RESPONSE_A_INDEX = 0;
-        private static final int RESPONSE_B_INDEX = 1;
-        private static final int RESPONSE_C_INDEX = 2;
-        private static final int RESPONSE_D_INDEX = 3;
-        private static final int RESPONSE_E_INDEX = 4;
-    }
 
     private static class MoveForwardBarrier {
 
@@ -201,57 +182,6 @@ public class TestCaseA extends TestCaseHandler {
         }
     }
 
-    private abstract static class CompletionListener implements GenericFutureListener<Future<FullHttpResponse>> {
 
-        private final ResponseCollector responseCollector;
-        private final int responseIndex;
-        private final RequestProcessingPromise topLevelRequestCompletionPromise;
-
-        protected CompletionListener(ResponseCollector responseCollector, int responseIndex, RequestProcessingPromise topLevelRequestCompletionPromise) {
-            this.responseCollector = responseCollector;
-            this.responseIndex = responseIndex;
-            this.topLevelRequestCompletionPromise = topLevelRequestCompletionPromise;
-        }
-
-        @Override
-        public void operationComplete(Future<FullHttpResponse> future) throws Exception {
-            if (future.isSuccess()) {
-                if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
-                    topLevelRequestCompletionPromise.checkpoint("Call success for response index: " + responseIndex);
-                }
-                FullHttpResponse response = future.get();
-                HttpResponseStatus status = response.getStatus();
-                if (status.equals(HttpResponseStatus.OK)) {
-                    ByteBuf responseContent = response.content();
-                    if (responseContent.isReadable()) {
-                        String content = responseContent.toString(CharsetUtil.UTF_8);
-                        responseContent.release();
-                        try {
-                            responseCollector.responses[responseIndex] = BackendResponse.fromJson(jsonFactory, content);
-                            onResponseReceived();
-                        } catch (Exception e) {
-                            logger.error("Failed to parse the received backend response.", e);
-                            topLevelRequestCompletionPromise.tryFailure(new RequestProcessingFailedException(HttpResponseStatus.INTERNAL_SERVER_ERROR, e));
-                        }
-                    }
-                } else {
-                    if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
-                        topLevelRequestCompletionPromise.checkpoint("Call failed for response index: " + responseIndex + ", error: " + future.cause());
-                    }
-                    topLevelRequestCompletionPromise.tryFailure(new RequestProcessingFailedException(status));
-                }
-            } else {
-                HttpResponseStatus status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
-                Throwable cause = future.cause();
-                if (cause instanceof PoolExhaustedException) {
-                    status = HttpResponseStatus.SERVICE_UNAVAILABLE;
-                }
-                topLevelRequestCompletionPromise.tryFailure(new RequestProcessingFailedException(status, cause));
-
-            }
-        }
-
-        protected abstract void onResponseReceived();
-    }
 
 }

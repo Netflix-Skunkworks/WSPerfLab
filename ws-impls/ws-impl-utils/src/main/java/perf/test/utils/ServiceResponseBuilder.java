@@ -22,6 +22,39 @@ public class ServiceResponseBuilder {
                                   orderedResponse[3], orderedResponse[4]);
     }
 
+    public static ByteArrayOutputStream buildTestBResponse(JsonFactory jsonFactory, BackendResponse response)
+                throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = jsonFactory.createJsonGenerator(bos);
+
+        jsonGenerator.writeStartObject();
+
+        // delay values of each response
+        jsonGenerator.writeArrayFieldStart("delay");
+        writeTuple(jsonGenerator, "a", response.getDelay());
+        jsonGenerator.writeEndArray();
+
+        // itemSize values of each response
+        jsonGenerator.writeArrayFieldStart("itemSize");
+        writeTuple(jsonGenerator, "a", response.getItemSize());
+        jsonGenerator.writeEndArray();
+
+        // numItems values of each response
+        jsonGenerator.writeArrayFieldStart("numItems");
+        writeTuple(jsonGenerator, "a", response.getNumItems());
+        jsonGenerator.writeEndArray();
+
+        // all items from responses
+        jsonGenerator.writeArrayFieldStart("items");
+        addItemsFromResponse(jsonGenerator, response);
+        jsonGenerator.writeEndArray();
+
+        jsonGenerator.writeEndObject();
+        jsonGenerator.close();
+
+        return bos;
+    }
+
     public static ByteArrayOutputStream buildTestAResponse(JsonFactory jsonFactory,
             BackendResponse responseA, BackendResponse responseB,
             BackendResponse responseC, BackendResponse responseD,

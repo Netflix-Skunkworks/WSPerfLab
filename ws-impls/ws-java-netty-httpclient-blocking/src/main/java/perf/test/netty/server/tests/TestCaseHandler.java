@@ -12,6 +12,7 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.QueryStringDecoder;
+import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
@@ -29,10 +30,12 @@ import org.slf4j.LoggerFactory;
 import perf.test.netty.EventLogger;
 import perf.test.netty.PerformanceLogger;
 import perf.test.netty.PropertyNames;
+import perf.test.netty.client.PoolExhaustedException;
 import perf.test.netty.server.RequestProcessingFailedException;
 import perf.test.netty.server.RequestProcessingPromise;
 import perf.test.netty.server.ServerHandler;
 import perf.test.netty.server.StatusRetriever;
+import perf.test.utils.BackendResponse;
 
 import java.io.InputStream;
 import java.util.List;
@@ -50,7 +53,7 @@ import java.util.regex.Pattern;
 public abstract class TestCaseHandler {
 
     private static final Pattern HOSTS_SPLITTER = Pattern.compile(",");
-    private final Logger logger = LoggerFactory.getLogger(TestCaseHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(TestCaseHandler.class);
 
     private final String testCaseName;
     protected final static JsonFactory jsonFactory = new JsonFactory();
@@ -145,6 +148,14 @@ public abstract class TestCaseHandler {
             .setConnectionManager(new PoolingHttpClientConnectionManager())
             .setMaxConnTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt())
             .build();
+    }
+
+    protected static String constructUri(String type, int numItems, int itemSize, int delay) {
+        String uri = String.format("/mock.json?type=%s&numItems=%d&itemSize=%d&delay=%d&id=", type, numItems, itemSize, delay);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Created a new uri: " + uri);
+        }
+        return uri;
     }
 
     public void processRequest(Channel channel, EventExecutor executor, HttpRequest request, QueryStringDecoder qpDecoder,
@@ -257,7 +268,7 @@ public abstract class TestCaseHandler {
             throw new RuntimeException(e);
         } finally {
             perfLogger.stop(reqId, perfKey);
-            EventLogger.log(reqId, "backend-request-end " + path);;
+            EventLogger.log(reqId, "backend-request-end " + uri);;
         }
     }
 
@@ -284,6 +295,72 @@ public abstract class TestCaseHandler {
 
     public void populateTrace(StringBuilder traceBuilder) {
 //        httpClient.populateTrace(traceBuilder);
+    }
+
+
+
+    static class ResponseCollector {
+
+        final BackendResponse[] responses = new BackendResponse[5];
+
+        static final int RESPONSE_A_INDEX = 0;
+        static final int RESPONSE_B_INDEX = 1;
+        static final int RESPONSE_C_INDEX = 2;
+        static final int RESPONSE_D_INDEX = 3;
+        static final int RESPONSE_E_INDEX = 4;
+    }
+
+    protected abstract static class CompletionListener implements GenericFutureListener<Future<FullHttpResponse>> {
+
+        private final ResponseCollector responseCollector;
+        private final int responseIndex;
+        private final RequestProcessingPromise topLevelRequestCompletionPromise;
+
+        protected CompletionListener(ResponseCollector responseCollector, int responseIndex, RequestProcessingPromise topLevelRequestCompletionPromise) {
+            this.responseCollector = responseCollector;
+            this.responseIndex = responseIndex;
+            this.topLevelRequestCompletionPromise = topLevelRequestCompletionPromise;
+        }
+
+        @Override
+        public void operationComplete(Future<FullHttpResponse> future) throws Exception {
+            if (future.isSuccess()) {
+                if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+                    topLevelRequestCompletionPromise.checkpoint("Call success for response index: " + responseIndex);
+                }
+                FullHttpResponse response = future.get();
+                HttpResponseStatus status = response.getStatus();
+                if (status.equals(HttpResponseStatus.OK)) {
+                    ByteBuf responseContent = response.content();
+                    if (responseContent.isReadable()) {
+                        String content = responseContent.toString(CharsetUtil.UTF_8);
+                        responseContent.release();
+                        try {
+                            responseCollector.responses[responseIndex] = BackendResponse.fromJson(jsonFactory, content);
+                            onResponseReceived();
+                        } catch (Exception e) {
+                            logger.error("Failed to parse the received backend response.", e);
+                            topLevelRequestCompletionPromise.tryFailure(new RequestProcessingFailedException(HttpResponseStatus.INTERNAL_SERVER_ERROR, e));
+                        }
+                    }
+                } else {
+                    if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+                        topLevelRequestCompletionPromise.checkpoint("Call failed for response index: " + responseIndex + ", error: " + future.cause());
+                    }
+                    topLevelRequestCompletionPromise.tryFailure(new RequestProcessingFailedException(status));
+                }
+            } else {
+                HttpResponseStatus status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+                Throwable cause = future.cause();
+                if (cause instanceof PoolExhaustedException) {
+                    status = HttpResponseStatus.SERVICE_UNAVAILABLE;
+                }
+                topLevelRequestCompletionPromise.tryFailure(new RequestProcessingFailedException(status, cause));
+
+            }
+        }
+
+        protected abstract void onResponseReceived();
     }
 
 }

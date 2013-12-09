@@ -1,7 +1,6 @@
 package perf.test.netty.server.tests;
 
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import perf.test.netty.client.PoolExhaustedException;
 
 import java.util.Collection;
@@ -27,6 +26,9 @@ public class TestRegistry {
     public static synchronized void init(EventLoopGroup eventLoopGroup) throws PoolExhaustedException {
         TestCaseA caseA = new TestCaseA(eventLoopGroup);
         handlers.put(caseA.getTestCaseName(), caseA);
+
+        TestCaseB caseB = new TestCaseB(eventLoopGroup);
+        handlers.put(caseB.getTestCaseName(), caseB);
     }
 
     public static synchronized void shutdown() {

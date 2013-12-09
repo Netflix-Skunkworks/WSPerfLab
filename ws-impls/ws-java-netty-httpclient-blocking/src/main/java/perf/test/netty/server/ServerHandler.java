@@ -93,7 +93,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
         if (!path.isEmpty() && path.startsWith(contextPath)) {
             path = path.substring(contextPath.length());
             TestCaseHandler handler = TestRegistry.getHandler(path);
-            logger.debug(String.format("Test case handler for path %s is %s", path, handler));
+//            logger.debug(String.format("Test case handler for path %s is %s", path, handler));
             if (null != handler) {
                 ctx.channel().attr(testCaseName).set(path);
                 ctx.channel().attr(testCaseRequest).set(true);
