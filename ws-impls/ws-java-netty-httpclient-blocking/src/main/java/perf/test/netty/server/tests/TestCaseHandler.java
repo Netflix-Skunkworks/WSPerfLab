@@ -147,6 +147,8 @@ public abstract class TestCaseHandler {
             .setDefaultRequestConfig(reqConfig)
             .setConnectionManager(new PoolingHttpClientConnectionManager())
             .setMaxConnTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt())
+            // don't care about total vs. per-route right now, will set them to the same
+            .setMaxConnPerRoute(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt())
             .build();
     }
 
