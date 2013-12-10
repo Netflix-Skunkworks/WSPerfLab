@@ -211,6 +211,9 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
             response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, response.content().readableBytes());
             response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
 
+            final String reqId = SourceRequestState.instance().getRequestId(channelHandlerContext.channel());
+            EventLogger.log(reqId, "response-generated");
+
             ChannelFuture writeFuture =
                     channelHandlerContext.channel().writeAndFlush(response).addListener(new ChannelFutureListener() {
                         @Override
@@ -230,7 +233,6 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
                                 }
                             }
 
-                            final String reqId = SourceRequestState.instance().getRequestId(channelHandlerContext.channel());
                             PerformanceLogger.instance().stop(reqId, "top");
                             EventLogger.log(reqId, "request-end");
                         }
