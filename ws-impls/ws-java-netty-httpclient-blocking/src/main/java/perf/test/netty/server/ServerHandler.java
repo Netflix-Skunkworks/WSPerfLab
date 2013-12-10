@@ -218,6 +218,8 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
                     channelHandlerContext.channel().writeAndFlush(response).addListener(new ChannelFutureListener() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
+                            EventLogger.log(reqId, "response-flush-end");
+
                             if (isTestCaseRequest) {
                                 if (future.isSuccess()) {
                                     AtomicLong respCodeCount = new AtomicLong();
@@ -237,6 +239,8 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
                             EventLogger.log(reqId, "request-end");
                         }
                     });
+
+            EventLogger.log(reqId, "response-flush-start");
 
             if (!promise.isSuccess() && PropertyNames.ServerCloseConnectionOnError.getValueAsBoolean()) {
                 writeFuture.addListener(ChannelFutureListener.CLOSE);
