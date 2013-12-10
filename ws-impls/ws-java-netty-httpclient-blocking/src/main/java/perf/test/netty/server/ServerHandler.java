@@ -77,9 +77,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
         ctx.channel().attr(promiseKey).set(requestProcessingPromise);
         ctx.channel().attr(testCaseRequest).set(false);
 
-        final SourceRequestState sourceReqState = SourceRequestState.instance();
-        sourceReqState.initRequest(ctx.channel());
-        final String reqId = sourceReqState.getRequestId(ctx.channel());
+        final String reqId = SourceRequestState.instance().getRequestId(ctx.channel());
 
         EventLogger.log(reqId, "request-start");
 

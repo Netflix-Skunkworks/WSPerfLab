@@ -224,6 +224,7 @@ public abstract class TestCaseHandler {
         final EventExecutor eventExecutor,
         final String path,
         final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
+        EventLogger.log(reqId, "backend-request-submit " + path);
         return this.requestExecutor.submit(new Callable<Future<FullHttpResponse>> () {
             @Override
             public Future<FullHttpResponse> call() throws Exception {

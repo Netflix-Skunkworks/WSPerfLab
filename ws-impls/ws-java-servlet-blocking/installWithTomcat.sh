@@ -3,7 +3,7 @@
 sshCommand="ssh"
 update=false
 tomcatVersion="7.0.47"
-gitRepo="benjchristensen"
+gitRepo="mhawthorne"
 connector=
 
 while getopts "h:s:t:u:r:c:" opt; do

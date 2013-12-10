@@ -81,11 +81,11 @@ public class NettyBasedHttpServer {
                                           new HttpObjectAggregator(PropertyNames.ServerChunkSize.getValueAsInt()));
                          pipeline.addFirst("timingStart", new ProcessingTimesStartInterceptor());
                          pipeline.addLast("encoder", new HttpResponseEncoder());
-                         pipeline.addLast("timingEnd", new ProcessingTimeEndInterceptor());
                          pipeline.addLast(group,
                                           "handler",
                                           new ServerHandler(statusRetriever,
                                                             PropertyNames.ServerContextPath.getValueAsString()));
+                         pipeline.addLast("timingEnd", new ProcessingTimeEndInterceptor());
                      }
                  });
         bootstrap.bind(new InetSocketAddress(port));
