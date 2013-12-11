@@ -152,7 +152,7 @@ public class TestCaseAServlet extends HttpServlet {
             }
         } finally {
             ServiceResponseBuilder.addResponseHeaders(response, startTime);
-            perfLogger.stop(requestId, "stop");
+            perfLogger.stop(requestId, "top");
             EventLogger.log(requestId, "request-end");
             requestIdHolder.clear();
         }
