@@ -79,7 +79,14 @@ public class TestCaseAServlet extends HttpServlet {
         httpclient = new DefaultHttpClient(cm);
 
         // used for parallel execution
-        executor = new ThreadPoolExecutor(200, 10000, 1, TimeUnit.HOURS, new LinkedBlockingQueue<Runnable>());
+        final int backendRequestThreadPoolSize = PropertyNames.BackendRequestThreadPoolSize.getValueAsInt();
+
+        // setting core and max pool sizes the same since I do not want any queueing in here
+        executor = new ThreadPoolExecutor(backendRequestThreadPoolSize,
+            backendRequestThreadPoolSize,
+            5,
+            TimeUnit.MINUTES,
+            new LinkedBlockingQueue<Runnable>());
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
