@@ -12,7 +12,6 @@ dependencies {
     compile 'com.google.guava:guava:r05'
     compile 'com.google.code.findbugs:jsr305:2.0.2'
 
-    // using 4.2.3 since I have a transitive dependency on it and don't want to deal with conflicts
     compile 'org.apache.httpcomponents:httpclient:4.3.1'
 
     provided 'junit:junit-dep:4.10'
