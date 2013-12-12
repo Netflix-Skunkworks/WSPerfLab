@@ -3,6 +3,7 @@ package perf.test.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.AttributeKey;
+import perf.test.utils.EventLogger;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)

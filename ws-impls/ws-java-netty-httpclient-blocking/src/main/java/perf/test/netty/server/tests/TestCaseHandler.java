@@ -27,8 +27,6 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.codehaus.jackson.JsonFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import perf.test.netty.EventLogger;
-import perf.test.netty.PerformanceLogger;
 import perf.test.netty.PropertyNames;
 import perf.test.netty.client.PoolExhaustedException;
 import perf.test.netty.server.RequestProcessingFailedException;
@@ -36,6 +34,8 @@ import perf.test.netty.server.RequestProcessingPromise;
 import perf.test.netty.server.ServerHandler;
 import perf.test.netty.server.StatusRetriever;
 import perf.test.utils.BackendResponse;
+import perf.test.utils.EventLogger;
+import perf.test.utils.PerformanceLogger;
 
 import java.io.IOException;
 import java.io.InputStream;
