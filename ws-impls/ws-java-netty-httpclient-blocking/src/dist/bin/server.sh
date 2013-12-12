@@ -17,11 +17,16 @@ CLIENT_READ_TIMEOUT_MS=500
 BACKLOG_CLEANER_WORKERS_COUNT=5
 MAX_BACKLOG=5000
 
+: ${SERVER_EVENT_LOOP_COUNT:=0}
 : ${LOG_LEVEL:="DEBUG"}
+
+# I don't think a lot of these properties are necessary since I am not using the
+# Netty client in this project
 
 WS_JAVA_NETTY_HTTPCLIENT_BLOCKING_OPTS="-Dperf.test.backend.host.max.backlog=${MAX_BACKLOG} \
 -Dclient.backlog.cleaner.count=${BACKLOG_CLEANER_WORKERS_COUNT} \
 -Dhttp.server.port=${SERVER_PORT} \
+-Dhttp.server.eventloop.count=${SERVER_EVENT_LOOP_COUNT} \
 -Dserver.log.enable=${SERVER_LOG} \
 -Dclient.read.timeout=${CLIENT_READ_TIMEOUT_MS} \
 -Dclient.log.enable=${CLIENT_LOG} \
