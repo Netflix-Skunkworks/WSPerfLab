@@ -83,40 +83,28 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     private Promise<DedicatedHttpClient<T, R>> createNewClientOnDemand(@Nullable final ConnectCompletePromise<T, R> completionPromise) {
         final Object clientLimitEnforcingToken = new Object();
         if (clientLimitEnforcer.offer(clientLimitEnforcingToken)) {
-            bootstrap.connect(serverAddress).addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    if (future.isSuccess()) {
-                        logger.debug("New client connected for host {} and port {}", serverAddress.getHostName(),
-                                     serverAddress.getPort());
-                        final DedicatedHttpClient<T, R> httpClient = getHttpClient(future.channel());
-                        future.channel().closeFuture().addListener(new ChannelFutureListener() {
-                            @Override
-                            public void operationComplete(ChannelFuture future) throws Exception {
-                                logger.debug("Client disconnected from host {} and port {}",
-                                             serverAddress.getHostName(),
-                                             serverAddress.getPort());
-                                clientLimitEnforcer.remove(clientLimitEnforcingToken);
-                                availableClients.remove(httpClient);
-                            }
-                        });
-                        if (null == completionPromise) {
-                            addAvailableClient(httpClient);
-                        } else {
-                            completionPromise.setExecutor(future.channel().eventLoop());
-                            completionPromise.setSuccess(httpClient);
-                        }
-                    } else {
-                        clientLimitEnforcer.remove(clientLimitEnforcingToken);
-                        logger.error(String.format("Failed to connect to host %s and port %d",
-                                                   serverAddress.getHostName(),
-                                                   serverAddress.getPort()), future.cause());
-                        if (null != completionPromise) {
-                            completionPromise.setFailure(future.cause());
-                        }
-                    }
+            ChannelFuture connectFuture = bootstrap.connect(serverAddress);
+            ClientConnectListener<T, R> listener = new ClientConnectListener<T, R>(clientLimitEnforcingToken,
+                                                                                   completionPromise, this);
+            EventLoop eventloop = null;
+            if (!connectFuture.isSuccess()) {
+                try {
+                    eventloop = connectFuture.channel().eventLoop();
+                } catch (IllegalStateException e) {
+                    //
                 }
-            });
+            }
+            if (null == eventloop) {
+                // hack to workaround the netty issue when too many channel exception, the eventloop is not set
+                // in the channel.
+                try {
+                    listener.operationComplete(connectFuture);
+                } catch (Exception e) {
+                    logger.error("Error while invoking connect complete listener (on too many channel exception)", e);
+                }
+            } else {
+                connectFuture.addListener(listener);
+            }
         } else {
             if (null == completionPromise) {
                 logger.error(
@@ -218,6 +206,54 @@ class DedicatedClientPool<T, R extends HttpRequest> {
 
         public void setExecutor(EventLoop eventExecutor) {
             this.eventExecutor = eventExecutor;
+        }
+    }
+
+    private class ClientConnectListener<T, R extends HttpRequest> implements ChannelFutureListener {
+
+        private final Object clientLimitEnforcingToken;
+        private final ConnectCompletePromise<T, R> completionPromise;
+        private final DedicatedClientPool<T, R> enclosingPool;
+
+        public ClientConnectListener(Object clientLimitEnforcingToken,
+                                     ConnectCompletePromise<T, R> completionPromise,
+                                     DedicatedClientPool<T, R> enclosingPool) {
+            this.clientLimitEnforcingToken = clientLimitEnforcingToken;
+            this.completionPromise = completionPromise;
+            this.enclosingPool = enclosingPool;
+        }
+
+        @Override
+        public void operationComplete(ChannelFuture future) throws Exception {
+            if (future.isSuccess()) {
+                logger.debug("New client connected for host {} and port {}", serverAddress.getHostName(),
+                             serverAddress.getPort());
+                final DedicatedHttpClient<T, R> httpClient = enclosingPool.getHttpClient(future.channel());
+                future.channel().closeFuture().addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        logger.debug("Client disconnected from host {} and port {}",
+                                     serverAddress.getHostName(),
+                                     serverAddress.getPort());
+                        clientLimitEnforcer.remove(clientLimitEnforcingToken);
+                        availableClients.remove(httpClient);
+                    }
+                });
+                if (null == completionPromise) {
+                    enclosingPool.addAvailableClient(httpClient);
+                } else {
+                    completionPromise.setExecutor(future.channel().eventLoop());
+                    completionPromise.setSuccess(httpClient);
+                }
+            } else {
+                clientLimitEnforcer.remove(clientLimitEnforcingToken);
+                logger.error(String.format("Failed to connect to host %s and port %d",
+                                           serverAddress.getHostName(),
+                                           serverAddress.getPort()), future.cause());
+                if (null != completionPromise) {
+                    completionPromise.setFailure(future.cause());
+                }
+            }
         }
     }
 }
