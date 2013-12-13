@@ -3,9 +3,10 @@ package perf.test;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.PoolingClientConnectionManager;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.JsonFactory;
 import perf.test.utils.BackendMockHostSelector;
@@ -35,9 +36,8 @@ public class TestCaseAServlet extends HttpServlet {
 
     private final static JsonFactory jsonFactory = new JsonFactory();
 
-    // used for multi-threaded Http requests
-    private final PoolingClientConnectionManager cm;
-    private final HttpClient httpclient;
+    private final HttpClient client;
+
     // used for parallel execution of requests
     private final ThreadPoolExecutor executor;
 
@@ -72,11 +72,21 @@ public class TestCaseAServlet extends HttpServlet {
     private static final RequestIdHolder requestIdHolder = new RequestIdHolder();
 
     public TestCaseAServlet() {
-        cm = new PoolingClientConnectionManager();
-        // set the limit high so this isn't throttling us while we push to the limit
-        cm.setMaxTotal(10000);
-        cm.setDefaultMaxPerRoute(10000);
-        httpclient = new DefaultHttpClient(cm);
+        final RequestConfig reqConfig = RequestConfig.custom()
+            .setConnectTimeout(PropertyNames.ClientConnectTimeout.getValueAsInt())
+            .setSocketTimeout(PropertyNames.ClientSocketTimeout.getValueAsInt())
+            .setConnectionRequestTimeout(PropertyNames.ClientConnectionRequestTimeout.getValueAsInt())
+            .build();
+
+        // don't care about total vs. per-route right now, will set them to the same
+        final PoolingHttpClientConnectionManager connMgr = new PoolingHttpClientConnectionManager();
+        connMgr.setMaxTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt());
+        connMgr.setDefaultMaxPerRoute(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt());
+
+        this.client = HttpClients.custom()
+            .setDefaultRequestConfig(reqConfig)
+            .setConnectionManager(connMgr)
+            .build();
 
         // used for parallel execution
         final int backendRequestThreadPoolSize = PropertyNames.BackendRequestThreadPoolSize.getValueAsInt();
@@ -190,7 +200,7 @@ public class TestCaseAServlet extends HttpServlet {
 
         HttpGet httpGet = new HttpGet(uri);
         try {
-            HttpResponse response = httpclient.execute(httpGet);
+            HttpResponse response = this.client.execute(httpGet);
 
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw new RuntimeException("Failure: " + response.getStatusLine());

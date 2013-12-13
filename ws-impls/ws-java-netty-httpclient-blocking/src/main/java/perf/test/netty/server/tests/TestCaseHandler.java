@@ -140,7 +140,6 @@ public abstract class TestCaseHandler {
         final RequestConfig reqConfig = RequestConfig.custom()
             .setConnectTimeout(PropertyNames.ClientConnectTimeout.getValueAsInt())
             .setSocketTimeout(PropertyNames.ClientSocketTimeout.getValueAsInt())
-            // setting an aggressive pool timeout to avoid queueing
             .setConnectionRequestTimeout(PropertyNames.ClientConnectionRequestTimeout.getValueAsInt())
             .build();
 
@@ -153,10 +152,6 @@ public abstract class TestCaseHandler {
             .setDefaultRequestConfig(reqConfig)
             .setConnectionManager(connMgr)
             .build();
-//            .setMaxConnTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt())
-//            // don't care about total vs. per-route right now, will set them to the same
-//            .setMaxConnPerRoute(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt()).set
-
     }
 
     protected static String constructUri(String type, int numItems, int itemSize, int delay) {

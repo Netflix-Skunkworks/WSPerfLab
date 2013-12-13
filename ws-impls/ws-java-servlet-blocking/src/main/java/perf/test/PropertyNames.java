@@ -2,12 +2,17 @@ package perf.test;
 
 /**
  * All the properties used by netty module. The property values are obtained as {@link System#getProperty(String, String)} for
- * the property name specified by {@link perf.test.netty.PropertyNames#getPropertyName()} with a default value as specified
- * by {@link perf.test.netty.PropertyNames#getDefaultVal()}
+ * the property name specified by {@link perf.test.PropertyNames#getPropertyName()} with a default value as specified
+ * by {@link perf.test.PropertyNames#getDefaultVal()}
  *
  * @author Nitesh Kant (nkant@netflix.com)
  */
 public enum PropertyNames {
+
+    ClientConnectTimeout("client.connect.timeout", "1000"),
+    ClientSocketTimeout("client.socket.timeout", "1000"),
+    ClientConnectionRequestTimeout("client.connection-request.timeout", "1010"),
+    ClientMaxConnectionsTotal("client.max-connections-total", "1000"),
 
     BackendRequestThreadPoolSize("backend-request.max-thread-pool-size", "2000");
 
