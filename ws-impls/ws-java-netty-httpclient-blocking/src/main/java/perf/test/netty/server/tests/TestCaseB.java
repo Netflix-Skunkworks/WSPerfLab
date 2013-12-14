@@ -11,10 +11,10 @@ import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Promise;
 import perf.test.netty.PropertyNames;
-import perf.test.netty.SourceRequestState;
 import perf.test.netty.server.RequestProcessingFailedException;
 import perf.test.netty.server.RequestProcessingPromise;
 import perf.test.utils.ServiceResponseBuilder;
+import perf.test.utils.netty.SourceRequestState;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

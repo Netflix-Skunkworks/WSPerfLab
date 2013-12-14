@@ -1,4 +1,4 @@
-package perf.test.netty;
+package perf.test.utils.netty;
 
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;

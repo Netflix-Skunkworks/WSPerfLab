@@ -9,6 +9,8 @@ dependencies {
     compile 'com.netflix.rxjava:rxjava-core:0.14+'
     compile 'com.google.guava:guava:15.0'
     compile 'org.apache.commons:commons-lang3:3.1'
+    compile 'io.netty:netty-common:4.0.9.Final'
+    compile 'io.netty:netty-transport:4.0.9.Final'
 }
 
 eclipse {

@@ -21,11 +21,11 @@ import org.codehaus.jackson.JsonGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.PropertyNames;
-import perf.test.netty.SourceRequestState;
 import perf.test.netty.server.tests.TestCaseHandler;
 import perf.test.netty.server.tests.TestRegistry;
 import perf.test.utils.EventLogger;
 import perf.test.utils.PerformanceLogger;
+import perf.test.utils.netty.SourceRequestState;
 
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;

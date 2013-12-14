@@ -15,11 +15,11 @@ import io.netty.util.concurrent.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.PropertyNames;
-import perf.test.netty.SourceRequestState;
 import perf.test.netty.client.PoolExhaustedException;
 import perf.test.netty.server.RequestProcessingFailedException;
 import perf.test.netty.server.RequestProcessingPromise;
 import perf.test.utils.ServiceResponseBuilder;
+import perf.test.utils.netty.SourceRequestState;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
