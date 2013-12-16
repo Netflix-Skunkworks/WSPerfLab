@@ -2,7 +2,7 @@
 
 sshCommand="ssh"
 update=false
-gitRepo="benjchristensen"
+gitRepo="mhawthorne"
 
 while getopts "h:s:b:r:u" opt; do
   case $opt in
@@ -29,13 +29,13 @@ done
 
 if [ -z "$hostname" ]; then
 	echo $'\a'-h required for hostname
-	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -b [backend host] -r [Github repo username (optional: defaults to 'benjchristensen')] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -b [backend host] -r [Github repo username (optional: defaults to '$gitRepo')] -u (to update only)"
 	exit
 fi
 
 if [ -z "$backendHost" ]; then
 	echo $'\a'-b required for backend hostname
-	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -b [backend host] -r [Github repo username (optional: defaults to 'benjchristensen')] -u (to update only)"
+	echo "$0 -h [HOSTNAME] -s [SSH COMMAND (optional)] -b [backend host] -r [Github repo username (optional: defaults to 'gitRepo')] -u (to update only)"
 	exit
 fi
 
