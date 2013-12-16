@@ -21,6 +21,7 @@ import perf.test.netty.server.RequestProcessingFailedException;
 import perf.test.netty.server.RequestProcessingPromise;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
+import perf.test.utils.netty.SourceRequestState;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,33 +34,33 @@ public class TestCaseA extends TestCaseHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(TestCaseA.class);
 
-    public static final String CALL_A_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_A_URI_WITHOUT_ID = constructUri("A",
             PropertyNames.TestCaseACallANumItems.getValueAsInt(),
             PropertyNames.TestCaseACallAItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallAItemDelay.getValueAsInt());
 
-    public static final String CALL_B_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_B_URI_WITHOUT_ID = constructUri("B",
             PropertyNames.TestCaseACallBNumItems.getValueAsInt(),
             PropertyNames.TestCaseACallBItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallBItemDelay.getValueAsInt());
 
-    public static final String CALL_C_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_C_URI_WITHOUT_ID = constructUri("C",
             PropertyNames.TestCaseACallCNumItems.getValueAsInt(),
             PropertyNames.TestCaseACallCItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallCItemDelay.getValueAsInt());
 
-    public static final String CALL_D_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_D_URI_WITHOUT_ID = constructUri("D",
             PropertyNames.TestCaseACallDNumItems.getValueAsInt(),
             PropertyNames.TestCaseACallDItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallDItemDelay.getValueAsInt());
 
-    public static final String CALL_E_URI_WITHOUT_ID = constructUri(
+    public static final String CALL_E_URI_WITHOUT_ID = constructUri("E",
             PropertyNames.TestCaseACallENumItems.getValueAsInt(),
             PropertyNames.TestCaseACallEItemSize.getValueAsInt(),
             PropertyNames.TestCaseACallEItemDelay.getValueAsInt());
 
-    private static String constructUri(int numItems, int itemSize, int delay) {
-        String uri = String.format("/mock.json?numItems=%d&itemSize=%d&delay=%d&id=", numItems, itemSize, delay);
+    private static String constructUri(String type, int numItems, int itemSize, int delay) {
+        String uri = String.format("/mock.json?type=%s&numItems=%d&itemSize=%d&delay=%d&id=", type, numItems, itemSize, delay);
         if (logger.isDebugEnabled()) {
             logger.debug("Created a new uri: " + uri);
         }
@@ -73,6 +74,8 @@ public class TestCaseA extends TestCaseHandler {
     @Override
     protected void executeTestCase(final Channel channel, final boolean keepAlive, String id,
                                    final RequestProcessingPromise requestProcessingPromise) {
+
+        final String requestId = SourceRequestState.instance().getRequestId(channel);
 
         final ResponseCollector responseCollector = new ResponseCollector();
 
@@ -111,11 +114,11 @@ public class TestCaseA extends TestCaseHandler {
                                     }
                                 };
 
-                        get(channel.eventLoop().next(),
+                        get(requestId, channel.eventLoop().next(),
                             CALL_C_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX].getResponseKey(),
                             callCListener, requestProcessingPromise, ResponseCollector.RESPONSE_C_INDEX);
-                        get(channel.eventLoop().next(),
+                        get(requestId, channel.eventLoop().next(),
                             CALL_D_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_A_INDEX].getResponseKey(),
                             callDListener, requestProcessingPromise, ResponseCollector.RESPONSE_D_INDEX);
@@ -138,23 +141,25 @@ public class TestCaseA extends TestCaseHandler {
                                         }
                                     }
                                 };
-                        get(channel.eventLoop().next(),
+                        get(requestId, channel.eventLoop().next(),
                             CALL_E_URI_WITHOUT_ID
                             + responseCollector.responses[ResponseCollector.RESPONSE_B_INDEX].getResponseKey(),
                             callEListener, requestProcessingPromise, ResponseCollector.RESPONSE_E_INDEX);
                     }
                 };
-        get(channel.eventLoop().next(), CALL_A_URI_WITHOUT_ID + id, callAListener, requestProcessingPromise, ResponseCollector.RESPONSE_A_INDEX);
-        get(channel.eventLoop().next(), CALL_B_URI_WITHOUT_ID + id, callBListener, requestProcessingPromise, ResponseCollector.RESPONSE_B_INDEX);
+        get(requestId, channel.eventLoop().next(), CALL_A_URI_WITHOUT_ID + id, callAListener,
+            requestProcessingPromise, ResponseCollector.RESPONSE_A_INDEX);
+        get(requestId, channel.eventLoop().next(), CALL_B_URI_WITHOUT_ID + id, callBListener,
+            requestProcessingPromise, ResponseCollector.RESPONSE_B_INDEX);
     }
 
-    protected Future<FullHttpResponse> get(EventExecutor eventExecutor, String path,
+    protected Future<FullHttpResponse> get(String requestId, EventExecutor eventExecutor, String path,
                                            GenericFutureListener<Future<FullHttpResponse>> responseHandler,
                                            final RequestProcessingPromise requestProcessingPromise, int callIndex) {
         if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
             requestProcessingPromise.checkpoint("Sending request for call index: " + callIndex);
         }
-        return get(eventExecutor, path, responseHandler);
+        return get(requestId, eventExecutor, path, responseHandler);
     }
 
     private static void buildFinalResponseAndFinish(ResponseCollector responseCollector,

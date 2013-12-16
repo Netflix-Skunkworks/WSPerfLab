@@ -2,28 +2,31 @@ package perf.test.netty.server;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import org.codehaus.jackson.JsonEncoding;
 import org.codehaus.jackson.JsonFactory;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.QueryStringDecoder;
 import org.codehaus.jackson.JsonGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import perf.test.netty.PropertyNames;
 import perf.test.netty.server.tests.TestCaseHandler;
 import perf.test.netty.server.tests.TestRegistry;
+import perf.test.utils.EventLogger;
+import perf.test.utils.PerformanceLogger;
+import perf.test.utils.netty.SourceRequestState;
 
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
@@ -38,7 +41,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * case name as specified by {@link TestCaseHandler#getTestCaseName()}, otherwise, this
  * returns a http response with status {@link HttpResponseStatus#NOT_FOUND}. <br/>
  * If the testcase name matches with a handler registered with the {@link TestRegistry}, this server calls the
- * {@link TestCaseHandler#executeTestCase(Channel, boolean, String, Promise)}
+ * {@link TestCaseHandler#executeTestCase(Channel, EventExecutor, boolean, String, Promise)}
  * on that handler. <br/>
  *
  * In case, there is an error in handling an http request, the client connection is not closed. This can be forced to
@@ -78,6 +81,13 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
         requestProcessingPromise.addListener(new RequestProcessingCompleteListener(ctx));
         ctx.channel().attr(promiseKey).set(requestProcessingPromise);
         ctx.channel().attr(testCaseRequest).set(false);
+
+        final String reqId = SourceRequestState.instance().getRequestId(ctx.channel());
+        EventLogger.log(reqId, "request-start");
+
+        final PerformanceLogger perfLogger = PerformanceLogger.instance();
+        perfLogger.start(reqId, "top");
+
 
         QueryStringDecoder qpDecoder = new QueryStringDecoder(request.getUri());
         String path = qpDecoder.path();
@@ -206,10 +216,15 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
             response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, response.content().readableBytes());
             response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
 
+            final String reqId = SourceRequestState.instance().getRequestId(channelHandlerContext.channel());
+            EventLogger.log(reqId, "response-generated");
+
             ChannelFuture writeFuture =
                     channelHandlerContext.channel().writeAndFlush(response).addListener(new ChannelFutureListener() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
+                            EventLogger.log(reqId, "response-flush-end");
+
                             if (isTestCaseRequest) {
                                 if (future.isSuccess()) {
                                     AtomicLong respCodeCount = new AtomicLong();
@@ -224,8 +239,13 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
                                     sendFailedCount.incrementAndGet();
                                 }
                             }
+
+                            PerformanceLogger.instance().stop(reqId, "top");
+                            EventLogger.log(reqId, "request-end");
                         }
                     });
+
+            EventLogger.log(reqId, "response-flush-start");
 
             if (!promise.isSuccess() && PropertyNames.ServerCloseConnectionOnError.getValueAsBoolean()) {
                 writeFuture.addListener(ChannelFutureListener.CLOSE);

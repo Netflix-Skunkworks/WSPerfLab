@@ -15,7 +15,6 @@ import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
-import io.netty.util.concurrent.Promise;
 import org.codehaus.jackson.JsonFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,12 +22,13 @@ import perf.test.netty.PropertyNames;
 import perf.test.netty.client.HttpClient;
 import perf.test.netty.client.HttpClientFactory;
 import perf.test.netty.client.LBAwareHttpClientImpl;
-import perf.test.netty.client.PoolExhaustedException;
 import perf.test.netty.client.RoundRobinLB;
 import perf.test.netty.server.RequestProcessingFailedException;
 import perf.test.netty.server.RequestProcessingPromise;
 import perf.test.netty.server.ServerHandler;
 import perf.test.netty.server.StatusRetriever;
+import perf.test.utils.EventLogger;
+import perf.test.utils.PerformanceLogger;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -107,13 +107,22 @@ public abstract class TestCaseHandler {
         return testCaseName;
     }
 
-    protected Future<FullHttpResponse> get(EventExecutor eventExecutor, String path,
+    protected Future<FullHttpResponse> get(String requestId, EventExecutor eventExecutor, String path,
                                            final GenericFutureListener<Future<FullHttpResponse>> responseHandler) {
         Preconditions.checkNotNull(eventExecutor, "Event executor can not be null");
         String basePath = PropertyNames.MockBackendContextPath.getValueAsString();
         path = basePath + path;
         FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path);
-        return httpClient.execute(eventExecutor, request).addListener(responseHandler);
+
+        final String perfLogName = "backend-request " + path;
+        final PerformanceLogger perfLog = PerformanceLogger.instance();
+        perfLog.start(requestId, perfLogName);
+
+        EventLogger.log(requestId, "backend-request-submit " + path);
+        return httpClient.execute(eventExecutor, request)
+            .addListener(new LogListener(requestId, "backend-request-stop " + path, perfLog, perfLogName))
+            .addListener(responseHandler);
+
     }
 
     public void populateStatus(StatusRetriever.Status statusToPopulate) {
@@ -129,4 +138,28 @@ public abstract class TestCaseHandler {
     public void populateTrace(StringBuilder traceBuilder) {
         httpClient.populateTrace(traceBuilder);
     }
+
+    // hack listener to do Event and Performance logging after a backend request finishes
+    private static final class LogListener implements GenericFutureListener<Future<FullHttpResponse>> {
+
+        private final String requestId;
+        
+        private final PerformanceLogger perfLogger;
+        private final String eventLogName;
+        private final String perfLogName;
+
+        LogListener(String requestId, String eventLogName, PerformanceLogger perfLogger, String perfLogName) {
+            this.requestId = requestId;
+            this.eventLogName = eventLogName;
+            this.perfLogger = perfLogger;
+            this.perfLogName = perfLogName;
+        }
+
+        @Override
+        public void operationComplete(Future<FullHttpResponse> future) throws Exception {
+            EventLogger.log(this.requestId, this.eventLogName);
+            this.perfLogger.stop(this.requestId, this.perfLogName);
+        }
+    }
+
 }
