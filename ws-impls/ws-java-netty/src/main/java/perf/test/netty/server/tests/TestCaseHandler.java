@@ -120,7 +120,7 @@ public abstract class TestCaseHandler {
 
         EventLogger.log(requestId, "backend-request-submit " + path);
         return httpClient.execute(eventExecutor, request)
-            .addListener(new LogListener(requestId, "backend-request-stop " + path, perfLog, perfLogName))
+            .addListener(new LogListener(requestId, "backend-request-end " + path, perfLog, perfLogName))
             .addListener(responseHandler);
 
     }
