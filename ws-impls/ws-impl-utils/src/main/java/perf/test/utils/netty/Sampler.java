@@ -12,11 +12,10 @@ public class Sampler {
     private static final Random random = new Random();
 
     public static final boolean shouldSample(int samplePercentage) {
-        final long seed = randomLong();
-        return shouldSampleForRandom(seed, samplePercentage);
+        return shouldSample(randomLong(), samplePercentage);
     }
 
-    private static final boolean shouldSampleForRandom(long seed, int samplePercentage) {
+    public static final boolean shouldSample(long seed, int samplePercentage) {
         if (samplePercentage >= 100) return true;
         else if (samplePercentage <= 0) return false;
 
@@ -64,7 +63,7 @@ public class Sampler {
             final int iterations = 10000;
             int samples = 0;
             for (int i = 0; i < iterations; i++) {
-                final boolean b = Sampler.shouldSampleForRandom(Sampler.randomLong(), desiredPercentage);
+                final boolean b = Sampler.shouldSample(Sampler.randomLong(), desiredPercentage);
                 if (b) samples++;
             }
 
