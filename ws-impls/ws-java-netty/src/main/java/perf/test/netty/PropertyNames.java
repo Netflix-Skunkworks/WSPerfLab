@@ -22,6 +22,7 @@ public enum PropertyNames {
     ClientEventLoopCount("http.client.eventloop.count", "0"), // 0 means default, should be set if io is blocking
     ClientLoggingEnable("client.log.enable", "true"),
     ClientChunkSize("client.chunk.size", "1048576"),
+    ClientReadTimeOutSeconds("client.read.timeout.seconds", "30"),
 
     MockBackendHost("perf.test.backend.host", "localhost"),
     MockBackendPort("perf.test.backend.port", "8989"),

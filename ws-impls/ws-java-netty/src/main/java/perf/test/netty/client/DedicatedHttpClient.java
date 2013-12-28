@@ -1,17 +1,21 @@
 package perf.test.netty.client;
 
+import com.google.common.base.Preconditions;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.Promise;
 import perf.test.netty.PropertyNames;
 
+import javax.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -29,21 +33,28 @@ class DedicatedHttpClient<T, R extends HttpRequest> {
         this.owningPool = owningPool;
     }
 
-    Future<T> execute(R request, HttpClientImpl.RequestProcessingPromise processingFinishPromise) {
-        return executeRequest(request, new ResponseHandlerWrapper<T>(request, processingFinishPromise), 0);
+    RequestExecutionPromise<T> execute(R request, HttpClientImpl.RequestProcessingPromise processingFinishPromise) {
+        return executeRequest(request, new ResponseHandlerWrapper<T>(request, processingFinishPromise), 0,
+                              null);
     }
 
-    Future<T> retry(final ChannelHandlerContext failedContext, int retryCount) {
-        ResponseHandlerWrapper<T> handler = (ResponseHandlerWrapper<T>) failedContext.channel().attr(owningPool.getResponseHandlerKey()).get();
-        return executeRequest(handler.request, handler, retryCount);
+    RequestExecutionPromise<T> retry(final ChannelHandlerContext failedContext, int retryCount,
+                                     RequestExecutionPromise<T> completionPromise) {
+        Preconditions.checkNotNull(completionPromise, "Completion promise can not be null for retries.");
+        ResponseHandlerWrapper<T> handler =
+                (ResponseHandlerWrapper<T>) failedContext.channel().attr(owningPool.getResponseHandlerKey()).get();
+        return executeRequest(handler.request, handler, retryCount, completionPromise);
     }
 
-    private Future<T> executeRequest(R request, final ResponseHandlerWrapper<T> responseHandler, int retryCount) {
+    private RequestExecutionPromise<T> executeRequest(R request, final ResponseHandlerWrapper<T> responseHandler,
+                                                      int retryCount,
+                                                      @Nullable RequestExecutionPromise<T> completionPromise) {
+
         request.headers().set(HttpHeaders.Names.HOST, host);
         channel.attr(DedicatedClientPool.RETRY_COUNT_KEY).setIfAbsent(new AtomicInteger(retryCount));
         channel.attr(owningPool.getResponseHandlerKey()).set(responseHandler);
-        ChannelPromise promise = channel.newPromise();
-        channel.writeAndFlush(request, promise).addListener(new ChannelFutureListener() {
+        ChannelFuture writeFuture = channel.writeAndFlush(request);
+        writeFuture.addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
@@ -59,8 +70,14 @@ class DedicatedHttpClient<T, R extends HttpRequest> {
             }
         });
         responseHandler.processingFinishPromise.checkpoint("Request Written. Retry count: " + retryCount);
-        DefaultPromise<T> processingCompletePromise = new RequestProcessingPromise(channel, promise);
+        RequestExecutionPromise<T> processingCompletePromise;
+        if (null == completionPromise) {
+            processingCompletePromise = new RequestProcessingPromise<T>(channel, writeFuture);
+        } else {
+            processingCompletePromise = completionPromise;
+        }
         channel.attr(owningPool.getProcessingCompletePromiseKey()).set(processingCompletePromise);
+
         processingCompletePromise.addListener(responseHandler);
         return processingCompletePromise;
     }
@@ -89,21 +106,26 @@ class DedicatedHttpClient<T, R extends HttpRequest> {
         }
     }
 
-    private class RequestProcessingPromise extends DefaultPromise<T> {
+    class RequestProcessingPromise<T> extends DefaultPromise<T> implements RequestExecutionPromise<T> {
 
-        private final ChannelPromise sendRequestPromise;
+        private final ChannelFuture sendRequestFuture;
 
-        public RequestProcessingPromise(Channel channel, ChannelPromise sendRequestPromise) {
-            super(channel.eventLoop());
-            this.sendRequestPromise = sendRequestPromise;
+        public RequestProcessingPromise(Channel channel, ChannelFuture sendRequestFuture) {
+            super(channel.eventLoop()); // Retry will switch the eventloop as the promise returned will be of the first channel used (which failed)
+            this.sendRequestFuture = sendRequestFuture;
         }
 
         @Override
         public boolean cancel(boolean mayInterruptIfRunning) {
-            if (sendRequestPromise.isCancellable()) {
-                sendRequestPromise.cancel(mayInterruptIfRunning);
+            if (sendRequestFuture.isCancellable()) {
+                sendRequestFuture.cancel(mayInterruptIfRunning);
             }
             return super.cancel(mayInterruptIfRunning);
+        }
+
+        @Override
+        public EventExecutor getExecutingClientExecutor() {
+            return channel.eventLoop();
         }
     }
 }

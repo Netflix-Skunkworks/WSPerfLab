@@ -49,8 +49,8 @@ if $update ; then
 	eval "$sshCommand $hostname 'sudo /etc/init.d/nflx-tomcat stop'" # need to use a different AMI so this can be removed
 	echo "--- Kill all java processes"
 	eval "$sshCommand $hostname 'sudo killall java'"
-	echo "--- Remove previously installed ws-java-netty.zip"
-	eval "$sshCommand $hostname '/bin/rm -R ws-java-netty*'"
+	echo "--- Remove previously installed ws-java-netty-blocking.zip"
+	eval "$sshCommand $hostname '/bin/rm -R ws-java-netty-blocking*'"
 	echo "--- Update from Git"
 	eval "$sshCommand $hostname 'cd ~/WSPerfLab/; git pull'"
 else
@@ -62,9 +62,9 @@ else
 	eval "$sshCommand $hostname 'git clone git://github.com/$gitRepo/WSPerfLab.git'"
 fi
 
-echo "--- Build ws-java-netty"
-eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-netty/; ../../gradlew clean build distZip'"
+echo "--- Build ws-java-netty-blocking"
+eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-netty-blocking/; ../../gradlew clean build distZip'"
 echo "--- Copy distribution"
-eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-netty/build/distributions/ws-java-netty-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-netty-*-SNAPSHOT.zip'"
+eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-netty-blocking/build/distributions/ws-java-netty-blocking-*-SNAPSHOT.zip ~/ && cd ~; unzip ws-java-netty-blocking-*-SNAPSHOT.zip'"
 echo "--- Start Netty impl"
-eval "$sshCommand $hostname 'export SERVER_PORT=8080; export BACKEND_HOST=${backendHost}; cd ws-java-netty*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"
+eval "$sshCommand $hostname 'export SERVER_PORT=8080; export BACKEND_HOST=${backendHost}; cd ws-java-netty-blocking*/bin/; nohup ./startWithLog.sh > /dev/null 2>&1 &'"

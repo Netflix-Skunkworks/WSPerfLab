@@ -11,16 +11,31 @@ CLIENT_LOG="false"
 : ${BACKEND_HOST:="localhost"}
 : ${BACKEND_PORT:=8989}
 
+: ${BACKEND_CLIENT_EVENTLOOP_COUNT:="4000"}
+: ${SERVER_EVENTLOOP_COUNT:="2000"}
+
 echo "Using backend host ${BACKEND_HOST} and port ${BACKEND_PORT}"
 BACKEND_MAX_CONN_PER_TEST=2000
 BACKEND_INIT_CONN_PER_TEST=2000
 CLIENT_READ_TIMEOUT_MS=500
-BACKLOG_CLEANER_WORKERS_COUNT=5
 MAX_BACKLOG=5000
 
 LOG_LEVEL="INFO"
 
-WS_JAVA_NETTY_OPTS="-Dclient.io.blocking=true -Dhttp.server.io.blocking=true -Dperf.test.backend.host.max.backlog=${MAX_BACKLOG} -Dclient.backlog.cleaner.count=${BACKLOG_CLEANER_WORKERS_COUNT} -Dhttp.server.port=${SERVER_PORT} -Dserver.log.enable=${SERVER_LOG} -Dclient.read.timeout=${CLIENT_READ_TIMEOUT_MS} -Dclient.log.enable=${CLIENT_LOG} -Dperf.test.backend.host=${BACKEND_HOST} -Dperf.test.backend.port=${BACKEND_PORT} -Dperf.test.backend.host.maxconn.per.test=${BACKEND_MAX_CONN_PER_TEST} -Dperf.test.backend.host.startupconn.per.test=${BACKEND_INIT_CONN_PER_TEST} -D-Dorg.slf4j.simpleLogger.defaultLogLevel=${LOG_LEVEL}"
+WS_JAVA_NETTY_BLOCKING_OPTS="-Dclient.io.blocking=true \
+-Dhttp.server.io.blocking=true \
+-Dperf.test.backend.host.max.backlog=${MAX_BACKLOG} \
+-Dhttp.server.port=${SERVER_PORT} \
+-Dhttp.client.eventloop.count=${BACKEND_CLIENT_EVENTLOOP_COUNT} \
+-Dhttp.server.eventloop.count=${SERVER_EVENTLOOP_COUNT} \
+-Dserver.log.enable=${SERVER_LOG} \
+-Dclient.read.timeout=${CLIENT_READ_TIMEOUT_MS} \
+-Dclient.log.enable=${CLIENT_LOG} \
+-Dperf.test.backend.host=${BACKEND_HOST} \
+-Dperf.test.backend.port=${BACKEND_PORT} \
+-Dperf.test.backend.host.maxconn.per.test=${BACKEND_MAX_CONN_PER_TEST} \
+-Dperf.test.backend.host.startupconn.per.test=${BACKEND_INIT_CONN_PER_TEST} \
+-D-Dorg.slf4j.simpleLogger.defaultLogLevel=${LOG_LEVEL}"
 #############################################################
 
 SCRIPT_DIR=$(dirname $BASH_SOURCE)
@@ -48,7 +63,7 @@ start() {
 
     PID=`ps -ef | grep ${SCRIPTNAME} | head -n1 |  awk ' {print $2;} '`
     echo ${PID} > ${PIDFILE}
-    export WS_JAVA_NETTY_OPTS=${WS_JAVA_NETTY_OPTS}
+    export WS_JAVA_NETTY_BLOCKING_OPTS=${WS_JAVA_NETTY_BLOCKING_OPTS}
 
     . $SCRIPT_DIR/ws-java-netty-blocking
     echo "Started netty based ws server...."
