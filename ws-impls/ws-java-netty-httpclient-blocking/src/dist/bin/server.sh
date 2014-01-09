@@ -18,7 +18,8 @@ BACKLOG_CLEANER_WORKERS_COUNT=5
 MAX_BACKLOG=5000
 
 : ${SERVER_EVENT_LOOP_COUNT:=0}
-: ${LOG_LEVEL:="DEBUG"}
+: ${LOG_LEVEL:="INFO"}
+: ${EVENT_LOG_SAMPLE_PCT:="1"}
 
 # I don't think a lot of these properties are necessary since I am not using the
 # Netty client in this project
@@ -34,6 +35,7 @@ WS_JAVA_NETTY_HTTPCLIENT_BLOCKING_OPTS="-Dperf.test.backend.host.max.backlog=${M
 -Dperf.test.backend.port=${BACKEND_PORT} \
 -Dperf.test.backend.host.maxconn.per.test=${BACKEND_MAX_CONN_PER_TEST} \
 -Dperf.test.backend.host.startupconn.per.test=${BACKEND_INIT_CONN_PER_TEST} \
+-Devent-log.sample-percentage=${EVENT_LOG_SAMPLE_PCT} \
 -Dorg.slf4j.simplelogger.defaultlog=${LOG_LEVEL}"
 #############################################################
 
