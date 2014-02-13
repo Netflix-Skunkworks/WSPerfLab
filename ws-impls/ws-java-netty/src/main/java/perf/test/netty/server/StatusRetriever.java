@@ -54,6 +54,9 @@ public class StatusRetriever {
                 statusBuilder.append("Total Connections count: ");
                 statusBuilder.append(connPoolStatusEntry.getValue().getTotalConnectionsCount());
                 statusBuilder.append('\n');
+                statusBuilder.append("Fatal read timeouts: ");
+                statusBuilder.append(connPoolStatusEntry.getValue().getFatalReadTimeOuts());
+                statusBuilder.append('\n');
                 statusBuilder.append("Unhandled requests since startup: ");
                 statusBuilder.append(connPoolStatusEntry.getValue().getUnhandledRequestsSinceStartUp());
                 statusBuilder.append('\n');
@@ -178,7 +181,8 @@ public class StatusRetriever {
 
         private long totalConnectionsCount;
         private long availableConnectionsCount;
-        private int unhandledRequestsSinceStartUp;
+        private long unhandledRequestsSinceStartUp;
+        private long readTimeOuts;
 
         public long getTotalConnectionsCount() {
             return totalConnectionsCount;
@@ -196,12 +200,20 @@ public class StatusRetriever {
             this.availableConnectionsCount = availableConnectionsCount;
         }
 
-        public void setUnhandledRequestsSinceStartUp(int unhandledRequestsSinceStartUp) {
+        public void setUnhandledRequestsSinceStartUp(long unhandledRequestsSinceStartUp) {
             this.unhandledRequestsSinceStartUp = unhandledRequestsSinceStartUp;
         }
 
-        public int getUnhandledRequestsSinceStartUp() {
+        public long getUnhandledRequestsSinceStartUp() {
             return unhandledRequestsSinceStartUp;
+        }
+
+        public void setFatalReadTimeOuts(long readTimeOuts) {
+            this.readTimeOuts = readTimeOuts;
+        }
+
+        public long getFatalReadTimeOuts() {
+            return readTimeOuts;
         }
     }
 

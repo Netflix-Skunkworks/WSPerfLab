@@ -129,7 +129,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
                     traceBuilder.append('\n');
                 } else {
                     traceBuilder.append("Tracing is not enabled, enable it by setting the property: ")
-                                .append(PropertyNames.ServerTraceRequests.name())
+                                .append(PropertyNames.ServerTraceRequests.getPropertyName())
                                 .append(" to true");
                 }
                 FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);

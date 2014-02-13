@@ -8,6 +8,7 @@ import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
@@ -245,7 +246,7 @@ public class TestCaseA extends TestCaseHandler {
             } else {
                 HttpResponseStatus status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
                 Throwable cause = future.cause();
-                if (cause instanceof PoolExhaustedException) {
+                if (cause instanceof PoolExhaustedException || cause instanceof ReadTimeoutException) {
                     status = HttpResponseStatus.SERVICE_UNAVAILABLE;
                 }
                 topLevelRequestCompletionPromise.tryFailure(new RequestProcessingFailedException(status, cause));

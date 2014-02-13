@@ -6,7 +6,9 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoop;
 import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.EventExecutor;
@@ -22,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  *
@@ -37,13 +40,14 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     public static final AttributeKey<AtomicInteger> RETRY_COUNT_KEY = new AttributeKey<AtomicInteger>("retry_count");
 
     private final String keyPrefix;
-    private final AttributeKey<Promise<T>> processingCompletePromiseKey;
+    private final AttributeKey<RequestExecutionPromise<T>> processingCompletePromiseKey;
     private final AttributeKey<GenericFutureListener<Future<T>>> responseHandlerKey;
 
     protected final Bootstrap bootstrap;
     protected final InetSocketAddress serverAddress;
 
-    private final AtomicInteger unhandledRequests = new AtomicInteger();
+    private final AtomicLong unhandledRequests = new AtomicLong();
+    private final AtomicLong readTimeOuts = new AtomicLong();
 
     private final int maxConnections;
 
@@ -54,7 +58,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
     DedicatedClientPool(InetSocketAddress serverAddress, Bootstrap bootstrap, int maxConnections, int coreConnections) {
         keyPrefix = serverAddress.getHostName() + ':' + serverAddress.getPort();
         responseHandlerKey = new AttributeKey<GenericFutureListener<Future<T>>>(keyPrefix + RESPONSE_HANDLER_ATTR_KEY_NAME);
-        processingCompletePromiseKey = new AttributeKey<Promise<T>>(keyPrefix + PROCESSING_COMPLETE_PROMISE_KEY_NAME);
+        processingCompletePromiseKey = new AttributeKey<RequestExecutionPromise<T>>(keyPrefix + PROCESSING_COMPLETE_PROMISE_KEY_NAME);
 
         this.coreConnections = coreConnections;
         Preconditions.checkArgument(coreConnections <= maxConnections,
@@ -76,42 +80,31 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         createNewClientOnDemand(null);
     }
 
-    private Promise<DedicatedHttpClient<T, R>> createNewClientOnDemand(@Nullable final Promise<DedicatedHttpClient<T, R>> completionPromise) {
+    private Promise<DedicatedHttpClient<T, R>> createNewClientOnDemand(@Nullable final ConnectCompletePromise<T, R> completionPromise) {
         final Object clientLimitEnforcingToken = new Object();
         if (clientLimitEnforcer.offer(clientLimitEnforcingToken)) {
-            bootstrap.connect(serverAddress).addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    if (future.isSuccess()) {
-                        logger.debug("New client connected for host {} and port {}", serverAddress.getHostName(),
-                                     serverAddress.getPort());
-                        final DedicatedHttpClient<T, R> httpClient = getHttpClient(future.channel());
-                        future.channel().closeFuture().addListener(new ChannelFutureListener() {
-                            @Override
-                            public void operationComplete(ChannelFuture future) throws Exception {
-                                logger.debug("Client disconnected from host {} and port {}",
-                                             serverAddress.getHostName(),
-                                             serverAddress.getPort());
-                                clientLimitEnforcer.remove(clientLimitEnforcingToken);
-                                availableClients.remove(httpClient);
-                            }
-                        });
-                        if (null == completionPromise) {
-                            addAvailableClient(httpClient);
-                        } else {
-                            completionPromise.setSuccess(httpClient);
-                        }
-                    } else {
-                        clientLimitEnforcer.remove(clientLimitEnforcingToken);
-                        logger.error(String.format("Failed to connect to host %s and port %d",
-                                                   serverAddress.getHostName(),
-                                                   serverAddress.getPort()), future.cause());
-                        if (null != completionPromise) {
-                            completionPromise.setFailure(future.cause());
-                        }
-                    }
+            ChannelFuture connectFuture = bootstrap.connect(serverAddress);
+            ClientConnectListener<T, R> listener = new ClientConnectListener<T, R>(clientLimitEnforcingToken,
+                                                                                   completionPromise, this);
+            EventLoop eventloop = null;
+            if (!connectFuture.isSuccess()) {
+                try {
+                    eventloop = connectFuture.channel().eventLoop();
+                } catch (IllegalStateException e) {
+                    //
                 }
-            });
+            }
+            if (null == eventloop) {
+                // hack to workaround the netty issue when too many channel exception, the eventloop is not set
+                // in the channel.
+                try {
+                    listener.operationComplete(connectFuture);
+                } catch (Exception e) {
+                    logger.error("Error while invoking connect complete listener (on too many channel exception)", e);
+                }
+            } else {
+                connectFuture.addListener(listener);
+            }
         } else {
             if (null == completionPromise) {
                 logger.error(
@@ -137,7 +130,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         int retryCount = 0;
         while (true) {
             @Nullable DedicatedHttpClient<T, R> availableClient = availableClients.poll();
-            final Promise<DedicatedHttpClient<T, R>> clientCreationPromise = new DefaultPromise<DedicatedHttpClient<T, R>>(executor);
+            final ConnectCompletePromise<T, R> clientCreationPromise = new ConnectCompletePromise<T, R>(executor);
             if (null == availableClient) {
                 return createNewClientOnDemand(clientCreationPromise);
             } else if(availableClient.isActive()){
@@ -155,7 +148,7 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         return responseHandlerKey;
     }
 
-    AttributeKey<Promise<T>> getProcessingCompletePromiseKey() {
+    AttributeKey<RequestExecutionPromise<T>> getProcessingCompletePromiseKey() {
         return processingCompletePromiseKey;
     }
 
@@ -173,10 +166,17 @@ class DedicatedClientPool<T, R extends HttpRequest> {
         connPoolStatus.setAvailableConnectionsCount(availableClients.size());
         connPoolStatus.setTotalConnectionsCount(clientLimitEnforcer.size());
         connPoolStatus.setUnhandledRequestsSinceStartUp(unhandledRequests.get());
+        connPoolStatus.setFatalReadTimeOuts(readTimeOuts.get());
     }
 
     void onUnhandledRequest() {
         unhandledRequests.incrementAndGet();
+    }
+
+    void onRetryExhausted(Throwable cause, int retryCount) {
+        if (cause instanceof ReadTimeoutException) {
+            readTimeOuts.incrementAndGet();
+        }
     }
 
     protected DedicatedHttpClient<T, R> getHttpClient(Channel channel) {
@@ -188,5 +188,72 @@ class DedicatedClientPool<T, R extends HttpRequest> {
 
     public void populateTrace(StringBuilder traceBuilder) {
         // TODO: Populate trace.
+    }
+
+    private static class ConnectCompletePromise<T, R extends HttpRequest> extends DefaultPromise<DedicatedHttpClient<T, R>> {
+
+        @Nullable private EventExecutor eventExecutor;
+
+        public ConnectCompletePromise(EventExecutor eventExecutor) {
+            super(eventExecutor);
+            this.eventExecutor = eventExecutor; // In case connect failed, we need to respond to the promise in this executor.
+        }
+
+        @Override
+        protected EventExecutor executor() {
+            return eventExecutor;
+        }
+
+        public void setExecutor(EventLoop eventExecutor) {
+            this.eventExecutor = eventExecutor;
+        }
+    }
+
+    private class ClientConnectListener<T, R extends HttpRequest> implements ChannelFutureListener {
+
+        private final Object clientLimitEnforcingToken;
+        private final ConnectCompletePromise<T, R> completionPromise;
+        private final DedicatedClientPool<T, R> enclosingPool;
+
+        public ClientConnectListener(Object clientLimitEnforcingToken,
+                                     ConnectCompletePromise<T, R> completionPromise,
+                                     DedicatedClientPool<T, R> enclosingPool) {
+            this.clientLimitEnforcingToken = clientLimitEnforcingToken;
+            this.completionPromise = completionPromise;
+            this.enclosingPool = enclosingPool;
+        }
+
+        @Override
+        public void operationComplete(ChannelFuture future) throws Exception {
+            if (future.isSuccess()) {
+                logger.debug("New client connected for host {} and port {}", serverAddress.getHostName(),
+                             serverAddress.getPort());
+                final DedicatedHttpClient<T, R> httpClient = enclosingPool.getHttpClient(future.channel());
+                future.channel().closeFuture().addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        logger.debug("Client disconnected from host {} and port {}",
+                                     serverAddress.getHostName(),
+                                     serverAddress.getPort());
+                        clientLimitEnforcer.remove(clientLimitEnforcingToken);
+                        availableClients.remove(httpClient);
+                    }
+                });
+                if (null == completionPromise) {
+                    enclosingPool.addAvailableClient(httpClient);
+                } else {
+                    completionPromise.setExecutor(future.channel().eventLoop());
+                    completionPromise.setSuccess(httpClient);
+                }
+            } else {
+                clientLimitEnforcer.remove(clientLimitEnforcingToken);
+                logger.error(String.format("Failed to connect to host %s and port %d",
+                                           serverAddress.getHostName(),
+                                           serverAddress.getPort()), future.cause());
+                if (null != completionPromise) {
+                    completionPromise.setFailure(future.cause());
+                }
+            }
+        }
     }
 }

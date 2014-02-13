@@ -44,7 +44,10 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
 
         Promise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
         response.content().retain();
-        completionPromise.setSuccess(response);
+        if (!completionPromise.trySuccess(response)) {
+            logger.warn("Promise finished before response arrived. Response code: " + response.getStatus().code()
+                        + ". Promise result: " + completionPromise.getNow());
+        }
         if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
             checkpoint(ctx, "Promise completed.");
         }
@@ -61,9 +64,18 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
             checkpoint(ctx, "Exception on client handler" + cause);
         }
 
-        final Promise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
+        final RequestExecutionPromise<FullHttpResponse> completionPromise = ctx.channel().attr(pool.getProcessingCompletePromiseKey()).get();
+        if (null == completionPromise) {
+            logger.error("No completion promise available, nothing can be done now. Retry: " + retryCount + ", channel active? " + ctx.channel().isActive());
+            pool.onUnhandledRequest();
+            return;
+        }
 
         if (retryCount > MAX_RETRIES) {
+            if (PropertyNames.ServerTraceRequests.getValueAsBoolean()) {
+                checkpoint(ctx, "Retries exhausted.");
+            }
+            pool.onRetryExhausted(cause, retryCount);
             completionPromise.setFailure(cause);
             return;
         }
@@ -75,7 +87,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
                     public void operationComplete(Future<DedicatedHttpClient<FullHttpResponse, FullHttpRequest>> future)
                             throws Exception {
                         if (future.isSuccess()) {
-                            future.get().retry(ctx, retryCount);
+                            future.get().retry(ctx, retryCount, completionPromise);
                         } else {
                             completionPromise.setFailure(future.cause());
                         }
@@ -90,11 +102,12 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
         }
     }
 
+
     private void checkpoint(ChannelHandlerContext ctx, String checkpoint) {
         checkpoint = "ClientId: " + id + ' ' + checkpoint;
         final GenericFutureListener<Future<FullHttpResponse>> responseHandler = ctx.channel().attr(
                 pool.getResponseHandlerKey()).get();
-        if (DedicatedHttpClient.ResponseHandlerWrapper.class.isAssignableFrom(responseHandler.getClass())) {
+        if (null != responseHandler && DedicatedHttpClient.ResponseHandlerWrapper.class.isAssignableFrom(responseHandler.getClass())) {
             @SuppressWarnings("rawtypes")
             DedicatedHttpClient.ResponseHandlerWrapper wrapper =
                     (DedicatedHttpClient.ResponseHandlerWrapper) responseHandler;
