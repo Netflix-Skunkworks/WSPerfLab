@@ -1,6 +1,8 @@
 package perf.client;
 
+import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.RxNetty;
+import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 
 import java.util.concurrent.TimeUnit;
@@ -23,13 +25,13 @@ public class WSClient {
     final NumerusRollingNumber counter = new NumerusRollingNumber(Events.SUCCESS, NumerusProperty.Factory.asProperty(10000), NumerusProperty.Factory.asProperty(10));
     final NumerusRollingPercentile latency = new NumerusRollingPercentile(NumerusProperty.Factory.asProperty(10000), NumerusProperty.Factory.asProperty(10), NumerusProperty.Factory.asProperty(1000), NumerusProperty.Factory.asProperty(Boolean.TRUE));
 
-    final int NUM_CORES = 1;
     final int INTERVAL_RATE_MILLIS = 1;
     private final Observable<?> client;
+    private final HttpClient<ByteBuf, ByteBuf> httpClient;
 
     public WSClient() {
-        client = RxNetty.createHttpClient("localhost", 8080)
-                .submit(HttpClientRequest.createGet("/?id=23452345"))
+        httpClient = RxNetty.createHttpClient("localhost", 8080);
+        client = httpClient.submit(HttpClientRequest.createGet("/?id=23452345"))
                 .flatMap((response) -> {
                     if (response.getStatus().code() == 200) {
                         counter.increment(Events.SUCCESS);
@@ -40,16 +42,15 @@ public class WSClient {
                 });
     }
 
-    private final int[] rps_per_thread = new int[] { 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500, 3000 };
-
     public Observable<Long> startLoad() {
 
-        Observable<Observable<Long>> stepIntervals = Observable.interval(30, TimeUnit.SECONDS).map(l -> l + 1).take(9).startWith(0L).map(step -> {
-            long interval = TimeUnit.SECONDS.toMicros(1) / rps_per_thread[step.intValue()];
+        Observable<Observable<Long>> stepIntervals = Observable.interval(30, TimeUnit.SECONDS).map(l -> l + 1).take(9).startWith(1L).map(step -> {
+            long rps = step * 1000;
+            long interval = TimeUnit.SECONDS.toMicros(1) / rps;
             StringBuilder str = new StringBuilder();
-            str.append("###############################################################################").append("\n");
-            str.append("Step: " + (step + 1) + "  Interval: " + interval + "micros" + "  Rate: " + rps_per_thread[step.intValue()] + "/s").append("\n");
-            str.append("###############################################################################").append("\n");
+            str.append("########################################################################################").append("\n");
+            str.append("Step: " + (step) + "  Interval: " + interval + "micros  Rate: " + rps + "/s").append("\n");
+            str.append("########################################################################################").append("\n");
 
             System.out.println(str.toString());
 
@@ -82,6 +83,12 @@ public class WSClient {
                     "   Last 10s => Success: " + rollingSuccess + "/s Error: " + rollingError + "/s " +
                     "   Latency => 50th: " + latency.getPercentile(50.0) + "  90th: " + latency.getPercentile(90.0)
                     + "  99th: " + latency.getPercentile(99.0) + "  100th: " + latency.getPercentile(100.0));
+
+            System.out.println("     Netty => Used: " + httpClient.getStats().getInUseCount() + "  Idle: " + httpClient.getStats().getIdleCount() +
+                    "  Total Conns: " + httpClient.getStats().getTotalConnectionCount() +
+                    "  AcqReq: " + httpClient.getStats().getPendingAcquireRequestCount() +
+                    "  RelReq: " + httpClient.getStats().getPendingReleaseRequestCount());
+
         }).subscribe();
     }
 
