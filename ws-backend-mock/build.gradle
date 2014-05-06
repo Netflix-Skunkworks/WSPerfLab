@@ -1,23 +1,21 @@
 apply plugin: 'java'
 apply plugin: 'eclipse'
-apply plugin: 'war'
-apply plugin: 'jetty'
+
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-    compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
+	compile 'com.netflix.rxnetty:rx-netty:0.3.3'
+	compile 'com.netflix.rxjava:rxjava-core:0.18.2'
+	compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
     compile 'org.slf4j:slf4j-api:1.7.0'
-    compile 'junit:junit-dep:4.10'
-    compile 'javax.servlet:javax.servlet-api:3.0.1'
+	testCompile 'junit:junit-dep:4.10'
+	testCompile 'org.mockito:mockito-core:1.8.5'
 }
 
-eclipse {
-  classpath {
-    plusConfigurations += configurations.provided
-    downloadSources = true
-    downloadJavadoc = true
-  }
+task start(type:JavaExec) {
+   main = "perf.backend.StartMockService"
+   classpath = sourceSets.main.runtimeClasspath
 }
 
-jettyRun {
-        httpPort = 8989
-}
