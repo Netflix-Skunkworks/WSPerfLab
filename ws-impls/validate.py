@@ -15,9 +15,11 @@ def validateWsPerfLabImplementation(baseUrl):
         print ""
         data = executeRequest(createRequest(url, 'GET'))
         
+        # print "Data: " + data
+        
         # assert response header with int: server_response_time
         meta = data[1]
-
+        
         if(meta.getheader('server_response_time') is None):
             raise Exception("Validation Failed! => missing 'server_response_time' response header.")
         
@@ -101,7 +103,6 @@ def executeRequest(request):
         response = urllib2.urlopen(request)
         return response.read(), response.info(), response.code
     except Exception as e:
-    
         if hasattr(e, 'code'):
             print "Error => HTTP Status Code: " + str(e.code)
         else:

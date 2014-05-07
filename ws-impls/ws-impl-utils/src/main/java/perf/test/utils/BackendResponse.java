@@ -1,25 +1,24 @@
 package perf.test.utils;
 
+import static junit.framework.Assert.assertEquals;
+
+import java.io.IOException;
+import java.io.InputStream;
+
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonToken;
 import org.junit.Test;
 
 import rx.Observable;
-import rx.Observable.OnSubscribeFunc;
+import rx.Observable.OnSubscribe;
 import rx.Scheduler;
-import rx.concurrency.Schedulers;
-import rx.subscriptions.Subscriptions;
-import rx.Observer;
-import rx.Subscription;
-
-import java.io.IOException;
-
-import static junit.framework.Assert.assertEquals;
+import rx.Subscriber;
+import rx.schedulers.Schedulers;
 
 /**
-* @author Nitesh Kant (nkant@netflix.com)
-*/
+ * @author Nitesh Kant (nkant@netflix.com)
+ */
 public class BackendResponse {
 
     private final long responseKey;
@@ -38,35 +37,43 @@ public class BackendResponse {
 
     public static BackendResponse fromJson(JsonFactory jsonFactory, byte[] content) throws Exception {
         JsonParser parser = jsonFactory.createJsonParser(content);
-        return paseBackendResponse(parser);
+        return parseBackendResponse(parser);
     }
 
     public static BackendResponse fromJson(JsonFactory jsonFactory, String json) throws Exception {
         JsonParser parser = jsonFactory.createJsonParser(json);
-        return paseBackendResponse(parser);
+        return parseBackendResponse(parser);
     }
-    
+
+    public static BackendResponse fromJson(JsonFactory jsonFactory, InputStream inputStream) {
+        try {
+            JsonParser parser = jsonFactory.createJsonParser(inputStream);
+            return parseBackendResponse(parser);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse JSON", e);
+        }
+    }
+
     public static Observable<BackendResponse> fromJsonToObservable(final JsonFactory jsonFactory, final String json) {
-        return fromJsonToObservable(jsonFactory, json, Schedulers.threadPoolForComputation());
+        return fromJsonToObservable(jsonFactory, json, Schedulers.computation());
     }
-    
-    public static Observable<BackendResponse> fromJsonToObservable(final JsonFactory jsonFactory, final String json, Scheduler scheduler)  {
-        return Observable.create(new OnSubscribeFunc<BackendResponse>() {
+
+    public static Observable<BackendResponse> fromJsonToObservable(final JsonFactory jsonFactory, final String json, Scheduler scheduler) {
+        return Observable.create(new OnSubscribe<BackendResponse>() {
 
             @Override
-            public Subscription onSubscribe(Observer<? super BackendResponse> o) {
+            public void call(Subscriber<? super BackendResponse> o) {
                 try {
                     o.onNext(fromJson(jsonFactory, json));
                     o.onCompleted();
                 } catch (Exception e) {
                     o.onError(e);
                 }
-                return Subscriptions.empty();
             }
         }).subscribeOn(scheduler);
     }
 
-    public static BackendResponse paseBackendResponse(JsonParser parser) throws IOException {
+    public static BackendResponse parseBackendResponse(JsonParser parser) throws IOException {
         try {
             // Sanity check: verify that we got "Json Object":
             if (parser.nextToken() != JsonToken.START_OBJECT) {
@@ -110,6 +117,7 @@ public class BackendResponse {
 
                 }
             }
+            
             return new BackendResponse(responseKey, delay, numItems, itemSize, items);
         } finally {
             parser.close();

@@ -12,8 +12,8 @@ import rx.Observable;
 public class StartMockService {
 
     public static void main(String[] args) {
-        System.out.println("Starting mock service on port 8080...");
-        RxNetty.createHttpServer(8080, (request, response) -> {
+        System.out.println("Starting mock service on port 8989...");
+        RxNetty.createHttpServer(8989, (request, response) -> {
             try {
                 return handleRequest(request, response);
             } catch (Throwable e) {

@@ -23,10 +23,10 @@ public class WSClient {
     }
 
     final String HOST = "localhost";
-    final int PORT = 8080;
+    final int PORT = 8888;
     final String QUERY = "/?id=23452345";
     final int STEP_DURATION = 30; // seconds
-    final int FIRST_STEP = 5; // starting point (1 == 1000rps, 2 == 2000rps)
+    final int FIRST_STEP = 1; // starting point (1 == 1000rps, 2 == 2000rps)
 
     final int ROLLING_SECONDS = 5;
     final NumerusRollingNumber counter = new NumerusRollingNumber(Events.SUCCESS, NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10));

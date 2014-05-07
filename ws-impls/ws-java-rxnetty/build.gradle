@@ -1,0 +1,16 @@
+apply plugin: "eclipse"
+apply plugin: "idea"
+apply plugin: 'java'
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+dependencies {
+	compile 'com.netflix.rxnetty:rx-netty:0.3.3'
+	compile 'com.netflix.rxjava:rxjava-core:0.18.2'
+	compile 'com.netflix.numerus:numerus:1.1'
+	compile 'org.codehaus.jackson:jackson-core-asl:1.9.13'
+	compile 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
+	compile project(':ws-impls:ws-impl-utils')
+}
+
