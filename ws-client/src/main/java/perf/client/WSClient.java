@@ -16,22 +16,28 @@ import com.netflix.numerus.NumerusRollingPercentile;
 public class WSClient {
 
     public static void main(String[] args) {
+        // TODO add CLI arguments
         WSClient client = new WSClient();
         client.startMonitoring();
-        client.startLoad().toBlockingObservable().forEach(l -> {
-        });
+        client.startLoad().toBlockingObservable().last();
     }
 
-    final NumerusRollingNumber counter = new NumerusRollingNumber(Events.SUCCESS, NumerusProperty.Factory.asProperty(10000), NumerusProperty.Factory.asProperty(10));
-    final NumerusRollingPercentile latency = new NumerusRollingPercentile(NumerusProperty.Factory.asProperty(10000), NumerusProperty.Factory.asProperty(10), NumerusProperty.Factory.asProperty(1000), NumerusProperty.Factory.asProperty(Boolean.TRUE));
+    final String HOST = "localhost";
+    final int PORT = 8080;
+    final String QUERY = "/?id=23452345";
+    final int STEP_DURATION = 30; // seconds
+    final int FIRST_STEP = 5; // starting point (1 == 1000rps, 2 == 2000rps)
 
-    final int INTERVAL_RATE_MILLIS = 1;
+    final int ROLLING_SECONDS = 5;
+    final NumerusRollingNumber counter = new NumerusRollingNumber(Events.SUCCESS, NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10));
+    final NumerusRollingPercentile latency = new NumerusRollingPercentile(NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10), NumerusProperty.Factory.asProperty(1000), NumerusProperty.Factory.asProperty(Boolean.TRUE));
+
     private final Observable<?> client;
     private final HttpClient<ByteBuf, ByteBuf> httpClient;
 
     public WSClient() {
-        httpClient = RxNetty.createHttpClient("localhost", 8080);
-        client = httpClient.submit(HttpClientRequest.createGet("/?id=23452345"))
+        httpClient = RxNetty.createHttpClient(HOST, PORT);
+        client = httpClient.submit(HttpClientRequest.createGet(QUERY))
                 .flatMap((response) -> {
                     if (response.getStatus().code() == 200) {
                         counter.increment(Events.SUCCESS);
@@ -47,19 +53,20 @@ public class WSClient {
 
     public Observable<Long> startLoad() {
 
-        Observable<Observable<Long>> stepIntervals = Observable.interval(10, TimeUnit.SECONDS).map(l -> l + 1).take(9).startWith(1L).map(step -> {
-            step = 7 + step;
-            long rps = step * 1000;
-            long interval = TimeUnit.SECONDS.toMicros(1) / rps;
-            StringBuilder str = new StringBuilder();
-            str.append("########################################################################################").append("\n");
-            str.append("Step: " + (step) + "  Interval: " + interval + "micros  Rate: " + rps + "/s").append("\n");
-            str.append("########################################################################################").append("\n");
+        Observable<Observable<Long>> stepIntervals = Observable.timer(0, STEP_DURATION, TimeUnit.SECONDS).map(l -> l + FIRST_STEP)
+                .map(step -> {
+                    long rps = step * 1000;
+                    long interval = TimeUnit.SECONDS.toMicros(1) / rps;
+                    StringBuilder str = new StringBuilder();
+                    str.append("\n");
+                    str.append("########################################################################################").append("\n");
+                    str.append("Step: " + step + "  Interval: " + interval + "micros  Rate: " + rps + "/s").append("\n");
+                    str.append("########################################################################################").append("\n");
 
-            System.out.println(str.toString());
+                    System.out.println(str.toString());
 
-            return Observable.interval(interval, TimeUnit.MICROSECONDS);
-        });
+                    return Observable.timer(0, interval, TimeUnit.MICROSECONDS);
+                });
 
         return Observable.switchOnNext(stepIntervals).doOnEach((n) -> {
             long startTime = System.currentTimeMillis();
@@ -71,34 +78,35 @@ public class WSClient {
 
     private void startMonitoring() {
         Observable.interval(5, TimeUnit.SECONDS).doOnNext(l -> {
-            long cumulativeSuccess = counter.getCumulativeSum(Events.SUCCESS);
-            long cumulativeError = counter.getCumulativeSum(Events.HTTP_ERROR);
-            long cumulativeNettyError = counter.getCumulativeSum(Events.NETTY_ERROR);
+            StringBuilder msg = new StringBuilder();
+            msg.append("Total => ");
+            msg.append("  Success: ").append(counter.getCumulativeSum(Events.SUCCESS));
+            msg.append("  Error: ").append(counter.getCumulativeSum(Events.HTTP_ERROR));
+            msg.append("  Netty Error: ").append(counter.getCumulativeSum(Events.NETTY_ERROR));
+            msg.append("    Rolling =>");
+            msg.append("  Success: ").append(getRollingSum(Events.SUCCESS)).append("/s");
+            msg.append("  Error: ").append(getRollingSum(Events.HTTP_ERROR)).append("/s");
+            msg.append("  Netty Error: ").append(getRollingSum(Events.NETTY_ERROR)).append("/s");
+            msg.append("    Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append("  90th: ").append(latency.getPercentile(90.0));
+            msg.append("  99th: ").append(latency.getPercentile(99.0)).append("  100th: ").append(latency.getPercentile(100.0));
+            System.out.println(msg.toString());
 
-            long rollingSuccess = counter.getRollingSum(Events.SUCCESS);
-            if (rollingSuccess > 0) {
-                rollingSuccess = rollingSuccess / 10;
-            }
-            long rollingError = counter.getRollingSum(Events.HTTP_ERROR);
-            if (rollingError > 0) {
-                rollingError = rollingError / 10;
-            }
-            long rollingNettyError = counter.getRollingSum(Events.NETTY_ERROR);
-            if (rollingNettyError > 0) {
-                rollingNettyError = rollingError / 10;
-            }
-
-            System.out.println("Total => Success: " + cumulativeSuccess + "  Error: " + cumulativeError + "  Netty Error: " + cumulativeNettyError +
-                    "   Last 10s => Success: " + rollingSuccess + "/s  Error: " + rollingError + "/s " + "  Netty Error: " + rollingNettyError + "/s " +
-                    "   Latency => 50th: " + latency.getPercentile(50.0) + "  90th: " + latency.getPercentile(90.0)
-                    + "  99th: " + latency.getPercentile(99.0) + "  100th: " + latency.getPercentile(100.0));
-
-            System.out.println("     Netty => Used: " + httpClient.getStats().getInUseCount() + "  Idle: " + httpClient.getStats().getIdleCount() +
-                    "  Total Conns: " + httpClient.getStats().getTotalConnectionCount() +
-                    "  AcqReq: " + httpClient.getStats().getPendingAcquireRequestCount() +
-                    "  RelReq: " + httpClient.getStats().getPendingReleaseRequestCount());
-
+            StringBuilder n = new StringBuilder();
+            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
+            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
+            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
+            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
+            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
+            System.out.println(n.toString());
         }).subscribe();
+    }
+
+    private long getRollingSum(Events e) {
+        long s = counter.getRollingSum(e);
+        if (s > 0) {
+            s = s / ROLLING_SECONDS;
+        }
+        return s;
     }
 
 }
