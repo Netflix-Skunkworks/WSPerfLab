@@ -3,7 +3,7 @@ package perf.client;
 import com.netflix.numerus.NumerusRollingNumberEvent;
 
 public enum Events implements NumerusRollingNumberEvent {
-    SUCCESS(true), ERROR(true);
+    SUCCESS(true), HTTP_ERROR(true), NETTY_ERROR(true);
 
     private final boolean isCounter;
     private final boolean isMaxUpdater;
