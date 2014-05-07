@@ -2,9 +2,6 @@ package perf.test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -22,9 +19,9 @@ import perf.test.utils.ServiceResponseBuilder;
 import rx.Observable;
 import rx.apache.http.ObservableHttp;
 import rx.apache.http.ObservableHttpResponse;
-import rx.util.functions.Func1;
-import rx.util.functions.Func2;
-import rx.util.functions.Func3;
+import rx.functions.Func1;
+import rx.functions.Func2;
+import rx.functions.Func3;
 
 /**
  * Servlet implementation class TestServlet

@@ -20,15 +20,14 @@ import perf.test.utils.BackendMockHostSelector;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 import rx.Observable;
-import rx.Observable.OnSubscribeFunc;
+import rx.Observable.OnSubscribe;
 import rx.Observer;
-import rx.Subscription;
+import rx.Subscriber;
 import rx.apache.http.ObservableHttp;
 import rx.apache.http.ObservableHttpResponse;
-import rx.subscriptions.BooleanSubscription;
-import rx.util.functions.Func1;
-import rx.util.functions.Func2;
-import rx.util.functions.Func3;
+import rx.functions.Func1;
+import rx.functions.Func2;
+import rx.functions.Func3;
 
 /**
  * Servlet implementation class TestServlet
@@ -255,7 +254,7 @@ public class TestCaseAServlet extends HttpServlet {
         });
     }
 
-    private final class AsyncWriterObservable implements OnSubscribeFunc<ServletOutputStream> {
+    private final class AsyncWriterObservable implements OnSubscribe<ServletOutputStream> {
         private final AsyncContext async;
         private final ServletOutputStream out;
 
@@ -265,17 +264,15 @@ public class TestCaseAServlet extends HttpServlet {
         }
 
         @Override
-        public Subscription onSubscribe(final Observer<? super ServletOutputStream> o) {
-            final BooleanSubscription s = new BooleanSubscription();
-
+        public void call(final Subscriber<? super ServletOutputStream> s) {
             out.setWriteListener(new WriteListener() {
 
                 public void onWritePossible() throws IOException {
                     if (!s.isUnsubscribed()) {
                         if (out.isReady()) {
-                            o.onNext(out);
+                            s.onNext(out);
                             // TODO fix hack to work around zip bug
-                            o.onCompleted();
+                            s.onCompleted();
                         }
                     }
                 }
@@ -283,13 +280,10 @@ public class TestCaseAServlet extends HttpServlet {
                 public void onError(Throwable t) {
                     getServletContext().log("Async Error", t);
                     async.complete();
-                    o.onError(t);
+                    s.onError(t);
                 }
 
             });
-
-            return s;
-
         }
     }
 }
