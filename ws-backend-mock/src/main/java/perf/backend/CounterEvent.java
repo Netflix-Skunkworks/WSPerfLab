@@ -1,8 +1,9 @@
-package perf.client;
+package perf.backend;
 
 import com.netflix.numerus.NumerusRollingNumberEvent;
 
 public enum CounterEvent implements NumerusRollingNumberEvent {
+
     REQUESTS(true), SUCCESS(true), HTTP_ERROR(true), NETTY_ERROR(true), BYTES(true);
 
     private final boolean isCounter;
