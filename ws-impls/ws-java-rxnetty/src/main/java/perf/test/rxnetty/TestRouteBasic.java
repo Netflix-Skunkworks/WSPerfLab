@@ -33,7 +33,15 @@ public class TestRouteBasic {
 
     private static JsonFactory jsonFactory = new JsonFactory();
 
-    public static Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
+    private final String host;
+    private final int port;
+
+    public TestRouteBasic(String backendHost, int backendPort) {
+        this.host = backendHost;
+        this.port = backendPort;
+    }
+
+    public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
         long startTime = System.currentTimeMillis();
         List<String> _id = request.getQueryParameters().get("id");
         if (_id == null || _id.size() != 1) {
@@ -62,7 +70,7 @@ public class TestRouteBasic {
             BackendResponse responseC = _acd.get(1);
             BackendResponse responseD = _acd.get(2);
             BackendResponse responseE = _be.get(1);
-            
+
             return new BackendResponse[] { responseA, responseB, responseC, responseD, responseE };
         }).flatMap(backendResponses -> {
             try {
@@ -90,8 +98,8 @@ public class TestRouteBasic {
         }
     }
 
-    private static Observable<BackendResponse> getDataFromBackend(String url) {
-        return RxNetty.createHttpClient("localhost", 8989)
+    private Observable<BackendResponse> getDataFromBackend(String url) {
+        return RxNetty.createHttpClient(host, port)
                 .submit(HttpClientRequest.createGet(url))
                 .flatMap((HttpClientResponse<ByteBuf> r) -> {
                     Observable<BackendResponse> bytesToJson = r.getContent().map(b -> {
