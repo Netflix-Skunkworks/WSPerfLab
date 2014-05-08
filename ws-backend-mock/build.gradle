@@ -14,8 +14,16 @@ dependencies {
 	testCompile 'org.mockito:mockito-core:1.8.5'
 }
 
+/**
+ * ../gradlew start
+ * ../gradlew start -P'a=PORT'
+ * ../gradlew start -Pa=8976
+ */
 task start(type:JavaExec) {
    main = "perf.backend.StartMockService"
    classpath = sourceSets.main.runtimeClasspath
+   if (project.hasProperty('a')) {
+      args(a.split(' '))
+   }
 }
 

@@ -12,7 +12,11 @@ import rx.Observable;
 public class StartMockService {
 
     public static void main(String[] args) {
-        System.out.println("Starting mock service on port 8989...");
+        int port = 8989;
+        if (args.length > 0) {
+            port = Integer.parseInt(args[0]);
+        }
+        System.out.println("Starting mock service on port " + port + "...");
         RxNetty.createHttpServer(8989, (request, response) -> {
             try {
                 return handleRequest(request, response);
