@@ -13,3 +13,19 @@ dependencies {
 	testCompile 'org.mockito:mockito-core:1.8.5'
 }
 
+
+/**
+ * ../gradlew client '-Pa=HOSTNAME PORT'
+ * ../gradlew client '-Pa=HOSTNAME PORT FIRST_STEP DURATION QUERY'
+ * ../gradlew client '-Pa=localhost 8989 1 30'
+ * ../gradlew client '-Pa=localhost 8989 1 30 /?id=12345'
+ * ../gradlew client -P'a=ec2-54-87-12-221.compute-1.amazonaws.com 8989 2 45 /?id=7634212'
+ */
+task client(type:JavaExec) {
+   main = "perf.client.WSClient"
+   classpath = sourceSets.main.runtimeClasspath
+   if (project.hasProperty('a')) {
+      args(a.split(' '))
+   }
+}
+

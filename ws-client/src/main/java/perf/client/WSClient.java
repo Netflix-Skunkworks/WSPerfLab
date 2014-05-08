@@ -16,17 +16,42 @@ import com.netflix.numerus.NumerusRollingPercentile;
 public class WSClient {
 
     public static void main(String[] args) {
-        // TODO add CLI arguments
-        WSClient client = new WSClient();
+        WSClient client = null;
+        if (args.length == 0) {
+            client = new WSClient();
+        } else {
+            try {
+                String host = args[0];
+                int port = 8989;
+                if (args.length > 1) {
+                    port = Integer.parseInt(args[1]);
+                }
+                int firstStep = 1;
+                if (args.length > 2) {
+                    firstStep = Integer.parseInt(args[2]);
+                }
+                int duration = 30;
+                if (args.length > 3) {
+                    duration = Integer.parseInt(args[3]);
+                }
+                String query = "/?id=12345";
+                if (args.length > 4) {
+                    query = args[4];
+                }
+                client = new WSClient(host, port, firstStep, duration, query);
+            } catch (Exception e) {
+                System.err.println("Error: " + e.getMessage());
+            }
+        }
         client.startMonitoring();
         client.startLoad().toBlockingObservable().last();
     }
 
-    final String HOST = "localhost";
-    final int PORT = 8989;
-    final String QUERY = "/?id=23452345";
-    final int STEP_DURATION = 30; // seconds
-    final int FIRST_STEP = 1; // starting point (1 == 1000rps, 2 == 2000rps)
+    final String HOST;
+    final int PORT;
+    final String QUERY;
+    final int STEP_DURATION; // seconds
+    final int FIRST_STEP; // starting point (1 == 1000rps, 2 == 2000rps)
 
     final int ROLLING_SECONDS = 5;
     final NumerusRollingNumber counter = new NumerusRollingNumber(CounterEvent.SUCCESS, NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10));
@@ -36,6 +61,18 @@ public class WSClient {
     private final HttpClient<ByteBuf, ByteBuf> httpClient;
 
     public WSClient() {
+        this("localhost", 8989, 1, 30, "?id=12345");
+    }
+
+    public WSClient(String host, int port, int firstStep, int stepDuration, String query) {
+        this.HOST = host;
+        this.PORT = port;
+        this.FIRST_STEP = firstStep;
+        this.STEP_DURATION = stepDuration;
+        this.QUERY = query;
+
+        System.out.println("Starting client with hostname: " + host + " port: " + port + " first-step: " + firstStep + " step-duration: " + stepDuration + "s query: " + query);
+
         httpClient = RxNetty.createHttpClient(HOST, PORT);
         client = httpClient.submit(HttpClientRequest.createGet(QUERY))
                 .flatMap((response) -> {
