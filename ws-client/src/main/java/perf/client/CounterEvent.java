@@ -2,13 +2,13 @@ package perf.client;
 
 import com.netflix.numerus.NumerusRollingNumberEvent;
 
-public enum Events implements NumerusRollingNumberEvent {
-    SUCCESS(true), HTTP_ERROR(true), NETTY_ERROR(true);
+public enum CounterEvent implements NumerusRollingNumberEvent {
+    SUCCESS(true), HTTP_ERROR(true), NETTY_ERROR(true), BYTES(true);
 
     private final boolean isCounter;
     private final boolean isMaxUpdater;
 
-    Events(boolean isCounter) {
+    CounterEvent(boolean isCounter) {
         this.isCounter = isCounter;
         this.isMaxUpdater = !isCounter;
     }

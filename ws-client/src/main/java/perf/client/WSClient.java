@@ -23,13 +23,13 @@ public class WSClient {
     }
 
     final String HOST = "localhost";
-    final int PORT = 8888;
+    final int PORT = 8989;
     final String QUERY = "/?id=23452345";
     final int STEP_DURATION = 30; // seconds
     final int FIRST_STEP = 1; // starting point (1 == 1000rps, 2 == 2000rps)
 
     final int ROLLING_SECONDS = 5;
-    final NumerusRollingNumber counter = new NumerusRollingNumber(Events.SUCCESS, NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10));
+    final NumerusRollingNumber counter = new NumerusRollingNumber(CounterEvent.SUCCESS, NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10));
     final NumerusRollingPercentile latency = new NumerusRollingPercentile(NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10), NumerusProperty.Factory.asProperty(1000), NumerusProperty.Factory.asProperty(Boolean.TRUE));
 
     private final Observable<?> client;
@@ -40,13 +40,15 @@ public class WSClient {
         client = httpClient.submit(HttpClientRequest.createGet(QUERY))
                 .flatMap((response) -> {
                     if (response.getStatus().code() == 200) {
-                        counter.increment(Events.SUCCESS);
+                        counter.increment(CounterEvent.SUCCESS);
                     } else {
-                        counter.increment(Events.HTTP_ERROR);
+                        counter.increment(CounterEvent.HTTP_ERROR);
                     }
-                    return response.getContent();
+                    return response.getContent().doOnNext(bb -> {
+                        counter.add(CounterEvent.BYTES, bb.readableBytes());
+                    });
                 }).onErrorResumeNext((t) -> {
-                    counter.increment(Events.NETTY_ERROR);
+                    counter.increment(CounterEvent.NETTY_ERROR);
                     return Observable.empty();
                 });
     }
@@ -65,14 +67,30 @@ public class WSClient {
 
                     System.out.println(str.toString());
 
-                    return Observable.timer(0, interval, TimeUnit.MICROSECONDS);
+                    if (interval < 1000) {
+                        /**
+                         * An optimization that reduces the CPU load on the timer threads.
+                         * This sacrifices more event distribution of requests for CPU by bursting requests every 100ms
+                         * instead of scheduling granularly at the microsecond level.
+                         * 
+                         * We can experiment further with 10ms/100ms intervals for the right balance.
+                         */
+                        int fixedInterval = 100;
+                        // 1000 (1ms converted to microseconds) / interval (in microseconds) to get the number per ms * number of milliseconds
+                        long numPerFixedInterval = (1000 / interval) * fixedInterval;
+                        return Observable.timer(0, fixedInterval, TimeUnit.MILLISECONDS).map(i -> numPerFixedInterval);
+                    } else {
+                        return Observable.timer(0, interval, TimeUnit.MICROSECONDS).map(i -> 1L);
+                    }
                 });
 
-        return Observable.switchOnNext(stepIntervals).doOnEach((n) -> {
-            long startTime = System.currentTimeMillis();
-            client.doOnTerminate(() -> {
-                latency.addValue((int) (System.currentTimeMillis() - startTime));
-            }).subscribe();
+        return Observable.switchOnNext(stepIntervals).doOnNext((n) -> {
+            for (int i = 0; i < n; i++) {
+                long startTime = System.currentTimeMillis();
+                client.doOnTerminate(() -> {
+                    latency.addValue((int) (System.currentTimeMillis() - startTime));
+                }).subscribe();
+            }
         });
     }
 
@@ -80,13 +98,15 @@ public class WSClient {
         Observable.interval(5, TimeUnit.SECONDS).doOnNext(l -> {
             StringBuilder msg = new StringBuilder();
             msg.append("Total => ");
-            msg.append("  Success: ").append(counter.getCumulativeSum(Events.SUCCESS));
-            msg.append("  Error: ").append(counter.getCumulativeSum(Events.HTTP_ERROR));
-            msg.append("  Netty Error: ").append(counter.getCumulativeSum(Events.NETTY_ERROR));
+            msg.append("  Success: ").append(counter.getCumulativeSum(CounterEvent.SUCCESS));
+            msg.append("  Error: ").append(counter.getCumulativeSum(CounterEvent.HTTP_ERROR));
+            msg.append("  Netty Error: ").append(counter.getCumulativeSum(CounterEvent.NETTY_ERROR));
+            msg.append("  Bytes: ").append(counter.getCumulativeSum(CounterEvent.BYTES) / 1024).append("kb");
             msg.append("    Rolling =>");
-            msg.append("  Success: ").append(getRollingSum(Events.SUCCESS)).append("/s");
-            msg.append("  Error: ").append(getRollingSum(Events.HTTP_ERROR)).append("/s");
-            msg.append("  Netty Error: ").append(getRollingSum(Events.NETTY_ERROR)).append("/s");
+            msg.append("  Success: ").append(getRollingSum(CounterEvent.SUCCESS)).append("/s");
+            msg.append("  Error: ").append(getRollingSum(CounterEvent.HTTP_ERROR)).append("/s");
+            msg.append("  Netty Error: ").append(getRollingSum(CounterEvent.NETTY_ERROR)).append("/s");
+            msg.append("  Bytes: ").append(getRollingSum(CounterEvent.BYTES) / 1024).append("kb/s");
             msg.append("    Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append("  90th: ").append(latency.getPercentile(90.0));
             msg.append("  99th: ").append(latency.getPercentile(99.0)).append("  100th: ").append(latency.getPercentile(100.0));
             System.out.println(msg.toString());
@@ -101,7 +121,7 @@ public class WSClient {
         }).subscribe();
     }
 
-    private long getRollingSum(Events e) {
+    private long getRollingSum(CounterEvent e) {
         long s = counter.getRollingSum(e);
         if (s > 0) {
             s = s / ROLLING_SECONDS;
