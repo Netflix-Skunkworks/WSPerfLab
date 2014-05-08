@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.netty.RxNetty;
+import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
@@ -36,9 +37,12 @@ public class TestRouteBasic {
     private final String host;
     private final int port;
 
+    private final HttpClient<ByteBuf, ByteBuf> client;
+
     public TestRouteBasic(String backendHost, int backendPort) {
         this.host = backendHost;
         this.port = backendPort;
+        client = RxNetty.createHttpClient(host, port);
     }
 
     public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
@@ -99,14 +103,12 @@ public class TestRouteBasic {
     }
 
     private Observable<BackendResponse> getDataFromBackend(String url) {
-        return RxNetty.createHttpClient(host, port)
-                .submit(HttpClientRequest.createGet(url))
-                .flatMap((HttpClientResponse<ByteBuf> r) -> {
-                    Observable<BackendResponse> bytesToJson = r.getContent().map(b -> {
-                        return BackendResponse.fromJson(jsonFactory, new ByteBufInputStream(b));
-                    });
-                    return bytesToJson;
-                });
+        return client.submit(HttpClientRequest.createGet(url)).flatMap((HttpClientResponse<ByteBuf> r) -> {
+            Observable<BackendResponse> bytesToJson = r.getContent().map(b -> {
+                return BackendResponse.fromJson(jsonFactory, new ByteBufInputStream(b));
+            });
+            return bytesToJson;
+        });
     }
 
     private static Observable<Void> writeError(HttpServerRequest<?> request, HttpServerResponse<?> response, String message) {
