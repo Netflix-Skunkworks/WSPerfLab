@@ -87,9 +87,8 @@ public class WSClient {
                     return response.getContent().doOnNext(bb -> {
                         counter.add(CounterEvent.BYTES, bb.readableBytes());
                     });
-                }).onErrorResumeNext(t -> {
+                }).doOnError((t) -> {
                     counter.increment(CounterEvent.NETTY_ERROR);
-                    return Observable.empty();
                 });
     }
 
