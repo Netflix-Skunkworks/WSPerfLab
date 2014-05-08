@@ -124,7 +124,8 @@ public class WSClient {
         return Observable.switchOnNext(stepIntervals).doOnNext((n) -> {
             for (int i = 0; i < n; i++) {
                 long startTime = System.currentTimeMillis();
-                client.doOnTerminate(() -> {
+                client.doOnCompleted(() -> {
+                    // only record latency if we successfully executed
                     latency.addValue((int) (System.currentTimeMillis() - startTime));
                 }).subscribe();
             }
