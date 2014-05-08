@@ -1,17 +1,18 @@
 package perf.backend;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.concurrent.TimeUnit;
-
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufOutputStream;
+import io.netty.buffer.Unpooled;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonGenerator;
-
 import rx.Observable;
 import rx.Scheduler.Worker;
 import rx.Subscriber;
 import rx.schedulers.Schedulers;
+
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Generate responses with varying types of payloads depending on request arguments.
@@ -25,8 +26,8 @@ import rx.schedulers.Schedulers;
 public class MockResponse {
     private final static JsonFactory jsonFactory = new JsonFactory();
 
-    private static String RAW_ITEM_LONG;
-    private static int MAX_ITEM_LENGTH = 1024 * 50;
+    private static final String RAW_ITEM_LONG;
+    private static final int MAX_ITEM_LENGTH = 1024 * 50;
 
     static {
         StringBuilder builder = new StringBuilder(MAX_ITEM_LENGTH);
@@ -37,6 +38,9 @@ public class MockResponse {
             length += LOREM.length();
         }
         RAW_ITEM_LONG = builder.toString();
+    }
+
+    private MockResponse() {
     }
 
     /**
@@ -54,14 +58,15 @@ public class MockResponse {
      * @throws IOException
      * @throws JsonGenerationException
      */
-    public static Observable<String> generateJson(long id, int delay, int itemSize, int numItems) {
-        return Observable.create((Subscriber<? super String> subscriber) -> {
+    public static Observable<ByteBuf> generateJson(long id, int delay, int itemSize, int numItems) {
+        return Observable.create((Subscriber<? super ByteBuf> subscriber) -> {
             Worker worker = Schedulers.computation().createWorker();
             subscriber.add(worker);
             worker.schedule(() -> {
                 try {
-                    StringWriter jsonString = new StringWriter();
-                    JsonGenerator json = jsonFactory.createJsonGenerator(jsonString);
+                    ByteBuf buffer = Unpooled.buffer();
+                    ByteBufOutputStream jsonAsBytes = new ByteBufOutputStream(buffer);
+                    JsonGenerator json = jsonFactory.createJsonGenerator(jsonAsBytes);
 
                     json.writeStartObject();
 
@@ -85,7 +90,7 @@ public class MockResponse {
                     json.writeEndObject();
                     json.close();
 
-                    subscriber.onNext(jsonString.toString());
+                    subscriber.onNext(buffer);
                     subscriber.onCompleted();
                 } catch (Exception e) {
                     subscriber.onError(e);
@@ -95,6 +100,6 @@ public class MockResponse {
     }
 
     /* package */static long getResponseKey(long id) {
-        return ((id / 37) + 5739375) * 7;
+        return (id / 37 + 5739375) * 7;
     }
 }

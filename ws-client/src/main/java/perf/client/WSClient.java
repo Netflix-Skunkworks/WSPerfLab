@@ -47,35 +47,38 @@ public class WSClient {
         client.startLoad().toBlockingObservable().last();
     }
 
-    final String HOST;
-    final int PORT;
-    final String QUERY;
-    final int STEP_DURATION; // seconds
-    final int FIRST_STEP; // starting point (1 == 1000rps, 2 == 2000rps)
+    final String host;
+    final int port;
+    final String query;
+    final int stepDuration; // seconds
+    final int firstStep; // starting point (1 == 1000rps, 2 == 2000rps)
 
-    final int ROLLING_SECONDS = 5;
-    final NumerusRollingNumber counter = new NumerusRollingNumber(CounterEvent.SUCCESS, NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10));
-    final NumerusRollingPercentile latency = new NumerusRollingPercentile(NumerusProperty.Factory.asProperty(ROLLING_SECONDS * 1000), NumerusProperty.Factory.asProperty(10), NumerusProperty.Factory.asProperty(1000), NumerusProperty.Factory.asProperty(Boolean.TRUE));
+    static final int rollingSeconds = 5;
+
+    final NumerusRollingNumber counter = new NumerusRollingNumber(CounterEvent.SUCCESS, NumerusProperty.Factory.asProperty(
+            rollingSeconds * 1000), NumerusProperty.Factory.asProperty(10));
+    final NumerusRollingPercentile latency = new NumerusRollingPercentile(NumerusProperty.Factory.asProperty(
+            rollingSeconds * 1000), NumerusProperty.Factory.asProperty(10), NumerusProperty.Factory.asProperty(1000), NumerusProperty.Factory.asProperty(Boolean.TRUE));
 
     private final Observable<?> client;
     private final HttpClient<ByteBuf, ByteBuf> httpClient;
 
     public WSClient() {
-        this("localhost", 8989, 1, 30, "?id=12345");
+        this("localhost", 8888, 1, 30, "?id=12345");
     }
 
     public WSClient(String host, int port, int firstStep, int stepDuration, String query) {
-        this.HOST = host;
-        this.PORT = port;
-        this.FIRST_STEP = firstStep;
-        this.STEP_DURATION = stepDuration;
-        this.QUERY = query;
+        this.host = host;
+        this.port = port;
+        this.firstStep = firstStep;
+        this.stepDuration = stepDuration;
+        this.query = query;
 
         System.out.println("Starting client with hostname: " + host + " port: " + port + " first-step: " + firstStep + " step-duration: " + stepDuration + "s query: " + query);
 
-        httpClient = RxNetty.createHttpClient(HOST, PORT);
-        client = httpClient.submit(HttpClientRequest.createGet(QUERY))
-                .flatMap((response) -> {
+        httpClient = RxNetty.createHttpClient(this.host, this.port);
+        client = httpClient.submit(HttpClientRequest.createGet(this.query))
+                .flatMap(response -> {
                     if (response.getStatus().code() == 200) {
                         counter.increment(CounterEvent.SUCCESS);
                     } else {
@@ -91,15 +94,17 @@ public class WSClient {
 
     public Observable<Long> startLoad() {
 
-        Observable<Observable<Long>> stepIntervals = Observable.timer(0, STEP_DURATION, TimeUnit.SECONDS).map(l -> l + FIRST_STEP)
+        Observable<Observable<Long>> stepIntervals = Observable.timer(0, stepDuration, TimeUnit.SECONDS).map(l -> l + firstStep)
                 .map(step -> {
                     long rps = step * 1000;
                     long interval = TimeUnit.SECONDS.toMicros(1) / rps;
                     StringBuilder str = new StringBuilder();
-                    str.append("\n");
-                    str.append("########################################################################################").append("\n");
-                    str.append("Step: " + step + "  Interval: " + interval + "micros  Rate: " + rps + "/s").append("\n");
-                    str.append("########################################################################################").append("\n");
+                    str.append('\n');
+                    str.append("########################################################################################").append(
+                            '\n');
+                    str.append("Step: " + step + "  Interval: " + interval + "micros  Rate: " + rps + "/s").append('\n');
+                    str.append("########################################################################################").append(
+                            '\n');
 
                     System.out.println(str.toString());
 
@@ -108,19 +113,19 @@ public class WSClient {
                          * An optimization that reduces the CPU load on the timer threads.
                          * This sacrifices more event distribution of requests for CPU by bursting requests every 100ms
                          * instead of scheduling granularly at the microsecond level.
-                         * 
+                         *
                          * We can experiment further with 10ms/100ms intervals for the right balance.
                          */
                         int fixedInterval = 100;
                         // 1000 (1ms converted to microseconds) / interval (in microseconds) to get the number per ms * number of milliseconds
-                        long numPerFixedInterval = (1000 / interval) * fixedInterval;
+                        long numPerFixedInterval = 1000 / interval * fixedInterval;
                         return Observable.timer(0, fixedInterval, TimeUnit.MILLISECONDS).map(i -> numPerFixedInterval);
                     } else {
                         return Observable.timer(0, interval, TimeUnit.MICROSECONDS).map(i -> 1L);
                     }
                 });
 
-        return Observable.switchOnNext(stepIntervals).doOnNext((n) -> {
+        return Observable.switchOnNext(stepIntervals).doOnNext(n -> {
             for (int i = 0; i < n; i++) {
                 long startTime = System.currentTimeMillis();
                 client.doOnCompleted(() -> {
@@ -161,7 +166,7 @@ public class WSClient {
     private long getRollingSum(CounterEvent e) {
         long s = counter.getRollingSum(e);
         if (s > 0) {
-            s = s / ROLLING_SECONDS;
+            s /= rollingSeconds;
         }
         return s;
     }
