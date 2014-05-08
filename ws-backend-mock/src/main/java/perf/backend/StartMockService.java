@@ -17,7 +17,7 @@ public class StartMockService {
             port = Integer.parseInt(args[0]);
         }
         System.out.println("Starting mock service on port " + port + "...");
-        RxNetty.createHttpServer(8989, (request, response) -> {
+        RxNetty.createHttpServer(port, (request, response) -> {
             try {
                 return handleRequest(request, response);
             } catch (Throwable e) {
