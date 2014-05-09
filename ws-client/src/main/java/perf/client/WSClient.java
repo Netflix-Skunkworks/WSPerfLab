@@ -1,17 +1,16 @@
 package perf.client;
 
-import io.netty.buffer.ByteBuf;
-import io.reactivex.netty.RxNetty;
-import io.reactivex.netty.protocol.http.client.HttpClient;
-import io.reactivex.netty.protocol.http.client.HttpClientRequest;
-
-import java.util.concurrent.TimeUnit;
-
-import rx.Observable;
-
 import com.netflix.numerus.NumerusProperty;
 import com.netflix.numerus.NumerusRollingNumber;
 import com.netflix.numerus.NumerusRollingPercentile;
+import io.netty.buffer.ByteBuf;
+import io.reactivex.netty.client.PoolExhaustedException;
+import io.reactivex.netty.protocol.http.client.HttpClient;
+import io.reactivex.netty.protocol.http.client.HttpClientBuilder;
+import io.reactivex.netty.protocol.http.client.HttpClientRequest;
+import rx.Observable;
+
+import java.util.concurrent.TimeUnit;
 
 public class WSClient {
 
@@ -76,7 +75,8 @@ public class WSClient {
 
         System.out.println("Starting client with hostname: " + host + " port: " + port + " first-step: " + firstStep + " step-duration: " + stepDuration + "s query: " + query);
 
-        httpClient = RxNetty.createHttpClient(this.host, this.port);
+        httpClient = new HttpClientBuilder<ByteBuf, ByteBuf>(this.host, this.port)
+                .withMaxConnections(1000).build();
         client = httpClient.submit(HttpClientRequest.createGet(this.query))
                 .flatMap(response -> {
                     if (response.getStatus().code() == 200) {
@@ -87,8 +87,13 @@ public class WSClient {
                     return response.getContent().doOnNext(bb -> {
                         counter.add(CounterEvent.BYTES, bb.readableBytes());
                     });
-                }).doOnError((t) -> {
-                    counter.increment(CounterEvent.NETTY_ERROR);
+                }).onErrorResumeNext((t) -> {
+                    if (t instanceof PoolExhaustedException) {
+                        counter.increment(CounterEvent.POOL_EXHAUSTED);
+                    } else {
+                        counter.increment(CounterEvent.NETTY_ERROR);
+                    }
+                    return Observable.empty();
                 });
     }
 
@@ -148,6 +153,7 @@ public class WSClient {
             msg.append("  Success: ").append(getRollingSum(CounterEvent.SUCCESS)).append("/s");
             msg.append("  Error: ").append(getRollingSum(CounterEvent.HTTP_ERROR)).append("/s");
             msg.append("  Netty Error: ").append(getRollingSum(CounterEvent.NETTY_ERROR)).append("/s");
+            msg.append("  Pool exhausted: ").append(getRollingSum(CounterEvent.POOL_EXHAUSTED)).append("/s");
             msg.append("  Bytes: ").append(getRollingSum(CounterEvent.BYTES) / 1024).append("kb/s");
             msg.append("    Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append("  90th: ").append(latency.getPercentile(90.0));
             msg.append("  99th: ").append(latency.getPercentile(99.0)).append("  100th: ").append(latency.getPercentile(100.0));

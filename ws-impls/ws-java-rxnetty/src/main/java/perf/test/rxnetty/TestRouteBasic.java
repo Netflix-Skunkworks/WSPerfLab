@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBufInputStream;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.protocol.http.client.HttpClient;
+import io.reactivex.netty.protocol.http.client.HttpClientBuilder;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
@@ -18,6 +19,7 @@ import java.util.Map;
 import org.codehaus.jackson.JsonFactory;
 
 import perf.test.utils.BackendResponse;
+import perf.test.utils.JsonParseException;
 import perf.test.utils.ServiceResponseBuilder;
 import rx.Observable;
 
@@ -40,9 +42,11 @@ public class TestRouteBasic {
     private final HttpClient<ByteBuf, ByteBuf> client;
 
     public TestRouteBasic(String backendHost, int backendPort) {
-        this.host = backendHost;
-        this.port = backendPort;
-        client = RxNetty.createHttpClient(host, port);
+        host = backendHost;
+        port = backendPort;
+        client = new HttpClientBuilder<ByteBuf, ByteBuf>(host, port)
+                .withMaxConnections(10000).build();
+
     }
 
     public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
@@ -92,6 +96,10 @@ public class TestRouteBasic {
         });
     }
 
+    public HttpClient<ByteBuf, ByteBuf> getClient() {
+        return client;
+    }
+
     /**
      * Add various headers used for logging and statistics.
      */
@@ -104,8 +112,12 @@ public class TestRouteBasic {
 
     private Observable<BackendResponse> getDataFromBackend(String url) {
         return client.submit(HttpClientRequest.createGet(url)).flatMap((HttpClientResponse<ByteBuf> r) -> {
-            Observable<BackendResponse> bytesToJson = r.getContent().map(b -> {
-                return BackendResponse.fromJson(jsonFactory, new ByteBufInputStream(b));
+            Observable<BackendResponse> bytesToJson = r.getContent().flatMap(b -> {
+                try {
+                    return Observable.just(BackendResponse.fromJson(jsonFactory, new ByteBufInputStream(b)));
+                } catch (JsonParseException e) {
+                    return Observable.error(e);
+                }
             });
             return bytesToJson;
         });
