@@ -55,8 +55,6 @@ public class MockResponse {
      *            Number of items in response.
      * 
      * @return String json
-     * @throws IOException
-     * @throws JsonGenerationException
      */
     public static Observable<ByteBuf> generateJson(long id, int delay, int itemSize, int numItems) {
         return Observable.create((Subscriber<? super ByteBuf> subscriber) -> {

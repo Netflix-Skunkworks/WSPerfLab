@@ -59,7 +59,7 @@ public class WSClient {
     final NumerusRollingPercentile latency = new NumerusRollingPercentile(NumerusProperty.Factory.asProperty(
             rollingSeconds * 1000), NumerusProperty.Factory.asProperty(10), NumerusProperty.Factory.asProperty(1000), NumerusProperty.Factory.asProperty(Boolean.TRUE));
 
-    private final Observable<?> client;
+    private final Observable<ByteBuf> client;
     private final HttpClient<ByteBuf, ByteBuf> httpClient;
 
     public WSClient() {
@@ -87,13 +87,12 @@ public class WSClient {
                     return response.getContent().doOnNext(bb -> {
                         counter.add(CounterEvent.BYTES, bb.readableBytes());
                     });
-                }).onErrorResumeNext((t) -> {
+                }).doOnError((t) -> {
                     if (t instanceof PoolExhaustedException) {
                         counter.increment(CounterEvent.POOL_EXHAUSTED);
                     } else {
                         counter.increment(CounterEvent.NETTY_ERROR);
                     }
-                    return Observable.empty();
                 });
     }
 
@@ -136,7 +135,7 @@ public class WSClient {
                 client.doOnCompleted(() -> {
                     // only record latency if we successfully executed
                     latency.addValue((int) (System.currentTimeMillis() - startTime));
-                }).subscribe();
+                }).onErrorResumeNext(Observable.<ByteBuf>empty()).subscribe();
             }
         });
     }
