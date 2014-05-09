@@ -45,12 +45,12 @@ public class BackendResponse {
         return parseBackendResponse(parser);
     }
 
-    public static BackendResponse fromJson(JsonFactory jsonFactory, InputStream inputStream) {
+    public static BackendResponse fromJson(JsonFactory jsonFactory, InputStream inputStream) throws JsonParseException {
         try {
             JsonParser parser = jsonFactory.createJsonParser(inputStream);
             return parseBackendResponse(parser);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse JSON", e);
+            throw new JsonParseException("Failed to parse JSON", e);
         }
     }
 

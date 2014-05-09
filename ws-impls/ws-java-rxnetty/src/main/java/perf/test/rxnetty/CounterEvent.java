@@ -4,7 +4,8 @@ import com.netflix.numerus.NumerusRollingNumberEvent;
 
 public enum CounterEvent implements NumerusRollingNumberEvent {
 
-    REQUESTS(true), SUCCESS(true), HTTP_ERROR(true), NETTY_ERROR(true), BYTES(true);
+    REQUESTS(true), SUCCESS(true), HTTP_ERROR(true), NETTY_ERROR(true), CLIENT_POOL_EXHAUSTION(true),
+    SOCKET_EXCEPTION(true), IO_EXCEPTION(true), CANCELLATION_EXCEPTION(true), PARSING_EXCEPTION(true), BYTES(true);
 
     private final boolean isCounter;
     private final boolean isMaxUpdater;
