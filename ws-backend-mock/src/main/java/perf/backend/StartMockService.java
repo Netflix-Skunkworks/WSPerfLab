@@ -107,12 +107,12 @@ public class StartMockService {
             msg.append("  Error: ").append(counter.getCumulativeSum(CounterEvent.HTTP_ERROR));
             msg.append("  Netty Error: ").append(counter.getCumulativeSum(CounterEvent.NETTY_ERROR));
             msg.append("  Bytes: ").append(counter.getCumulativeSum(CounterEvent.BYTES) / 1024).append("kb");
-            msg.append("    Rolling =>");
+            msg.append(" \n   Rolling =>");
             msg.append("  Success: ").append(getRollingSum(CounterEvent.SUCCESS)).append("/s");
             msg.append("  Error: ").append(getRollingSum(CounterEvent.HTTP_ERROR)).append("/s");
             msg.append("  Netty Error: ").append(getRollingSum(CounterEvent.NETTY_ERROR)).append("/s");
             msg.append("  Bytes: ").append(getRollingSum(CounterEvent.BYTES) / 1024).append("kb/s");
-            msg.append("    Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append(
+            msg.append(" \n   Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append(
                     "  90th: ").append(latency.getPercentile(90.0));
             msg.append("  99th: ").append(latency.getPercentile(99.0)).append("  100th: ").append(latency.getPercentile(
                     100.0));

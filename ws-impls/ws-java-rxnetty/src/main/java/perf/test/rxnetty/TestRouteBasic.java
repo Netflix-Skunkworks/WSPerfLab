@@ -15,6 +15,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.codehaus.jackson.JsonFactory;
 
@@ -45,7 +46,9 @@ public class TestRouteBasic {
         host = backendHost;
         port = backendPort;
         client = new HttpClientBuilder<ByteBuf, ByteBuf>(host, port)
-                .withMaxConnections(10000).build();
+                .withMaxConnections(10000)
+                .config(new HttpClient.HttpClientConfig.Builder().readTimeout(1, TimeUnit.MINUTES).build())
+                .build();
 
     }
 

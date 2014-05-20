@@ -22,6 +22,7 @@ dependencies {
  * ../gradlew client '-Pa=localhost 8989 1 30'
  * ../gradlew client '-Pa=localhost 8989 1 30 /?id=12345'
  * ../gradlew client -P'a=ec2-54-87-12-221.compute-1.amazonaws.com 8989 2 45 /?id=7634212'
+ * ../gradlew client -P'a=ec2-54-87-12-221.compute-1.amazonaws.com 8989 2 45 /?id=7634212 true'
  */
 task client(type:JavaExec) {
    main = "perf.client.WSClient"
