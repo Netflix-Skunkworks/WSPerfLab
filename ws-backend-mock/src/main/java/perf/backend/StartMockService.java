@@ -67,9 +67,16 @@ public class StartMockService {
     }
 
     private static Observable<Void> handleRequest(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
+
+        if (request.getUri().startsWith("/hello")) {
+            return response.writeStringAndFlush("Hello world!");
+        }
+
         List<String> _id = request.getQueryParameters().get("id");
         if (_id == null || _id.size() != 1) {
-            return writeError(request, response, "Please provide a numerical 'id' value. It can be a random number (uuid). Received => " + _id);
+            return writeError(request, response,
+                              "Please provide a numerical 'id' value. It can be a random number (uuid). Received => "
+                              + _id);
         }
         long id = Long.parseLong(String.valueOf(_id.get(0)));
 
