@@ -83,8 +83,22 @@ public final class StartServer {
     }
 
     private static void startMonitoring() {
-        Observable.interval(5, TimeUnit.SECONDS).doOnNext(l -> {
+        int interval = 5;
+        Observable.interval(interval, TimeUnit.SECONDS).doOnNext(l -> {
+
+            long totalRequestsInLastWindow = getRollingSum(CounterEvent.REQUESTS);
+
+            if (totalRequestsInLastWindow <= 0) {
+                return; // Don't print anything if there weren't any requests coming.
+            }
+
             StringBuilder msg = new StringBuilder();
+            msg.append("########################################################################################").append(
+                    '\n');
+            msg.append("Time since start (seconds): " + l * interval).append('\n');
+            msg.append("########################################################################################").append(
+                    '\n');
+
             msg.append("Total => ");
             msg.append("  Requests: ").append(counter.getCumulativeSum(CounterEvent.REQUESTS));
             msg.append("  Success: ").append(counter.getCumulativeSum(CounterEvent.SUCCESS));
@@ -97,6 +111,7 @@ public final class StartServer {
             msg.append("  Parsing Exception: ").append(counter.getCumulativeSum(CounterEvent.PARSING_EXCEPTION));
             msg.append("  Bytes: ").append(counter.getCumulativeSum(CounterEvent.BYTES) / 1024).append("kb");
             msg.append(" \n   Rolling =>");
+            msg.append("  Requests: ").append(getRollingSum(CounterEvent.REQUESTS)).append("/s");
             msg.append("  Success: ").append(getRollingSum(CounterEvent.SUCCESS)).append("/s");
             msg.append("  Error: ").append(getRollingSum(CounterEvent.HTTP_ERROR)).append("/s");
             msg.append("  Netty Error: ").append(getRollingSum(CounterEvent.NETTY_ERROR)).append("/s");

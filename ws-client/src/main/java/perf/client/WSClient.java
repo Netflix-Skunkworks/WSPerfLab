@@ -90,7 +90,7 @@ public class WSClient {
         System.out.println("Starting client with hostname: " + host + " port: " + port + " first-step: " + firstStep + " step-duration: " + stepDuration + "s query: " + query);
 
         httpClient = new HttpClientBuilder<ByteBuf, ByteBuf>(this.host, this.port)
-                .withMaxConnections(1000)
+                .withMaxConnections(15000)
                 .config(new HttpClient.HttpClientConfig.Builder().readTimeout(1, TimeUnit.MINUTES).build())
                 .build();
         client = httpClient.submit(HttpClientRequest.createGet(this.query))
@@ -180,6 +180,7 @@ public class WSClient {
             n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
             n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
             n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
+            System.out.println(n.toString());
 
             if (enableJsonLogging) {
                 try {
