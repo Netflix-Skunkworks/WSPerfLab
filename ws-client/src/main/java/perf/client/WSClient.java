@@ -119,7 +119,7 @@ public class WSClient {
         System.out.println("Starting client with hostname: " + host + " port: " + port + " first-step: " + firstStep + " step-duration: " + stepDuration + "s query: " + query);
 
         httpClient = new HttpClientBuilder<ByteBuf, ByteBuf>(this.host, this.port)
-                .withMaxConnections(1000)
+                .withMaxConnections(15000)
                 .config(new HttpClient.HttpClientConfig.Builder().readTimeout(1, TimeUnit.MINUTES).build())
                 .build();
         client = httpClient.submit(HttpClientRequest.createGet(this.query))
@@ -206,6 +206,30 @@ public class WSClient {
         final byte[] newlineBytes = "\n".getBytes();
 
         Observable.interval(5, TimeUnit.SECONDS).doOnNext(l -> {
+            StringBuilder msg = new StringBuilder();
+            msg.append("Total => ");
+            msg.append("  Success: ").append(counter.getCumulativeSum(CounterEvent.SUCCESS));
+            msg.append("  Error: ").append(counter.getCumulativeSum(CounterEvent.HTTP_ERROR));
+            msg.append("  Netty Error: ").append(counter.getCumulativeSum(CounterEvent.NETTY_ERROR));
+            msg.append("  Bytes: ").append(counter.getCumulativeSum(CounterEvent.BYTES) / 1024).append("kb");
+            msg.append(" \n   Rolling =>");
+            msg.append("  Success: ").append(getRollingSum(CounterEvent.SUCCESS)).append("/s");
+            msg.append("  Error: ").append(getRollingSum(CounterEvent.HTTP_ERROR)).append("/s");
+            msg.append("  Netty Error: ").append(getRollingSum(CounterEvent.NETTY_ERROR)).append("/s");
+            msg.append("  Pool exhausted: ").append(getRollingSum(CounterEvent.POOL_EXHAUSTED)).append("/s");
+            msg.append("  Bytes: ").append(getRollingSum(CounterEvent.BYTES) / 1024).append("kb/s");
+            msg.append("  \n  Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append("  90th: ").append(latency.getPercentile(90.0));
+            msg.append("  99th: ").append(latency.getPercentile(99.0)).append("  100th: ").append(latency.getPercentile(100.0));
+            System.out.println(msg.toString());
+
+            StringBuilder n = new StringBuilder();
+            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
+            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
+            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
+            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
+            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
+            System.out.println(n.toString());
+
             if (enableJsonLogging) {
                 try {
                     Map<String, Object> m = new HashMap<String, Object>();
@@ -232,7 +256,6 @@ public class WSClient {
                     m.put("connsPendingAcquire", poolStats.getPendingAcquireRequestCount());
                     m.put("connsPendingRelease", poolStats.getPendingReleaseRequestCount());
                     String statMsg = jsonMapper.writeValueAsString(m);
-                    System.out.println(statMsg);
 
                     if (this.statsOutputStream != null) {
                         this.statsOutputStream.write(statMsg.getBytes());
@@ -242,29 +265,6 @@ public class WSClient {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-            } else {
-                StringBuilder msg = new StringBuilder();
-                msg.append("Total => ");
-                msg.append("  Success: ").append(counter.getCumulativeSum(CounterEvent.SUCCESS));
-                msg.append("  Error: ").append(counter.getCumulativeSum(CounterEvent.HTTP_ERROR));
-                msg.append("  Netty Error: ").append(counter.getCumulativeSum(CounterEvent.NETTY_ERROR));
-                msg.append("  Bytes: ").append(counter.getCumulativeSum(CounterEvent.BYTES) / 1024).append("kb");
-                msg.append(" \n   Rolling =>");
-                msg.append("  Success: ").append(getRollingSum(CounterEvent.SUCCESS)).append("/s");
-                msg.append("  Error: ").append(getRollingSum(CounterEvent.HTTP_ERROR)).append("/s");
-                msg.append("  Netty Error: ").append(getRollingSum(CounterEvent.NETTY_ERROR)).append("/s");
-                msg.append("  Pool exhausted: ").append(getRollingSum(CounterEvent.POOL_EXHAUSTED)).append("/s");
-                msg.append("  Bytes: ").append(getRollingSum(CounterEvent.BYTES) / 1024).append("kb/s");
-                msg.append("  \n  Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append("  90th: ").append(latency.getPercentile(90.0));
-                msg.append("  99th: ").append(latency.getPercentile(99.0)).append("  100th: ").append(latency.getPercentile(100.0));
-                System.out.println(msg.toString());
-
-                StringBuilder n = new StringBuilder();
-                n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
-                n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
-                n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
-                n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
-                n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
             }
         }).subscribe();
     }
