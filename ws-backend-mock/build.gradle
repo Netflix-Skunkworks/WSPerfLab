@@ -1,6 +1,6 @@
 apply plugin: 'java'
 apply plugin: 'eclipse'
-
+apply plugin: 'application'
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
@@ -28,3 +28,4 @@ task start(type:JavaExec) {
    }
 }
 
+mainClassName = "perf.backend.StartMockService"

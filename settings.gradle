@@ -3,10 +3,5 @@ include 'ws-backend-mock', \
 'ws-client', \
 'ws-impls:ws-impl-utils', \
 'ws-impls:ws-java-servlet-blocking', \
-'ws-impls:ws-java-servlet-blocking-rxjava', \
-'ws-impls:ws-java-servlet-3_1-nonblocking-rxjava', \
 'ws-impls:ws-java-jetty', \
-'ws-impls:ws-java-netty-blocking', \
-'ws-impls:ws-java-netty', \
-'ws-impls:ws-java-netty-httpclient-blocking', \
 'ws-impls:ws-java-rxnetty'
