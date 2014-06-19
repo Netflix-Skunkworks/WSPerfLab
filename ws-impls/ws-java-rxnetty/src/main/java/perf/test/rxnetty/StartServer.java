@@ -30,7 +30,7 @@ public final class StartServer {
 
     public static void main(String[] args) {
         int port = 8888;
-        String backendHost = "localhost";
+        String backendHost = "127.0.0.1";
         int backendPort = 8989;
         if (args.length == 0) {
             // use defaults

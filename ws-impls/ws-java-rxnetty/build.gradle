@@ -1,6 +1,7 @@
 apply plugin: "eclipse"
 apply plugin: "idea"
 apply plugin: 'java'
+apply plugin: 'application'
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
@@ -28,3 +29,4 @@ task start(type:JavaExec) {
    }
 }
 
+mainClassName = "perf.test.rxnetty.StartServer"
