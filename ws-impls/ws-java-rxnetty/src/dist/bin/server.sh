@@ -4,7 +4,7 @@
 ################# ws-java-rxnetty options #####################
 
 
-: ${EVENT_LOOP_COUNT:=1}
+: ${EVENT_LOOP_COUNT:=4}
 : ${SERVER_PORT:=8888}
 SERVER_LOG="false"
 CLIENT_LOG="false"
