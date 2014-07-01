@@ -13,7 +13,7 @@ CLIENT_LOG="false"
 
 echo "Using server port ${SERVER_PORT} backend host ${BACKEND_HOST} and port ${BACKEND_PORT}"
 
-WS_JAVA_RX_NETTY_OPTS=""
+WS_JAVA_RXNETTY_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
 #############################################################
 
 SCRIPT_DIR=$(dirname $BASH_SOURCE)
@@ -41,7 +41,7 @@ start() {
 
     PID=`ps -ef | grep ${SCRIPTNAME} | head -n1 |  awk ' {print $2;} '`
     echo ${PID} > ${PIDFILE}
-    export WS_JAVA_RX_NETTY_OPTS=${WS_JAVA_RX_NETTY_OPTS}
+    export WS_JAVA_RXNETTY_OPTS=${WS_JAVA_RXNETTY_OPTS}
 
     . $SCRIPT_DIR/ws-java-rxnetty $SERVER_PORT $BACKEND_HOST $BACKEND_PORT
     echo "Started rx-netty based ws server...."

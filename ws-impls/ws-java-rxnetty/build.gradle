@@ -7,7 +7,7 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-	compile 'com.netflix.rxnetty:rx-netty:0.3.5'
+	compile 'com.netflix.rxnetty:rx-netty:0.3.6'
 	compile 'com.netflix.rxjava:rxjava-core:0.18.2'
 	compile 'com.netflix.numerus:numerus:1.1'
 	compile 'org.codehaus.jackson:jackson-core-asl:1.9.13'
@@ -18,8 +18,8 @@ dependencies {
 
 /**
  * ../../gradlew start
- * ../../gradlew start -P'a=PORT BACKEND_HOST BACKEND_PORT'
- * ../../gradlew start -P'a=8888 ec2-54-87-12-221.compute-1.amazonaws.com 8989'
+ * ../../gradlew start -P'a=EVENTLOOPS PORT BACKEND_HOST BACKEND_PORT'
+ * ../../gradlew start -P'a=1 8888 ec2-54-87-12-221.compute-1.amazonaws.com 8989'
  */
 task start(type:JavaExec) {
    main = "perf.test.rxnetty.StartServer"

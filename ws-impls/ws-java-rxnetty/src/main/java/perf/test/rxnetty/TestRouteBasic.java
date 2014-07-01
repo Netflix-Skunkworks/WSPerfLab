@@ -61,21 +61,26 @@ public class TestRouteBasic {
         long id = Long.parseLong(String.valueOf(_id.get(0)));
 
         Observable<List<BackendResponse>> acd = getDataFromBackend("/mock.json?numItems=2&itemSize=50&delay=50&id=" + id)
+                .doOnError(Throwable::printStackTrace)
                 // Eclipse 20140224-0627 can't infer without this type hint even though the Java 8 compiler can
                 .<List<BackendResponse>> flatMap(responseA -> {
-                    Observable<BackendResponse> responseC = getDataFromBackend("/mock.json?numItems=1&itemSize=5000&delay=80&id=" + responseA.getResponseKey());
-                    Observable<BackendResponse> responseD = getDataFromBackend("/mock.json?numItems=1&itemSize=1000&delay=1&id=" + responseA.getResponseKey());
-                    return Observable.zip(Observable.just(responseA), responseC, responseD, (a, c, d) -> Arrays.asList(a, c, d));
-                });
+                    Observable<BackendResponse> responseC = getDataFromBackend(
+                            "/mock.json?numItems=1&itemSize=5000&delay=80&id=" + responseA.getResponseKey());
+                    Observable<BackendResponse> responseD = getDataFromBackend(
+                            "/mock.json?numItems=1&itemSize=1000&delay=1&id=" + responseA.getResponseKey());
+                    return Observable.zip(Observable.just(responseA), responseC, responseD,
+                                          Arrays::asList);
+                }).doOnError(Throwable::printStackTrace);
 
         Observable<List<BackendResponse>> be = getDataFromBackend("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id)
                 // Eclipse 20140224-0627 can't infer without this type hint even though the Java 8 compiler can
                 .<List<BackendResponse>> flatMap(responseB -> {
                     Observable<BackendResponse> responseE = getDataFromBackend("/mock.json?numItems=100&itemSize=30&delay=4&id=" + responseB.getResponseKey());
-                    return Observable.zip(Observable.just(responseB), responseE, (b, e) -> Arrays.asList(b, e));
-                });
+                    return Observable.zip(Observable.just(responseB), responseE, Arrays::asList);
+                }).doOnError(Throwable::printStackTrace);
 
         return Observable.zip(acd, be, (_acd, _be) -> {
+            System.out.println("Zipping responses...");
             BackendResponse responseA = _acd.get(0);
             BackendResponse responseB = _be.get(0);
             BackendResponse responseC = _acd.get(1);
@@ -96,7 +101,7 @@ public class TestRouteBasic {
             } catch (Exception e) {
                 return writeError(request, response, "Failed: " + e.getMessage());
             }
-        });
+        }).doOnError(Throwable::printStackTrace);
     }
 
     public HttpClient<ByteBuf, ByteBuf> getClient() {

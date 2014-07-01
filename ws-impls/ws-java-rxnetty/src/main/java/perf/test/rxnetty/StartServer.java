@@ -5,6 +5,7 @@ import com.netflix.numerus.NumerusRollingPercentile;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.netty.RxNetty;
+import io.reactivex.netty.channel.SingleNioLoopProvider;
 import io.reactivex.netty.client.PoolExhaustedException;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import perf.test.utils.JsonParseException;
@@ -27,30 +28,44 @@ public final class StartServer {
                                                                                  asProperty(10),
                                                                                  asProperty(1000), asProperty(Boolean.TRUE));
     private static TestRouteBasic route;
+    private static TestRouteHello routeHello;
 
     public static void main(String[] args) {
+        int eventLoops = Runtime.getRuntime().availableProcessors();
         int port = 8888;
         String backendHost = "127.0.0.1";
         int backendPort = 8989;
         if (args.length == 0) {
             // use defaults
-        } else if (args.length == 3) {
-            port = Integer.parseInt(args[0]);
-            backendHost = args[1];
-            backendPort = Integer.parseInt(args[2]);
+        } else if (args.length == 4) {
+            eventLoops = Integer.parseInt(args[0]);
+            port = Integer.parseInt(args[1]);
+            backendHost = args[2];
+            backendPort = Integer.parseInt(args[3]);
+
         } else {
-            System.err.println("Execute with either no argument (for defaults) or 3 arguments: HOST, BACKEND_HOST, BACKEND_PORT");
+            System.err.println(
+                    "Execute with either no argument (for defaults) or 4 arguments: EVENTLOOPS, PORT, BACKEND_HOST, BACKEND_PORT");
             System.exit(-1);
         }
 
+        System.out.println(String.format("Using eventloops: %d port: %d backend host: %s backend port: %d", eventLoops,
+                                         port, backendHost, backendPort));
+
         route = new TestRouteBasic(backendHost, backendPort);
+        routeHello = new TestRouteHello();
+
+        RxNetty.useEventLoopProvider(new SingleNioLoopProvider(eventLoops));
 
         System.out.println("Starting service on port " + port + " with backend at " + backendHost + ':' + backendPort + " ...");
         startMonitoring();
-        RxNetty.createHttpServer(port, (request, response) -> {
+        RxNetty.<ByteBuf, ByteBuf>newHttpServerBuilder(port, (request, response) -> {
             try {
                 long startTime = System.currentTimeMillis();
                 counter.increment(CounterEvent.REQUESTS);
+                if (request.getUri().startsWith("/testHello")) {
+                    return routeHello.handle(request, response);
+                }
                 return route.handle(request, response)
                             .doOnCompleted(() ->  {
                                 counter.increment(CounterEvent.SUCCESS);
@@ -71,15 +86,19 @@ public final class StartServer {
                                     counter.increment(CounterEvent.NETTY_ERROR);
                                 }
                                 response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
+                                response.writeStringAndFlush("");
                                 return Observable.empty();
-                            });
+                            }).doOnCompleted(() -> System.out.println("StartServer.final completed"));
             } catch (Throwable e) {
                 System.err.println("Server => Error [" + request.getPath() + "] => " + e);
                 counter.increment(CounterEvent.NETTY_ERROR);
                 response.setStatus(HttpResponseStatus.BAD_REQUEST);
                 return response.writeStringAndFlush("Error 400: Bad Request\n" + e.getMessage() + '\n');
             }
-        }).startAndWait();
+        }).build()
+               .withErrorHandler(throwable -> Observable.empty())
+               .withErrorResponseGenerator((response, error) -> System.err.println("Error: " + error.getMessage()))
+               .startAndWait();
     }
 
     private static void startMonitoring() {
