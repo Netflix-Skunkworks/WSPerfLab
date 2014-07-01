@@ -14,7 +14,7 @@ CLIENT_LOG="false"
 
 echo "Using event loop count: ${EVENT_LOOP_COUNT} server port ${SERVER_PORT} backend host ${BACKEND_HOST} and port ${BACKEND_PORT}"
 
-WS_JAVA_RXNETTY_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
+WS_JAVA_RXNETTY_OPTS="-XX:MaxDirectMemorySize=4g -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
 #############################################################
 
 SCRIPT_DIR=$(dirname $BASH_SOURCE)
