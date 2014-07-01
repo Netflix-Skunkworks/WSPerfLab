@@ -88,7 +88,7 @@ public final class StartServer {
                                 response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
                                 response.writeStringAndFlush("");
                                 return Observable.empty();
-                            }).doOnCompleted(() -> System.out.println("StartServer.final completed"));
+                            });
             } catch (Throwable e) {
                 System.err.println("Server => Error [" + request.getPath() + "] => " + e);
                 counter.increment(CounterEvent.NETTY_ERROR);

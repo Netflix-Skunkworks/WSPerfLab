@@ -80,7 +80,6 @@ public class TestRouteBasic {
                 }).doOnError(Throwable::printStackTrace);
 
         return Observable.zip(acd, be, (_acd, _be) -> {
-            System.out.println("Zipping responses...");
             BackendResponse responseA = _acd.get(0);
             BackendResponse responseB = _be.get(0);
             BackendResponse responseC = _acd.get(1);
