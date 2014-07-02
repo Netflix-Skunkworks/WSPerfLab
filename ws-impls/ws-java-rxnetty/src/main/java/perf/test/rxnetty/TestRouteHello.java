@@ -13,9 +13,10 @@ public class TestRouteHello {
 
     private static final byte[] MSG = "Hello World".getBytes();
     public static final int HELLO_WORLD_LENGTH = MSG.length;
+    public static final String HELLO_WORLD_LENGTH_STR = String.valueOf(MSG.length);
 
     public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
-        response.getHeaders().set(HttpHeaders.Names.CONTENT_LENGTH, HELLO_WORLD_LENGTH);
+        response.getHeaders().set(HttpHeaders.Names.CONTENT_LENGTH, HELLO_WORLD_LENGTH_STR);
         response.write(response.getAllocator().buffer(HELLO_WORLD_LENGTH).writeBytes(MSG));
         return response.close();
     }

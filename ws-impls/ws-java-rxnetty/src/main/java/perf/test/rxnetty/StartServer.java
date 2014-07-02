@@ -61,11 +61,12 @@ public final class StartServer {
         startMonitoring();
         RxNetty.<ByteBuf, ByteBuf>newHttpServerBuilder(port, (request, response) -> {
             try {
-                long startTime = System.currentTimeMillis();
-                counter.increment(CounterEvent.REQUESTS);
                 if (request.getUri().startsWith("/testHello")) {
                     return routeHello.handle(request, response);
                 }
+
+                long startTime = System.currentTimeMillis();
+                counter.increment(CounterEvent.REQUESTS);
                 return route.handle(request, response)
                             .doOnCompleted(() ->  {
                                 counter.increment(CounterEvent.SUCCESS);
