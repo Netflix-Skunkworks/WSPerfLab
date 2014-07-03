@@ -3,24 +3,47 @@ package perf.client;
 import com.netflix.numerus.NumerusProperty;
 import com.netflix.numerus.NumerusRollingNumber;
 import com.netflix.numerus.NumerusRollingPercentile;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.client.PoolExhaustedException;
 import io.reactivex.netty.client.PoolStats;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientBuilder;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
+import org.apache.commons.cli.BasicParser;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.codehaus.jackson.map.ObjectMapper;
 import rx.Observable;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.Writer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class WSClient {
 
-    public static void main(String[] args) {
+    public static void main(String[] rawArgs) {
+        Options options = new Options();
+        options.addOption("j", false, "output JSON");
+        options.addOption("o", true, "output file path");
+
+        CommandLineParser parser = new BasicParser();
+        CommandLine cmd;
+        try {
+            cmd = parser.parse(options, rawArgs);
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        }
+
+        String[] args = cmd.getArgs();
         WSClient client = null;
         if (args.length == 0) {
             client = new WSClient();
@@ -43,25 +66,32 @@ public class WSClient {
                 if (args.length > 4) {
                     query = args[4];
                 }
-                boolean enableJsonLogging = false;
-                if (args.length > 5) {
-                    enableJsonLogging = Boolean.parseBoolean(args[5]);
-                }
-                client = new WSClient(host, port, firstStep, duration, query, enableJsonLogging);
+
+                client = new WSClient(host, port, firstStep, duration, query);
+
+                if (cmd.hasOption('j'))
+                    client.setEnableJsonLogging(true);
+
+                if (cmd.hasOption("o"))
+                    client.setOutputPath(cmd.getOptionValue("o"));
+
             } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
             }
         }
         client.startMonitoring();
-        client.startLoad().toBlockingObservable().last();
+        client.startLoad().toBlocking().last();
     }
 
     final String host;
     final int port;
     final String query;
-    private final boolean enableJsonLogging;
     final int stepDuration; // seconds
     final int firstStep; // starting point (1 == 1000rps, 2 == 2000rps)
+
+    private boolean enableJsonLogging;
+    String outputPath;
+    OutputStream statsOutputStream;
 
     static final int rollingSeconds = 5;
 
@@ -76,16 +106,15 @@ public class WSClient {
     private final ObjectMapper jsonMapper = new ObjectMapper();
 
     public WSClient() {
-        this("localhost", 8888, 1, 30, "?id=12345", false);
+        this("localhost", 8888, 1, 30, "?id=12345");
     }
 
-    public WSClient(String host, int port, int firstStep, int stepDuration, String query, boolean enableJsonLogging) {
+    public WSClient(String host, int port, int firstStep, int stepDuration, String query) {
         this.host = host;
         this.port = port;
         this.firstStep = firstStep;
         this.stepDuration = stepDuration;
         this.query = query;
-        this.enableJsonLogging = enableJsonLogging;
 
         System.out.println("Starting client with hostname: " + host + " port: " + port + " first-step: " + firstStep + " step-duration: " + stepDuration + "s query: " + query);
 
@@ -112,7 +141,24 @@ public class WSClient {
                 });
     }
 
+    WSClient setEnableJsonLogging(boolean b) {
+        this.enableJsonLogging = b;
+        return this;
+    }
+
+
+    WSClient setOutputPath(String s) {
+        this.outputPath = s;
+        return this;
+    }
+
     public Observable<Long> startLoad() {
+        try {
+            this.statsOutputStream = new FileOutputStream(this.outputPath);
+            System.out.println("writing stats to " + this.outputPath);
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
 
         Observable<Observable<Long>> stepIntervals = Observable.timer(0, stepDuration, TimeUnit.SECONDS).map(l -> l + firstStep)
                 .map(step -> {
@@ -157,6 +203,8 @@ public class WSClient {
     }
 
     private void startMonitoring() {
+        final byte[] newlineBytes = "\n".getBytes();
+
         Observable.interval(5, TimeUnit.SECONDS).doOnNext(l -> {
             StringBuilder msg = new StringBuilder();
             msg.append("Total => ");
@@ -208,9 +256,12 @@ public class WSClient {
                     m.put("connsPendingAcquire", poolStats.getPendingAcquireRequestCount());
                     m.put("connsPendingRelease", poolStats.getPendingReleaseRequestCount());
                     String statMsg = jsonMapper.writeValueAsString(m);
-                    System.out.println("******************** Json ************************* ");
-                    System.out.println(statMsg);
-                    System.out.println("*************************************************** ");
+
+                    if (this.statsOutputStream != null) {
+                        this.statsOutputStream.write(statMsg.getBytes());
+                        this.statsOutputStream.write(newlineBytes);
+                    }
+
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

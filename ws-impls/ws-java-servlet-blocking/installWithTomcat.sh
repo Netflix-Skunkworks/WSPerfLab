@@ -2,14 +2,14 @@
 
 sshCommand="ssh"
 update=false
-tomcatVersion="7.0.47"
-gitRepo="mhawthorne"
+tomcatVersion="7.0.54"
+gitRepo="benjchristensen"
 connector=
 
-while getopts "h:s:t:u:r:c:" opt; do
+while getopts "h:s:r:c:u" opt; do
   case $opt in
     h)
-	  hostname=$OPTARG
+      hostname=$OPTARG
       ;;
     s)
       sshCommand=$OPTARG
@@ -17,14 +17,14 @@ while getopts "h:s:t:u:r:c:" opt; do
     t)
       tomcatVersion=$OPTARG
       ;;
-    u)
-      update=true
-      ;;
     r)
       gitRepo=$OPTARG
       ;;
     c)
       connector=$OPTARG
+      ;;
+    u)
+      update=true
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -78,7 +78,11 @@ else
 fi
 
 echo "--- Build WSPerfLab"
-eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew build'"
+
+# not building from top level since mock backend needs java 8 and I don't think we have it in prod
+#eval "$sshCommand $hostname 'cd WSPerfLab/; ./gradlew build'"
+eval "$sshCommand $hostname 'cd WSPerfLab/ws-impls/ws-java-servlet-blocking; ../../gradlew build'"
+
 echo "--- Copy ws-java-servlet-blocking.war to Tomcat 7"
 eval "$sshCommand $hostname 'cp WSPerfLab/ws-impls/ws-java-servlet-blocking/build/libs/ws-java-servlet-blocking-*-SNAPSHOT.war apache-tomcat-${tomcatVersion}/webapps/ws-java-servlet-blocking.war'"
 echo "--- Start Tomcat 7"
