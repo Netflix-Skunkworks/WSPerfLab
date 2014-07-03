@@ -3,6 +3,8 @@ package perf.test.rxnetty;
 import com.netflix.numerus.NumerusRollingNumber;
 import com.netflix.numerus.NumerusRollingPercentile;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.nio.NioEventLoop;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.channel.SingleNioLoopProvider;
@@ -55,7 +57,8 @@ public final class StartServer {
         route = new TestRouteBasic(backendHost, backendPort);
         routeHello = new TestRouteHello();
 
-        RxNetty.useEventLoopProvider(new SingleNioLoopProvider(eventLoops));
+        SingleNioLoopProvider provider = new SingleNioLoopProvider(eventLoops);
+        RxNetty.useEventLoopProvider(provider);
 
         System.out.println("Starting service on port " + port + " with backend at " + backendHost + ':' + backendPort + " ...");
         startMonitoring();
@@ -96,7 +99,7 @@ public final class StartServer {
                 response.setStatus(HttpResponseStatus.BAD_REQUEST);
                 return response.writeStringAndFlush("Error 400: Bad Request\n" + e.getMessage() + '\n');
             }
-        }).build()
+        }).eventLoops(new NioEventLoopGroup(1), provider.globalServerEventLoop()).build()
                .withErrorHandler(throwable -> Observable.empty())
                .withErrorResponseGenerator((response, error) -> System.err.println("Error: " + error.getMessage()))
                .startAndWait();
