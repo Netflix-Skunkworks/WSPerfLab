@@ -4,6 +4,7 @@
 ################# ws-java-rxnetty options #####################
 
 
+: ${EVENT_LOOP_COUNT:=4}
 : ${SERVER_PORT:=8888}
 SERVER_LOG="false"
 CLIENT_LOG="false"
@@ -11,9 +12,9 @@ CLIENT_LOG="false"
 : ${BACKEND_HOST:="127.0.0.1"}
 : ${BACKEND_PORT:=8989}
 
-echo "Using server port ${SERVER_PORT} backend host ${BACKEND_HOST} and port ${BACKEND_PORT}"
+echo "Using event loop count: ${EVENT_LOOP_COUNT} server port ${SERVER_PORT} backend host ${BACKEND_HOST} and port ${BACKEND_PORT}"
 
-WS_JAVA_RX_NETTY_OPTS=""
+WS_JAVA_RXNETTY_OPTS="-XX:MaxDirectMemorySize=4g -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
 #############################################################
 
 SCRIPT_DIR=$(dirname $BASH_SOURCE)
@@ -41,9 +42,9 @@ start() {
 
     PID=`ps -ef | grep ${SCRIPTNAME} | head -n1 |  awk ' {print $2;} '`
     echo ${PID} > ${PIDFILE}
-    export WS_JAVA_RX_NETTY_OPTS=${WS_JAVA_RX_NETTY_OPTS}
+    export WS_JAVA_RXNETTY_OPTS=${WS_JAVA_RXNETTY_OPTS}
 
-    . $SCRIPT_DIR/ws-java-rxnetty $SERVER_PORT $BACKEND_HOST $BACKEND_PORT
+    . $SCRIPT_DIR/ws-java-rxnetty $EVENT_LOOP_COUNT $SERVER_PORT $BACKEND_HOST $BACKEND_PORT
     echo "Started rx-netty based ws server...."
 }
 

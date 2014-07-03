@@ -4,7 +4,7 @@
 ################# ws-backend-mock options #####################
 
 
-: ${SERVER_PORT:=8888}
+: ${SERVER_PORT:=8989}
 
 echo "Using server port ${SERVER_PORT}"
 
