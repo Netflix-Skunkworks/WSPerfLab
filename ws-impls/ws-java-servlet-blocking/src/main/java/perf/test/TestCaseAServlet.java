@@ -11,8 +11,6 @@ import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.JsonFactory;
 import perf.test.utils.BackendMockHostSelector;
 import perf.test.utils.BackendResponse;
-import perf.test.utils.EventLogger;
-import perf.test.utils.PerformanceLogger;
 import perf.test.utils.ServiceResponseBuilder;
 
 import javax.servlet.ServletException;
@@ -102,9 +100,11 @@ public class TestCaseAServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         long startTime = System.currentTimeMillis();
         final String requestId = requestIdHolder.init();
-        EventLogger.log(requestId, "request-start");
+        ////EventLogger.log(requestId, "request-start");
+/*
         final PerformanceLogger perfLogger = PerformanceLogger.instance();
         perfLogger.start(requestId, "top");
+*/
 
         try {
 
@@ -154,14 +154,14 @@ public class TestCaseAServlet extends HttpServlet {
                 BackendResponse c = aGroupResponses.get()[1];
                 BackendResponse d = aGroupResponses.get()[2];
 
-                EventLogger.log(requestId, "build-response-start");
+                //EventLogger.log(requestId, "build-response-start");
                 ByteArrayOutputStream bos = ServiceResponseBuilder.buildTestAResponse(jsonFactory, a, b, c, d, e);
-                EventLogger.log(requestId, "build-response-end");
+                //EventLogger.log(requestId, "build-response-end");
 
                 // output to stream
-                EventLogger.log(requestId, "flush-response-start");
+                //EventLogger.log(requestId, "flush-response-start");
                 response.getWriter().write(bos.toString());
-                EventLogger.log(requestId, "flush-response-end");
+                //EventLogger.log(requestId, "flush-response-end");
             } catch (Exception e) {
                 // error that needs to be returned
                 response.setStatus(500);
@@ -170,8 +170,8 @@ public class TestCaseAServlet extends HttpServlet {
             }
         } finally {
             ServiceResponseBuilder.addResponseHeaders(response, startTime);
-            perfLogger.stop(requestId, "top");
-            EventLogger.log(requestId, "request-end");
+            //perfLogger.stop(requestId, "top");
+            //EventLogger.log(requestId, "request-end");
             requestIdHolder.clear();
         }
     }
@@ -186,17 +186,17 @@ public class TestCaseAServlet extends HttpServlet {
 
         });
 
-        EventLogger.log(requestId, "backend-request-submit " + url);
+        //EventLogger.log(requestId, "backend-request-submit " + url);
         return f;
     }
 
     public String get(String requestId, String url) {
         String uri = BackendMockHostSelector.getRandomBackendPathPrefix() + url;
 
-        final PerformanceLogger perfLogger = PerformanceLogger.instance();
+        //final PerformanceLogger perfLogger = PerformanceLogger.instance();
         final String perfKey = "backend-request " + uri;
-        perfLogger.start(requestId, perfKey);
-        EventLogger.log(requestId, "backend-request-start " + uri);
+        //perfLogger.start(requestId, perfKey);
+        //EventLogger.log(requestId, "backend-request-start " + uri);
 
         HttpGet httpGet = new HttpGet(uri);
         try {
@@ -219,8 +219,8 @@ public class TestCaseAServlet extends HttpServlet {
             throw new RuntimeException("Failure retrieving: " + uri, e);
         } finally {
             httpGet.releaseConnection();
-            perfLogger.stop(requestId, perfKey);
-            EventLogger.log(requestId, "backend-request-end " + uri);
+            //perfLogger.stop(requestId, perfKey);
+            //EventLogger.log(requestId, "backend-request-end " + uri);
         }
     }
 }
