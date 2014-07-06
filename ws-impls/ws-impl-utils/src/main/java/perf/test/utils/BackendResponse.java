@@ -1,20 +1,20 @@
 package perf.test.utils;
 
-import static junit.framework.Assert.assertEquals;
-
-import java.io.IOException;
-import java.io.InputStream;
-
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonToken;
 import org.junit.Test;
-
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Scheduler;
 import rx.Subscriber;
 import rx.schedulers.Schedulers;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+
+import static junit.framework.Assert.*;
 
 /**
  * @author Nitesh Kant (nkant@netflix.com)
@@ -26,13 +26,19 @@ public class BackendResponse {
     private final int numItems;
     private final int itemSize;
     private final String[] items;
+    private final boolean fallback;
 
     public BackendResponse(long responseKey, int delay, int numItems, int itemSize, String[] items) {
+        this(responseKey, delay, numItems, itemSize, items, false);
+    }
+
+    public BackendResponse(long responseKey, int delay, int numItems, int itemSize, String[] items, boolean fallback) {
         this.responseKey = responseKey;
         this.delay = delay;
         this.numItems = numItems;
         this.itemSize = itemSize;
         this.items = items;
+        this.fallback = fallback;
     }
 
     public static BackendResponse fromJson(JsonFactory jsonFactory, byte[] content) throws Exception {
@@ -83,6 +89,7 @@ public class BackendResponse {
             int delay = 0;
             int numItems = 0;
             int itemSize = 0;
+            boolean fallback = false;
             String[] items = null;
             JsonToken current;
 
@@ -98,6 +105,8 @@ public class BackendResponse {
                     itemSize = parser.getIntValue();
                 } else if (fieldName.equals("numItems")) {
                     numItems = parser.getIntValue();
+                } else if(fieldName.equals("fallback")) {
+                    fallback = parser.getBooleanValue();
                 } else if (fieldName.equals("items")) {
                     // expect numItems to be populated before hitting this
                     if (numItems == 0) {
@@ -117,8 +126,8 @@ public class BackendResponse {
 
                 }
             }
-            
-            return new BackendResponse(responseKey, delay, numItems, itemSize, items);
+
+            return new BackendResponse(responseKey, delay, numItems, itemSize, items, fallback);
         } finally {
             parser.close();
         }
@@ -144,16 +153,33 @@ public class BackendResponse {
         return items;
     }
 
+    public boolean isFallback() {
+        return fallback;
+    }
+
+    @Override
+    public String toString() {
+        return "BackendResponse{" +
+                "responseKey=" + responseKey +
+                ", delay=" + delay +
+                ", numItems=" + numItems +
+                ", itemSize=" + itemSize +
+                ", fallback=" + fallback +
+                ", items=" + Arrays.toString(items) +
+                '}';
+    }
+
     public static class UnitTest {
 
         @Test
         public void testJsonParse() throws Exception {
             JsonFactory jsonFactory = new JsonFactory();
-            BackendResponse r = BackendResponse.fromJson(jsonFactory, "{ \"responseKey\": 9999, \"delay\": 50, \"itemSize\": 128, \"numItems\": 2, \"items\": [ \"Lorem\", \"Ipsum\" ]}");
+            BackendResponse r = fromJson(jsonFactory, "{ \"responseKey\": 9999, \"delay\": 50, \"fallback\": false, \"itemSize\": 128, \"numItems\": 2, \"items\": [ \"Lorem\", \"Ipsum\" ]}");
             assertEquals(9999, r.getResponseKey());
             assertEquals(50, r.getDelay());
             assertEquals(128, r.getItemSize());
             assertEquals(2, r.getNumItems());
+            assertFalse(r.fallback);
             String[] items = r.getItems();
             assertEquals(2, items.length);
             assertEquals("Lorem", items[0]);

@@ -2,15 +2,11 @@ apply plugin: 'java'
 apply plugin: 'eclipse'
 
 dependencies {
-    compile 'org.slf4j:slf4j-api:1.7.0'
     compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'
-    compile 'junit:junit-dep:4.10'
     compile 'javax.servlet:javax.servlet-api:3.1.0'
-    compile 'com.netflix.rxjava:rxjava-core:0.18+'
     compile 'com.google.guava:guava:15.0'
     compile 'org.apache.commons:commons-lang3:3.1'
-    compile 'io.netty:netty-common:4.0.14.Final'
-    compile 'io.netty:netty-transport:4.0.14.Final'
+    compile 'junit:junit-dep:4.10'
 }
 
 eclipse {

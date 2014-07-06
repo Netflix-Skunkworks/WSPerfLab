@@ -4,4 +4,5 @@ include 'ws-backend-mock', \
 'ws-impls:ws-impl-utils', \
 'ws-impls:ws-java-servlet-blocking', \
 'ws-impls:ws-java-jetty', \
-'ws-impls:ws-java-rxnetty'
+'ws-impls:ws-java-rxnetty', \
+'ws-impls/ws-java-ribbon'
