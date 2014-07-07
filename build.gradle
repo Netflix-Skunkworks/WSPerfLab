@@ -6,7 +6,6 @@ buildscript {
 
 allprojects {
     repositories {
-        mavenLocal()
         mavenCentral()
     }
 }

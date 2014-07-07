@@ -163,7 +163,7 @@ public class WSClient {
 
         Observable<Observable<Long>> stepIntervals = Observable.timer(0, stepDuration, TimeUnit.SECONDS).map(l -> l + firstStep)
                 .map(step -> {
-                    long rps = step * 100;
+                    long rps = step * 1000;
                     long interval = TimeUnit.SECONDS.toMicros(1) / rps;
                     StringBuilder str = new StringBuilder();
                     str.append('\n');
