@@ -3,14 +3,12 @@ package perf.test.rxnetty;
 import com.netflix.numerus.NumerusRollingNumber;
 import com.netflix.numerus.NumerusRollingPercentile;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.nio.NioEventLoop;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.logging.LogLevel;
 import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.channel.SingleNioLoopProvider;
 import io.reactivex.netty.client.PoolExhaustedException;
-import io.reactivex.netty.protocol.http.client.HttpClient;
+import io.reactivex.netty.metrics.Clock;
 import perf.test.utils.JsonParseException;
 import rx.Observable;
 
@@ -34,6 +32,8 @@ public final class StartServer {
     private static TestRouteHello routeHello;
 
     public static void main(String[] args) {
+        Clock.disableSystemTimeCalls();
+
         int eventLoops = Runtime.getRuntime().availableProcessors();
         int port = 8888;
         String backendHost = "127.0.0.1";
@@ -91,8 +91,8 @@ public final class StartServer {
                                     counter.increment(CounterEvent.NETTY_ERROR);
                                 }
                                 response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
-                                response.writeStringAndFlush("");
-                                return Observable.empty();
+                                response.writeString("");
+                                return response.close(false);
                             });
             } catch (Throwable e) {
                 System.err.println("Server => Error [" + request.getPath() + "] => " + e);
@@ -100,7 +100,7 @@ public final class StartServer {
                 response.setStatus(HttpResponseStatus.BAD_REQUEST);
                 return response.writeStringAndFlush("Error 400: Bad Request\n" + e.getMessage() + '\n');
             }
-        }).enableWireLogging(LogLevel.ERROR).eventLoops(new NioEventLoopGroup(1), provider.globalServerEventLoop()).build()
+        }).eventLoops(new NioEventLoopGroup(1), provider.globalServerEventLoop()).build()
                .withErrorHandler(throwable -> Observable.empty())
                .withErrorResponseGenerator((response, error) -> System.err.println("Error: " + error.getMessage()))
                .startAndWait();
@@ -147,12 +147,12 @@ public final class StartServer {
             System.out.println(msg.toString());
 
             StringBuilder n = new StringBuilder();
-            HttpClient<ByteBuf, ByteBuf> httpClient = route.getClient();
-//            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
-//            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
-//            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
-//            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
-//            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
+            ConnectionPoolMetricListener stats = route.getStats();
+            n.append("     Netty => Used: ").append(stats.getInUseCount());
+            n.append("  Idle: ").append(stats.getIdleCount());
+            n.append("  Total Conns: ").append(stats.getTotalConnections());
+            n.append("  AcqReq: ").append(stats.getPendingAcquire());
+            n.append("  RelReq: ").append(stats.getPendingRelease());
             System.out.println(n.toString());
         }).subscribe();
     }

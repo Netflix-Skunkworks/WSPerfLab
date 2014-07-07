@@ -8,7 +8,6 @@ import io.reactivex.netty.client.PoolExhaustedException;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientBuilder;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
-import io.reactivex.netty.servo.http.HttpClientListener;
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -26,6 +25,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class WSClient {
+
+    private ConnectionPoolMetricListener stats;
 
     public static void main(String[] rawArgs) {
         Options options = new Options();
@@ -99,7 +100,6 @@ public class WSClient {
 
     private final Observable<ByteBuf> client;
     private final HttpClient<ByteBuf, ByteBuf> httpClient;
-    private final HttpClientListener httpClientListener;
 
     private final ObjectMapper jsonMapper = new ObjectMapper();
 
@@ -120,8 +120,9 @@ public class WSClient {
                 .withMaxConnections(15000)
                 .config(new HttpClient.HttpClientConfig.Builder().readTimeout(1, TimeUnit.MINUTES).build())
                 .build();
-        httpClientListener = HttpClientListener.newHttpListener("ws-client");
-        httpClient.subscribe(httpClientListener);
+        stats = new ConnectionPoolMetricListener();
+        httpClient.subscribe(stats);
+
         client = httpClient.submit(HttpClientRequest.createGet(this.query))
                 .flatMap(response -> {
                     if (response.getStatus().code() == 200) {
@@ -162,7 +163,7 @@ public class WSClient {
 
         Observable<Observable<Long>> stepIntervals = Observable.timer(0, stepDuration, TimeUnit.SECONDS).map(l -> l + firstStep)
                 .map(step -> {
-                    long rps = step * 10;
+                    long rps = step * 100;
                     long interval = TimeUnit.SECONDS.toMicros(1) / rps;
                     StringBuilder str = new StringBuilder();
                     str.append('\n');
@@ -223,11 +224,11 @@ public class WSClient {
             System.out.println(msg.toString());
 
             StringBuilder n = new StringBuilder();
-            n.append("     Netty => Used: ").append(httpClientListener.getLiveConnections());
-            n.append("  Idle: ").append(httpClientListener.getConnectionCount() - httpClientListener.getLiveConnections());
-            n.append("  Total Conns: ").append(httpClientListener.getConnectionCount());
-            n.append("  AcqReq: ").append(httpClientListener.getPendingPoolAcquires());
-            n.append("  RelReq: ").append(httpClientListener.getPendingPoolReleases());
+            n.append("     Netty => Used: ").append(stats.getInUseCount());
+            n.append("  Idle: ").append(stats.getIdleCount());
+            n.append("  Total Conns: ").append(stats.getTotalConnections());
+            n.append("  AcqReq: ").append(stats.getPendingAcquire());
+            n.append("  RelReq: ").append(stats.getPendingRelease());
             System.out.println(n.toString());
 
             if (enableJsonLogging) {
@@ -249,11 +250,11 @@ public class WSClient {
                     m.put("rollingLatency99", latency.getPercentile(99.0));
                     m.put("rollingLatencyMax", latency.getPercentile(100.0));
 
-                    m.put("connsInUse", httpClientListener.getLiveConnections());
-                    m.put("connsIdeal", httpClientListener.getConnectionCount() - httpClientListener.getLiveConnections());
-                    m.put("connsTotal", httpClientListener.getConnectionCount());
-                    m.put("connsPendingAcquire", httpClientListener.getPendingPoolAcquires());
-                    m.put("connsPendingRelease", httpClientListener.getPendingPoolReleases());
+                    m.put("connsInUse", stats.getInUseCount());
+                    m.put("connsIdeal", stats.getIdleCount());
+                    m.put("connsTotal", stats.getTotalConnections());
+                    m.put("connsPendingAcquire", stats.getPendingAcquire());
+                    m.put("connsPendingRelease", stats.getPendingRelease());
                     String statMsg = jsonMapper.writeValueAsString(m);
 
                     if (this.statsOutputStream != null) {

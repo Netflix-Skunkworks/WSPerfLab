@@ -23,7 +23,7 @@ dependencies {
 task start(type:JavaExec) {
     main = "perf.test.ribbon.StartServer"
     classpath = sourceSets.main.runtimeClasspath
-    jvmArgs(['-Dorg.slf4j.simpleLogger.defaultLogLevel=debug'])
+//    jvmArgs(['-Dorg.slf4j.simpleLogger.defaultLogLevel=debug'])
     if (project.hasProperty('a')) {
         args(a.split(' '))
     }

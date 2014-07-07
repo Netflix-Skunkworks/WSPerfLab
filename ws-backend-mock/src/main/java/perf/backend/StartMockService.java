@@ -31,7 +31,7 @@ public class StartMockService {
         }
         System.out.println("Starting mock service on port " + port + "...");
         startMonitoring();
-        RxNetty.createHttpServer(port, (request, response) -> {
+        RxNetty.<ByteBuf, ByteBuf>newHttpServerBuilder(port, (request, response) -> {
             try {
                 long startTime = System.currentTimeMillis();
                 counter.increment(CounterEvent.REQUESTS);
@@ -47,7 +47,7 @@ public class StartMockService {
                 counter.increment(CounterEvent.HTTP_ERROR);
                 return response.writeStringAndFlush("Error 500: Bad Request\n" + e.getMessage() + '\n');
             }
-        }).startAndWait();
+        }).build().startAndWait();
     }
 
     protected static Observable<Void> writeError(HttpServerRequest<?> request, HttpServerResponse<?> response, String message) {
@@ -102,7 +102,8 @@ public class StartMockService {
         response.setStatus(HttpResponseStatus.OK);
         return MockResponse.generateJson(id, delay, itemSize, numItems)
                            .doOnNext(json -> counter.add(CounterEvent.BYTES, json.readableBytes()))
-                           .flatMap(json -> response.writeAndFlush(json));
+                           .flatMap(response::writeAndFlush)
+                           .doOnTerminate(response::close);
     }
 
     private static void startMonitoring() {
