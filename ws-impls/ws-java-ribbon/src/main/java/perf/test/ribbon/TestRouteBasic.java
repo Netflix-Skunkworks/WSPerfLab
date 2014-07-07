@@ -29,7 +29,7 @@ public class TestRouteBasic {
     private final HttpResourceGroup httpResourceGroup;
     private final MockBackendService service;
 
-    public TestRouteBasic(String backendHost, int backendPort) {
+    public TestRouteBasic(String backendServerList) {
         httpResourceGroup = new HttpResourceGroup("performanceTest", ClientOptions.create()
                 .withMaxAutoRetries(0)
                 .withMaxAutoRetriesNextServer(0)
@@ -37,7 +37,7 @@ public class TestRouteBasic {
                 .withReadTimeout(30000)
                 .withMaxConnectionsPerHost(10000)
                 .withMaxTotalConnections(10000)
-                .withConfigurationBasedServerList(backendHost + ":" + backendPort));
+                .withConfigurationBasedServerList(backendServerList));
         service = RibbonDynamicProxy.newInstance(MockBackendService.class, httpResourceGroup);
     }
 
@@ -119,7 +119,7 @@ public class TestRouteBasic {
     }
 
     private Observable<BackendResponse> getDataFromBackend(Integer numItems, Integer itemSize, Integer delay, Long id) {
-        return service.request(numItems, itemSize, delay, id).observe().flatMap(b -> {
+        return service.request(numItems, itemSize, delay, id).toObservable().flatMap(b -> {
             try {
                 return Observable.just(BackendResponse.fromJson(jsonFactory, new ByteBufInputStream(b)));
             } catch (JsonParseException e) {

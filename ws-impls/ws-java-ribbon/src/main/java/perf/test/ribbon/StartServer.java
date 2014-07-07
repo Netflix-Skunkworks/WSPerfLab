@@ -35,32 +35,30 @@ public final class StartServer {
 
         int eventLoops = Runtime.getRuntime().availableProcessors();
         int port = 8888;
-        String backendHost = "127.0.0.1";
-        int backendPort = 8989;
+        String backendServerList = "127.0.0.1:8989";
         if (args.length == 0) {
             // use defaults
-        } else if (args.length == 4) {
+        } else if (args.length == 3) {
             eventLoops = Integer.parseInt(args[0]);
             port = Integer.parseInt(args[1]);
-            backendHost = args[2];
-            backendPort = Integer.parseInt(args[3]);
+            backendServerList = args[2];
 
         } else {
             System.err.println(
-                    "Execute with either no argument (for defaults) or 4 arguments: EVENTLOOPS, PORT, BACKEND_HOST, BACKEND_PORT");
+                    "Execute with either no argument (for defaults) or 4 arguments: EVENTLOOPS, PORT, BACKEND_HOST_LIST");
             System.exit(-1);
         }
 
-        System.out.println(String.format("Using eventloops: %d port: %d backend host: %s backend port: %d", eventLoops,
-                port, backendHost, backendPort));
+        System.out.println(String.format("Using eventloops: %d port: %d backend server list: %s", eventLoops,
+                port, backendServerList));
 
-        route = new TestRouteBasic(backendHost, backendPort);
+        route = new TestRouteBasic(backendServerList);
         routeHello = new TestRouteHello();
 
         SingleNioLoopProvider provider = new SingleNioLoopProvider(eventLoops);
         RxNetty.useEventLoopProvider(provider);
 
-        System.out.println("Starting service on port " + port + " with backend at " + backendHost + ':' + backendPort + " ...");
+        System.out.println("Starting service on port " + port + " with backend servers " + backendServerList + " ...");
         startMonitoring();
         RxNetty.<ByteBuf, ByteBuf>newHttpServerBuilder(port, (request, response) -> {
             try {
@@ -126,11 +124,13 @@ public final class StartServer {
 
             long successSum = counter.getCumulativeSum(CounterEvent.SUCCESS);
             long hystrixFallbackSum = counter.getCumulativeSum(CounterEvent.HYSTRIX_FALLBACK);
-            long realSuccessSum = successSum - hystrixFallbackSum;
+            long successRolling = counter.getRollingSum(CounterEvent.SUCCESS);
+            long hystrixFallbackRolling = counter.getRollingSum(CounterEvent.HYSTRIX_FALLBACK);
 
             msg.append("Total => ");
             msg.append("  Requests: ").append(counter.getCumulativeSum(CounterEvent.REQUESTS));
-            msg.append("  Success: ").append(successSum).append('(').append(realSuccessSum).append(" good/").append(hystrixFallbackSum).append(" fallbacks)");
+            msg.append("  Success: ").append(successSum).append('(').append(successSum - hystrixFallbackSum)
+                    .append(" good/").append(hystrixFallbackSum).append(" fallbacks)");
             msg.append("  Error: ").append(counter.getCumulativeSum(CounterEvent.HTTP_ERROR));
             msg.append("  Netty Error: ").append(counter.getCumulativeSum(CounterEvent.NETTY_ERROR));
             msg.append("  Client Pool Exhausted: ").append(counter.getCumulativeSum(CounterEvent.CLIENT_POOL_EXHAUSTION));
@@ -141,7 +141,8 @@ public final class StartServer {
             msg.append("  Bytes: ").append(counter.getCumulativeSum(CounterEvent.BYTES) / 1024).append("kb");
             msg.append(" \n   Rolling =>");
             msg.append("  Requests: ").append(getRollingSum(CounterEvent.REQUESTS)).append("/s");
-            msg.append("  Success: ").append(getRollingSum(CounterEvent.SUCCESS)).append("/s");
+            msg.append("  Success: ").append(successRolling).append('(').append(successRolling - hystrixFallbackRolling)
+                    .append(" good/").append(hystrixFallbackRolling).append(" fallbacks)");
             msg.append("  Error: ").append(getRollingSum(CounterEvent.HTTP_ERROR)).append("/s");
             msg.append("  Netty Error: ").append(getRollingSum(CounterEvent.NETTY_ERROR)).append("/s");
             msg.append("  Bytes: ").append(getRollingSum(CounterEvent.BYTES) / 1024).append("kb/s");
@@ -153,11 +154,11 @@ public final class StartServer {
 
             StringBuilder n = new StringBuilder();
             HttpClient<ByteBuf, ByteBuf> httpClient = route.getClient();
-            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
-            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
-            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
-            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
-            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
+//            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
+//            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
+//            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
+//            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
+//            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
             System.out.println(n.toString());
         }).subscribe();
     }

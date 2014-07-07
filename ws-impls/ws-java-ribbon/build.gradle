@@ -17,12 +17,13 @@ dependencies {
 
 /**
  * ../../gradlew start
- * ../../gradlew start -P'a=EVENTLOOPS PORT BACKEND_HOST BACKEND_PORT'
- * ../../gradlew start -P'a=1 8888 ec2-54-87-12-221.compute-1.amazonaws.com 8989'
+ * ../../gradlew start -P'a=EVENTLOOPS PORT BACKEND_SERVER_LIST'
+ * ../../gradlew start -P'a=1 8888 host1:8989,host2:8989'
  */
 task start(type:JavaExec) {
     main = "perf.test.ribbon.StartServer"
     classpath = sourceSets.main.runtimeClasspath
+    jvmArgs(['-Dorg.slf4j.simpleLogger.defaultLogLevel=debug'])
     if (project.hasProperty('a')) {
         args(a.split(' '))
     }

@@ -10,12 +10,6 @@ import io.netty.buffer.ByteBuf;
 
 /**
  * Maps mock backend request to Java interface.
- * <p>
- * A) GET http://hostname:9100/mock.json?numItems=2&itemSize=50&delay=50&id={uuid}
- * B) GET http://hostname:9100/mock.json?numItems=25&itemSize=30&delay=150&id={uuid}
- * C) GET http://hostname:9100/mock.json?numItems=1&itemSize=5000&delay=80&id={a.responseKey}
- * D) GET http://hostname:9100/mock.json?numItems=1&itemSize=1000&delay=1&id={a.responseKey}
- * E) GET http://hostname:9100/mock.json?numItems=100&itemSize=30&delay=4&id={b.responseKey}
  *
  * @author Tomasz Bak
  */

@@ -6,6 +6,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.nio.NioEventLoop;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.logging.LogLevel;
 import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.channel.SingleNioLoopProvider;
 import io.reactivex.netty.client.PoolExhaustedException;
@@ -99,7 +100,7 @@ public final class StartServer {
                 response.setStatus(HttpResponseStatus.BAD_REQUEST);
                 return response.writeStringAndFlush("Error 400: Bad Request\n" + e.getMessage() + '\n');
             }
-        }).eventLoops(new NioEventLoopGroup(1), provider.globalServerEventLoop()).build()
+        }).enableWireLogging(LogLevel.ERROR).eventLoops(new NioEventLoopGroup(1), provider.globalServerEventLoop()).build()
                .withErrorHandler(throwable -> Observable.empty())
                .withErrorResponseGenerator((response, error) -> System.err.println("Error: " + error.getMessage()))
                .startAndWait();
@@ -147,11 +148,11 @@ public final class StartServer {
 
             StringBuilder n = new StringBuilder();
             HttpClient<ByteBuf, ByteBuf> httpClient = route.getClient();
-            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
-            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
-            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
-            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
-            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
+//            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
+//            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
+//            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
+//            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
+//            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
             System.out.println(n.toString());
         }).subscribe();
     }
