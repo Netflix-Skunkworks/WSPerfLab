@@ -5,7 +5,6 @@ import com.netflix.numerus.NumerusRollingNumber;
 import com.netflix.numerus.NumerusRollingPercentile;
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.client.PoolExhaustedException;
-import io.reactivex.netty.client.PoolStats;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientBuilder;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
@@ -17,18 +16,17 @@ import org.apache.commons.cli.ParseException;
 import org.codehaus.jackson.map.ObjectMapper;
 import rx.Observable;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.Writer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class WSClient {
+
+    private ConnectionPoolMetricListener stats;
 
     public static void main(String[] rawArgs) {
         Options options = new Options();
@@ -122,6 +120,9 @@ public class WSClient {
                 .withMaxConnections(15000)
                 .config(new HttpClient.HttpClientConfig.Builder().readTimeout(1, TimeUnit.MINUTES).build())
                 .build();
+        stats = new ConnectionPoolMetricListener();
+        httpClient.subscribe(stats);
+
         client = httpClient.submit(HttpClientRequest.createGet(this.query))
                 .flatMap(response -> {
                     if (response.getStatus().code() == 200) {
@@ -223,11 +224,11 @@ public class WSClient {
             System.out.println(msg.toString());
 
             StringBuilder n = new StringBuilder();
-            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
-            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
-            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
-            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
-            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
+            n.append("     Netty => Used: ").append(stats.getInUseCount());
+            n.append("  Idle: ").append(stats.getIdleCount());
+            n.append("  Total Conns: ").append(stats.getTotalConnections());
+            n.append("  AcqReq: ").append(stats.getPendingAcquire());
+            n.append("  RelReq: ").append(stats.getPendingRelease());
             System.out.println(n.toString());
 
             if (enableJsonLogging) {
@@ -249,12 +250,11 @@ public class WSClient {
                     m.put("rollingLatency99", latency.getPercentile(99.0));
                     m.put("rollingLatencyMax", latency.getPercentile(100.0));
 
-                    PoolStats poolStats = httpClient.getStats();
-                    m.put("connsInUse", poolStats.getInUseCount());
-                    m.put("connsIdeal", poolStats.getIdleCount());
-                    m.put("connsTotal", poolStats.getTotalConnectionCount());
-                    m.put("connsPendingAcquire", poolStats.getPendingAcquireRequestCount());
-                    m.put("connsPendingRelease", poolStats.getPendingReleaseRequestCount());
+                    m.put("connsInUse", stats.getInUseCount());
+                    m.put("connsIdeal", stats.getIdleCount());
+                    m.put("connsTotal", stats.getTotalConnections());
+                    m.put("connsPendingAcquire", stats.getPendingAcquire());
+                    m.put("connsPendingRelease", stats.getPendingRelease());
                     String statMsg = jsonMapper.writeValueAsString(m);
 
                     if (this.statsOutputStream != null) {

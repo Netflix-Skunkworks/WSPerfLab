@@ -6,7 +6,7 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-	compile 'com.netflix.rxnetty:rx-netty:0.3.5'
+	compile 'com.netflix.rxnetty:rx-netty:0.3.8'
     compile 'com.netflix.numerus:numerus:1.1'
 	compile 'com.netflix.rxjava:rxjava-core:0.18.2'
 	compile 'org.codehaus.jackson:jackson-core-asl:1.9.2'

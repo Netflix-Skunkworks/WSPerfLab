@@ -3,6 +3,7 @@ package perf.test.rxnetty;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.logging.LogLevel;
 import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientBuilder;
@@ -41,6 +42,7 @@ public class TestRouteBasic {
     private final int port;
 
     private final HttpClient<ByteBuf, ByteBuf> client;
+    private ConnectionPoolMetricListener stats;
 
     public TestRouteBasic(String backendHost, int backendPort) {
         host = backendHost;
@@ -49,7 +51,8 @@ public class TestRouteBasic {
                 .withMaxConnections(10000)
                 .config(new HttpClient.HttpClientConfig.Builder().readTimeout(1, TimeUnit.MINUTES).build())
                 .build();
-
+        stats = new ConnectionPoolMetricListener();
+        client.subscribe(stats);
     }
 
     public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
@@ -75,7 +78,8 @@ public class TestRouteBasic {
         Observable<List<BackendResponse>> be = getDataFromBackend("/mock.json?numItems=25&itemSize=30&delay=150&id=" + id)
                 // Eclipse 20140224-0627 can't infer without this type hint even though the Java 8 compiler can
                 .<List<BackendResponse>> flatMap(responseB -> {
-                    Observable<BackendResponse> responseE = getDataFromBackend("/mock.json?numItems=100&itemSize=30&delay=4&id=" + responseB.getResponseKey());
+                    Observable<BackendResponse> responseE = getDataFromBackend(
+                            "/mock.json?numItems=100&itemSize=30&delay=4&id=" + responseB.getResponseKey());
                     return Observable.zip(Observable.just(responseB), responseE, Arrays::asList);
                 }).doOnError(Throwable::printStackTrace);
 
@@ -134,5 +138,9 @@ public class TestRouteBasic {
         System.err.println("Server => Error [" + request.getPath() + "] => " + message);
         response.setStatus(HttpResponseStatus.BAD_REQUEST);
         return response.writeStringAndFlush("Error 500: " + message + "\n");
+    }
+
+    public ConnectionPoolMetricListener getStats() {
+        return stats;
     }
 }
