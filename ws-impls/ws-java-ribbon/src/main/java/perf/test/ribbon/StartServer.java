@@ -153,12 +153,12 @@ public final class StartServer {
             System.out.println(msg.toString());
 
             StringBuilder n = new StringBuilder();
-            HttpClient<ByteBuf, ByteBuf> httpClient = route.getClient();
-//            n.append("     Netty => Used: ").append(httpClient.getStats().getInUseCount());
-//            n.append("  Idle: ").append(httpClient.getStats().getIdleCount());
-//            n.append("  Total Conns: ").append(httpClient.getStats().getTotalConnectionCount());
-//            n.append("  AcqReq: ").append(httpClient.getStats().getPendingAcquireRequestCount());
-//            n.append("  RelReq: ").append(httpClient.getStats().getPendingReleaseRequestCount());
+            ConnectionPoolMetricListener stats = route.getStats();
+            n.append("     Netty => Used: ").append(stats.getInUseCount());
+            n.append("  Idle: ").append(stats.getIdleCount());
+            n.append("  Total Conns: ").append(stats.getTotalConnections());
+            n.append("  AcqReq: ").append(stats.getPendingAcquire());
+            n.append("  RelReq: ").append(stats.getPendingRelease());
             System.out.println(n.toString());
         }).subscribe();
     }

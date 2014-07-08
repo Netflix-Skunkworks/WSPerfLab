@@ -6,7 +6,6 @@ import com.netflix.ribbon.proxy.RibbonDynamicProxy;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import org.codehaus.jackson.JsonFactory;
@@ -24,6 +23,9 @@ import java.util.Map;
  * @author Tomasz Bak
  */
 public class TestRouteBasic {
+
+    private final ConnectionPoolMetricListener metricListener;
+
     private static JsonFactory jsonFactory = new JsonFactory();
 
     private final HttpResourceGroup httpResourceGroup;
@@ -38,6 +40,10 @@ public class TestRouteBasic {
                 .withMaxConnectionsPerHost(10000)
                 .withMaxTotalConnections(10000)
                 .withConfigurationBasedServerList(backendServerList));
+
+        metricListener = new ConnectionPoolMetricListener();
+        httpResourceGroup.getClient().subscribe(metricListener);
+
         service = RibbonDynamicProxy.newInstance(MockBackendService.class, httpResourceGroup);
     }
 
@@ -95,6 +101,10 @@ public class TestRouteBasic {
         }).doOnError(Throwable::printStackTrace);
     }
 
+    public ConnectionPoolMetricListener getStats() {
+        return metricListener;
+    }
+
     private void checkForHystrixCallbacks(BackendResponse[] backendResponses) {
         for (BackendResponse r : backendResponses) {
             if (r.isFallback()) {
@@ -102,10 +112,6 @@ public class TestRouteBasic {
                 return;
             }
         }
-    }
-
-    public HttpClient<ByteBuf, ByteBuf> getClient() {
-        return httpResourceGroup.getClient();
     }
 
     /**
