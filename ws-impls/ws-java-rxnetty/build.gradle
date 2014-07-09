@@ -20,6 +20,7 @@ dependencies {
  * ../../gradlew start
  * ../../gradlew start -P'a=EVENTLOOPS PORT BACKEND_HOST BACKEND_PORT'
  * ../../gradlew start -P'a=1 8888 ec2-54-87-12-221.compute-1.amazonaws.com 8989'
+ * ../../gradlew start -P'a=4 8989 localhost 8976'
  */
 task start(type:JavaExec) {
    main = "perf.test.rxnetty.StartServer"
