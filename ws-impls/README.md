@@ -44,7 +44,7 @@ An HTTP GET will request /testA?id={uuid} which is expected to perform the follo
 
 The conditional flow of requests is demonstrated in this diagram:
 
-<img src="https://raw.github.com/wiki/benjchristensen/WSPerfLab/images/requests.png" width="860" height="260">
+<img src="https://raw.githubusercontent.com/Netflix-Skunkworks/WSPerfLab/master/artifacts/wsperflab-testa.png" width="860" height="260">
 
 The JSON response will include a 'responseKey' value which is generated via:
 
