@@ -19,11 +19,11 @@ The test setup will consist of the 3 layers:
 
 ```ws-backend-mock <- ws-impls <- ws-client```
 
-The <a href="WSPerfLab/tree/master/ws-backend-mock">ws-backend-mock</a> is a simple Java backend app accepting request arguments to affect its response size and latency.
+The [ws-backend-mock](ws-backend-mock) is a simple Java backend app accepting request arguments to affect its response size and latency.
 
-The various <a href="WSPerfLab/tree/master/ws-impls">test implementations</a> are intended to each implement the same logic with different architectures, languages and frameworks.
+The various [test implementations](ws-impls) are intended to each implement the same logic with different architectures, languages and frameworks.
 
-The <a href="WSPerfLab/tree/master/ws-client">ws-client</a> will drive the traffic and capture performance metrics.
+The [ws-client](ws-client) will drive the traffic and capture performance metrics.
 
 Metrics to be captured are:
 
@@ -32,7 +32,7 @@ Metrics to be captured are:
 
 # Test Implementations
 
-Information about test cases and implementation requirements can be found in the <a href="WSPerfLab/tree/master/ws-impls">ws-impls README</a>.
+Information about test cases and implementation requirements can be found in the [ws-impls README](ws-impls)</a>.
 
 
 # Statistics and Report
