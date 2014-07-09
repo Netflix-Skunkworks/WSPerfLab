@@ -154,11 +154,13 @@ public class WSClient {
     }
 
     public Observable<Long> startLoad() {
-        try {
-            this.statsOutputStream = new FileOutputStream(this.outputPath);
-            System.out.println("writing stats to " + this.outputPath);
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
+        if (enableJsonLogging) {
+            try {
+                this.statsOutputStream = new FileOutputStream(this.outputPath);
+                System.out.println("writing stats to " + this.outputPath);
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         Observable<Observable<Long>> stepIntervals = Observable.timer(0, stepDuration, TimeUnit.SECONDS).map(l -> l + firstStep)
