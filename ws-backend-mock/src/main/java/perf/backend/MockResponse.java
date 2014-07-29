@@ -4,7 +4,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.Unpooled;
 import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonGenerator;
 import rx.Observable;
 import rx.Scheduler.Worker;
@@ -44,16 +43,10 @@ public class MockResponse {
     }
 
     /**
-     * 
-     * @param id
-     *            ID from client used to assert correct client/server interaction
-     * @param delay
-     *            How long to delay delivery to simulate server-side latency
-     * @param itemSize
-     *            Length of each item String.
-     * @param numItems
-     *            Number of items in response.
-     * 
+     * @param id       ID from client used to assert correct client/server interaction
+     * @param delay    How long to delay delivery to simulate server-side latency
+     * @param itemSize Length of each item String.
+     * @param numItems Number of items in response.
      * @return String json
      */
     public static Observable<ByteBuf> generateJson(long id, int delay, int itemSize, int numItems) {
@@ -62,33 +55,8 @@ public class MockResponse {
             subscriber.add(worker);
             worker.schedule(() -> {
                 try {
-                    ByteBuf buffer = Unpooled.buffer();
-                    ByteBufOutputStream jsonAsBytes = new ByteBufOutputStream(buffer);
-                    JsonGenerator json = jsonFactory.createJsonGenerator(jsonAsBytes);
-
-                    json.writeStartObject();
-
-                    // manipulate the ID such that we can know the response is from the server (client will know the logic)
-                    long responseKey = getResponseKey(id);
-
-                    json.writeNumberField("responseKey", responseKey);
-
-                    json.writeNumberField("delay", delay);
-                    if (itemSize > MAX_ITEM_LENGTH) {
-                        throw new IllegalArgumentException("itemSize can not be larger than: " + MAX_ITEM_LENGTH);
-                    }
-                    json.writeNumberField("itemSize", itemSize);
-                    json.writeNumberField("numItems", numItems);
-
-                    json.writeArrayFieldStart("items");
-                    for (int i = 0; i < numItems; i++) {
-                        json.writeString(RAW_ITEM_LONG.substring(0, itemSize));
-                    }
-                    json.writeEndArray();
-                    json.writeEndObject();
-                    json.close();
-
-                    subscriber.onNext(buffer);
+                    ByteBuf byteBuf = createJsonResponse(id, delay, itemSize, numItems, false);
+                    subscriber.onNext(byteBuf);
                     subscriber.onCompleted();
                 } catch (Exception e) {
                     subscriber.onError(e);
@@ -97,7 +65,49 @@ public class MockResponse {
         });
     }
 
-    /* package */static long getResponseKey(long id) {
+    public static Observable<ByteBuf> generateFallbackJson(long id, int delay, int itemSize, int numItems) {
+        try {
+            ByteBuf byteBuf = createJsonResponse(id, delay, itemSize, numItems, true);
+            return Observable.just(byteBuf);
+        } catch (IOException e) {
+            // We do not expect to get here
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static ByteBuf createJsonResponse(long id, int delay, int itemSize, int numItems, boolean fallback) throws IOException {
+        ByteBuf buffer = Unpooled.buffer();
+        ByteBufOutputStream jsonAsBytes = new ByteBufOutputStream(buffer);
+        JsonGenerator json = jsonFactory.createJsonGenerator(jsonAsBytes);
+
+        json.writeStartObject();
+
+        // manipulate the ID such that we can know the response is from the server (client will know the logic)
+        long responseKey = getResponseKey(id);
+
+        json.writeNumberField("responseKey", responseKey);
+
+        json.writeNumberField("delay", delay);
+        if (itemSize > MAX_ITEM_LENGTH) {
+            throw new IllegalArgumentException("itemSize can not be larger than: " + MAX_ITEM_LENGTH);
+        }
+        json.writeNumberField("itemSize", itemSize);
+        json.writeNumberField("numItems", numItems);
+        json.writeBooleanField("fallback", fallback);
+
+        json.writeArrayFieldStart("items");
+        for (int i = 0; i < numItems; i++) {
+            json.writeString(RAW_ITEM_LONG.substring(0, itemSize));
+        }
+        json.writeEndArray();
+        json.writeEndObject();
+        json.close();
+        return jsonAsBytes.buffer();
+    }
+
+    /* package */
+    static long getResponseKey(long id) {
         return (id / 37 + 5739375) * 7;
     }
 }

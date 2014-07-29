@@ -5,7 +5,9 @@ buildscript {
 }
 
 allprojects {
-    repositories { mavenCentral() }
+    repositories {
+        mavenCentral()
+    }
 }
 
 apply from: file('gradle/convention.gradle')
@@ -17,9 +19,21 @@ subprojects {
 
     sourceSets.test.java.srcDir 'src/main/java'
 
+    dependencies {
+        compile "io.netty:netty-common:${netty_version}"
+        compile "io.netty:netty-transport:${netty_version}"
+        compile "com.netflix.rxnetty:rx-netty:${rxnetty_version}"
+        compile "com.netflix.rxnetty:rx-netty-servo:${rxnetty_version}"
+        compile "org.slf4j:slf4j-api:${slf4j_version}"
+        runtime "org.slf4j:slf4j-simple:${slf4j_version}"
+        compile "com.netflix.numerus:numerus:1.1"
+        testCompile "junit:junit-dep:4.10"
+        testCompile "org.mockito:mockito-core:1.8.5"
+    }
+
     tasks.withType(Javadoc).each {
         it.classpath = sourceSets.main.compileClasspath
-    }
+	}
 }
 
 if (JavaVersion.current().isJava8Compatible()) {
