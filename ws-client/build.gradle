@@ -18,12 +18,8 @@ dependencies {
 
 
 /**
- * ../gradlew client '-Pa=HOSTNAME PORT'
- * ../gradlew client '-Pa=HOSTNAME PORT FIRST_STEP DURATION QUERY'
- * ../gradlew client '-Pa=localhost 8989 1 30'
- * ../gradlew client '-Pa=localhost 8989 1 30 /?id=12345'
- * ../gradlew client -P'a=ec2-54-87-12-221.compute-1.amazonaws.com 8989 2 45 /?id=7634212'
- * ../gradlew client -P'a=ec2-54-87-12-221.compute-1.amazonaws.com 8989 2 45 /?id=7634212 true'
+ * ../gradlew client '-Pa=-host HOSTNAME -port PORT -step STEP_NUM_TO_START_AT -duration SECONDS_PER_STEP -stepsize RPS_INCREMENT_PER_STEP'
+ * ../gradlew client '-Pa=-host localhost -port 8989 -step 1 -duration 30 -stepsize 200'
  */
 task client(type:JavaExec) {
    main = "perf.client.WSClient"

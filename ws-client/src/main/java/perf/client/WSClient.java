@@ -1,20 +1,10 @@
 package perf.client;
 
-import com.netflix.numerus.NumerusProperty;
-import com.netflix.numerus.NumerusRollingNumber;
-import com.netflix.numerus.NumerusRollingPercentile;
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.client.PoolExhaustedException;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientBuilder;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
-import org.apache.commons.cli.BasicParser;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.codehaus.jackson.map.ObjectMapper;
-import rx.Observable;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -24,6 +14,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.cli.BasicParser;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.codehaus.jackson.map.ObjectMapper;
+
+import rx.Observable;
+
+import com.netflix.numerus.NumerusProperty;
+import com.netflix.numerus.NumerusRollingNumber;
+import com.netflix.numerus.NumerusRollingPercentile;
+
 public class WSClient {
 
     private ConnectionPoolMetricListener stats;
@@ -32,7 +35,13 @@ public class WSClient {
         Options options = new Options();
         options.addOption("j", false, "output JSON");
         options.addOption("o", true, "output file path");
-
+        options.addOption("p", "port", true, "port");
+        options.addOption("h", "host", true, "host");
+        options.addOption("f", "step", true, "first step");
+        options.addOption("d", "duration", true, "duration");
+        options.addOption("q", "query", true, "query");
+        options.addOption("s", "stepsize", true, "step size");
+        
         CommandLineParser parser = new BasicParser();
         CommandLine cmd;
         try {
@@ -41,41 +50,48 @@ public class WSClient {
             throw new RuntimeException(e);
         }
 
-        String[] args = cmd.getArgs();
         WSClient client = null;
-        if (args.length == 0) {
-            client = new WSClient();
-        } else {
-            try {
-                String host = args[0];
-                int port = 8989;
-                if (args.length > 1) {
-                    port = Integer.parseInt(args[1]);
-                }
-                int firstStep = 1;
-                if (args.length > 2) {
-                    firstStep = Integer.parseInt(args[2]);
-                }
-                int duration = 30;
-                if (args.length > 3) {
-                    duration = Integer.parseInt(args[3]);
-                }
-                String query = "/?id=12345";
-                if (args.length > 4) {
-                    query = args[4];
-                }
-
-                client = new WSClient(host, port, firstStep, duration, query);
-
-                if (cmd.hasOption('j'))
-                    client.setEnableJsonLogging(true);
-
-                if (cmd.hasOption("o"))
-                    client.setOutputPath(cmd.getOptionValue("o"));
-
-            } catch (Exception e) {
-                System.err.println("Error: " + e.getMessage());
+        try {
+            String host = "localhost";
+            if (cmd.hasOption('h')) {
+                host = cmd.getOptionValue('h');
             }
+
+            int port = 8976;
+            if (cmd.hasOption('p')) {
+                port = Integer.parseInt(cmd.getOptionValue('p'));
+            }
+
+            int firstStep = 1;
+            if (cmd.hasOption('f')) {
+                firstStep = Integer.parseInt(cmd.getOptionValue('f'));
+            }
+
+            int stepSize = 200;
+            if (cmd.hasOption('s')) {
+                stepSize = Integer.parseInt(cmd.getOptionValue('s'));
+            }
+
+            int duration = 30;
+            if (cmd.hasOption('d')) {
+                duration = Integer.parseInt(cmd.getOptionValue('d'));
+            }
+
+            String query = "/?id=12345";
+            if (cmd.hasOption('q')) {
+                query = cmd.getOptionValue('q');
+            }
+
+            client = new WSClient(host, port, firstStep, stepSize, duration, query);
+
+            if (cmd.hasOption('j'))
+                client.setEnableJsonLogging(true);
+
+            if (cmd.hasOption("o"))
+                client.setOutputPath(cmd.getOptionValue("o"));
+
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
         }
         client.startMonitoring();
         client.startLoad().toBlocking().last();
@@ -85,6 +101,7 @@ public class WSClient {
     final int port;
     final String query;
     final int stepDuration; // seconds
+    final int stepSize;
     final int firstStep; // starting point (1 == 1000rps, 2 == 2000rps)
 
     private boolean enableJsonLogging;
@@ -104,17 +121,18 @@ public class WSClient {
     private final ObjectMapper jsonMapper = new ObjectMapper();
 
     public WSClient() {
-        this("localhost", 8888, 1, 30, "?id=12345");
+        this("localhost", 8888, 1, 1000, 30, "?id=12345");
     }
 
-    public WSClient(String host, int port, int firstStep, int stepDuration, String query) {
+    public WSClient(String host, int port, int firstStep, int stepSize, int stepDuration, String query) {
         this.host = host;
         this.port = port;
         this.firstStep = firstStep;
+        this.stepSize = stepSize;
         this.stepDuration = stepDuration;
         this.query = query;
 
-        System.out.println("Starting client with hostname: " + host + " port: " + port + " first-step: " + firstStep + " step-duration: " + stepDuration + "s query: " + query);
+        System.out.println("Starting client with hostname: " + host + "  port: " + port + "  first-step: " + firstStep + "  step-size: " + stepSize + "  step-duration: " + stepDuration + "s  query: " + query);
 
         httpClient = new HttpClientBuilder<ByteBuf, ByteBuf>(this.host, this.port)
                 .withMaxConnections(15000)
@@ -147,14 +165,17 @@ public class WSClient {
         return this;
     }
 
-
     WSClient setOutputPath(String s) {
         this.outputPath = s;
         return this;
     }
 
     public Observable<Long> startLoad() {
+<<<<<<< HEAD
         if (enableJsonLogging) {
+=======
+        if (this.outputPath != null) {
+>>>>>>> 1767c62f5dad67f5d6cca02c189658bb0b44294f
             try {
                 this.statsOutputStream = new FileOutputStream(this.outputPath);
                 System.out.println("writing stats to " + this.outputPath);
@@ -165,7 +186,7 @@ public class WSClient {
 
         Observable<Observable<Long>> stepIntervals = Observable.timer(0, stepDuration, TimeUnit.SECONDS).map(l -> l + firstStep)
                 .map(step -> {
-                    long rps = step * 1000;
+                    long rps = step * stepSize;
                     long interval = TimeUnit.SECONDS.toMicros(1) / rps;
                     StringBuilder str = new StringBuilder();
                     str.append('\n');
@@ -199,8 +220,8 @@ public class WSClient {
                 long startTime = System.currentTimeMillis();
                 client.doOnCompleted(() -> {
                     // only record latency if we successfully executed
-                    latency.addValue((int) (System.currentTimeMillis() - startTime));
-                }).onErrorResumeNext(Observable.<ByteBuf>empty()).subscribe();
+                        latency.addValue((int) (System.currentTimeMillis() - startTime));
+                    }).onErrorResumeNext(Observable.<ByteBuf> empty()).subscribe();
             }
         });
     }
@@ -221,7 +242,7 @@ public class WSClient {
             msg.append("  Netty Error: ").append(getRollingSum(CounterEvent.NETTY_ERROR)).append("/s");
             msg.append("  Pool exhausted: ").append(getRollingSum(CounterEvent.POOL_EXHAUSTED)).append("/s");
             msg.append("  Bytes: ").append(getRollingSum(CounterEvent.BYTES) / 1024).append("kb/s");
-            msg.append("  \n  Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append("  90th: ").append(latency.getPercentile(90.0));
+            msg.append("  \n   Latency (ms) => 50th: ").append(latency.getPercentile(50.0)).append("  90th: ").append(latency.getPercentile(90.0));
             msg.append("  99th: ").append(latency.getPercentile(99.0)).append("  100th: ").append(latency.getPercentile(100.0));
             System.out.println(msg.toString());
 
