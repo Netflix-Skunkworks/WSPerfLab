@@ -16,6 +16,7 @@ public class TestRouteHello {
     public static final String HELLO_WORLD_LENGTH_STR = String.valueOf(MSG.length);
 
     public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
+        response.flushOnlyOnChannelReadComplete(true);
         response.getHeaders().set(HttpHeaders.Names.CONTENT_LENGTH, HELLO_WORLD_LENGTH_STR);
         response.write(response.getAllocator().buffer(HELLO_WORLD_LENGTH).writeBytes(MSG));
         return response.close();
