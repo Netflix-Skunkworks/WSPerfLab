@@ -65,7 +65,7 @@ public final class StartServer {
         startMonitoring();
         RxNetty.<ByteBuf, ByteBuf>newHttpServerBuilder(port, (request, response) -> {
             try {
-                if (request.getUri().startsWith("/testHello")) {
+                if (request.getUri().startsWith("/hello")) {
                     return routeHello.handle(request, response);
                 }
 
