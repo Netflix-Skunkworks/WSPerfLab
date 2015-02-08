@@ -171,11 +171,7 @@ public class WSClient {
     }
 
     public Observable<Long> startLoad() {
-<<<<<<< HEAD
-        if (enableJsonLogging) {
-=======
         if (this.outputPath != null) {
->>>>>>> 1767c62f5dad67f5d6cca02c189658bb0b44294f
             try {
                 this.statsOutputStream = new FileOutputStream(this.outputPath);
                 System.out.println("writing stats to " + this.outputPath);
