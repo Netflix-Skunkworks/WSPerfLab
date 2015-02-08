@@ -9,7 +9,6 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.JsonFactory;
-import perf.test.utils.BackendMockHostSelector;
 import perf.test.utils.BackendResponse;
 import perf.test.utils.ServiceResponseBuilder;
 
@@ -19,7 +18,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -38,38 +36,13 @@ public class TestCaseAServlet extends HttpServlet {
 
     // used for parallel execution of requests
     private final ThreadPoolExecutor executor;
-
-    private static final class RequestIdHolder {
-
-        private static final String NO_REQUEST_ID = "[no-request-id]";
-
-        private static final InheritableThreadLocal<String> REQUEST_ID = new InheritableThreadLocal<String>() {
-            @Override
-            protected String initialValue() {
-                return NO_REQUEST_ID;
-            }
-        };
-
-        String get() {
-            final String requestId = REQUEST_ID.get();
-            return requestId;
-        }
-
-        String init() {
-            final String reqId = UUID.randomUUID().toString();
-            REQUEST_ID.set(reqId);
-            return reqId;
-        }
-
-        void clear() {
-            REQUEST_ID.set(NO_REQUEST_ID);
-        }
-
-    }
-
-    private static final RequestIdHolder requestIdHolder = new RequestIdHolder();
+    private final String backendMockUriPrefix;
 
     public TestCaseAServlet() {
+        String backendMockHost = System.getProperty("perf.test.backend.hostname", "127.0.0.1");
+        String backendMockPort = System.getProperty("perf.test.backend.port", "8989");
+        backendMockUriPrefix = "http://" + backendMockHost + ':' + backendMockPort + "/ws-backend-mock";
+
         final RequestConfig reqConfig = RequestConfig.custom()
             .setConnectTimeout(PropertyNames.ClientConnectTimeout.getValueAsInt())
             .setSocketTimeout(PropertyNames.ClientSocketTimeout.getValueAsInt())
@@ -81,7 +54,7 @@ public class TestCaseAServlet extends HttpServlet {
         connMgr.setMaxTotal(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt());
         connMgr.setDefaultMaxPerRoute(PropertyNames.ClientMaxConnectionsTotal.getValueAsInt());
 
-        this.client = HttpClients.custom()
+        client = HttpClients.custom()
             .setDefaultRequestConfig(reqConfig)
             .setConnectionManager(connMgr)
             .build();
@@ -97,14 +70,9 @@ public class TestCaseAServlet extends HttpServlet {
             new LinkedBlockingQueue<Runnable>());
     }
 
+    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         long startTime = System.currentTimeMillis();
-        final String requestId = requestIdHolder.init();
-        ////EventLogger.log(requestId, "request-start");
-/*
-        final PerformanceLogger perfLogger = PerformanceLogger.instance();
-        perfLogger.start(requestId, "top");
-*/
 
         try {
 
@@ -119,8 +87,8 @@ public class TestCaseAServlet extends HttpServlet {
             try {
 
                 /* First 2 requests (A, B) in parallel */
-                final Future<String> aResponse = queueGet(requestId, "/mock.json?type=A&numItems=2&itemSize=50&delay=50&id=" + id);
-                final Future<String> bResponse = queueGet(requestId, "/mock.json?type=B&numItems=25&itemSize=30&delay=150&id=" + id);
+                final Future<String> aResponse = queueGet("/mock.json?type=A&numItems=2&itemSize=50&delay=50&id=" + id);
+                final Future<String> bResponse = queueGet("/mock.json?type=B&numItems=25&itemSize=30&delay=150&id=" + id);
 
                 /* When response A received perform C & D */
                 // spawned in another thread so we don't block the ability to B/E to proceed in parallel
@@ -130,8 +98,10 @@ public class TestCaseAServlet extends HttpServlet {
                     public BackendResponse[] call() throws Exception {
                         String aValue = aResponse.get();
                         BackendResponse aResponse = BackendResponse.fromJson(jsonFactory, aValue);
-                        final Future<String> cResponse = queueGet(requestId, "/mock.json?type=C&numItems=1&itemSize=5000&delay=80&id=" + aResponse.getResponseKey());
-                        final Future<String> dResponse = queueGet(requestId, "/mock.json?type=D&numItems=1&itemSize=1000&delay=1&id=" + aResponse.getResponseKey());
+                        final Future<String> cResponse = queueGet(
+                                "/mock.json?type=C&numItems=1&itemSize=5000&delay=80&id=" + aResponse.getResponseKey());
+                        final Future<String> dResponse = queueGet(
+                                "/mock.json?type=D&numItems=1&itemSize=1000&delay=1&id=" + aResponse.getResponseKey());
                         return new BackendResponse[] { aResponse, BackendResponse.fromJson(jsonFactory, cResponse.get()),
                                 BackendResponse.fromJson(jsonFactory, dResponse.get()) };
                     }
@@ -141,7 +111,7 @@ public class TestCaseAServlet extends HttpServlet {
                 /* When response B is received perform E */
                 String bValue = bResponse.get();
                 BackendResponse b = BackendResponse.fromJson(jsonFactory, bValue);
-                String eValue = get(requestId, "/mock.json?type=E&numItems=100&itemSize=30&delay=40&id=" + b.getResponseKey());
+                String eValue = get("/mock.json?type=E&numItems=100&itemSize=30&delay=40&id=" + b.getResponseKey());
 
                 BackendResponse e = BackendResponse.fromJson(jsonFactory, eValue);
 
@@ -170,37 +140,27 @@ public class TestCaseAServlet extends HttpServlet {
             }
         } finally {
             ServiceResponseBuilder.addResponseHeaders(response, startTime);
-            //perfLogger.stop(requestId, "top");
-            //EventLogger.log(requestId, "request-end");
-            requestIdHolder.clear();
         }
     }
 
-    public Future<String> queueGet(final String requestId, final String url) {
+    public Future<String> queueGet(final String url) {
         final Future<String> f = executor.submit(new Callable<String>() {
 
             @Override
             public String call() throws Exception {
-                return get(requestId, url);
+                return get(url);
             }
 
         });
-
-        //EventLogger.log(requestId, "backend-request-submit " + url);
         return f;
     }
 
-    public String get(String requestId, String url) {
-        String uri = BackendMockHostSelector.getRandomBackendPathPrefix() + url;
-
-        //final PerformanceLogger perfLogger = PerformanceLogger.instance();
-        final String perfKey = "backend-request " + uri;
-        //perfLogger.start(requestId, perfKey);
-        //EventLogger.log(requestId, "backend-request-start " + uri);
+    public String get(String url) {
+        String uri = backendMockUriPrefix + url;
 
         HttpGet httpGet = new HttpGet(uri);
         try {
-            HttpResponse response = this.client.execute(httpGet);
+            HttpResponse response = client.execute(httpGet);
 
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw new RuntimeException("Failure: " + response.getStatusLine());
@@ -219,8 +179,6 @@ public class TestCaseAServlet extends HttpServlet {
             throw new RuntimeException("Failure retrieving: " + uri, e);
         } finally {
             httpGet.releaseConnection();
-            //perfLogger.stop(requestId, perfKey);
-            //EventLogger.log(requestId, "backend-request-end " + uri);
         }
     }
 }

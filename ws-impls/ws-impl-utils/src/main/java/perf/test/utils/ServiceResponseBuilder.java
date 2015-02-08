@@ -138,7 +138,7 @@ public class ServiceResponseBuilder {
 
     public static Map<String, String> getPerfResponseHeaders(long startTime) {
         Map<String, String> toReturn = new HashMap<String, String>();
-        toReturn.put("server_response_time", String.valueOf((System.currentTimeMillis() - startTime)));
+        toReturn.put("server_response_time", String.valueOf(System.currentTimeMillis() - startTime));
 
         toReturn.put("os_arch", osStats.getArch());
         toReturn.put("os_name", osStats.getName());
