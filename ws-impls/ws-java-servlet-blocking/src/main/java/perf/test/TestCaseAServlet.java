@@ -111,7 +111,7 @@ public class TestCaseAServlet extends HttpServlet {
                 /* When response B is received perform E */
                 String bValue = bResponse.get();
                 BackendResponse b = BackendResponse.fromJson(jsonFactory, bValue);
-                String eValue = get("/mock.json?type=E&numItems=100&itemSize=30&delay=40&id=" + b.getResponseKey());
+                String eValue = get("/mock.json?type=E&numItems=100&itemSize=30&delay=4&id=" + b.getResponseKey());
 
                 BackendResponse e = BackendResponse.fromJson(jsonFactory, eValue);
 
