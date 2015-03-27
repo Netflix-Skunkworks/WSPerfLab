@@ -87,8 +87,8 @@ public class TestCaseAServlet extends HttpServlet {
             try {
 
                 /* First 2 requests (A, B) in parallel */
-                final Future<String> aResponse = queueGet("/mock.json?type=A&numItems=2&itemSize=50&delay=50&id=" + id);
-                final Future<String> bResponse = queueGet("/mock.json?type=B&numItems=25&itemSize=30&delay=150&id=" + id);
+                final Future<BackendResponse> aResponseFuture = queueGet("/mock.json?type=A&numItems=2&itemSize=50&delay=50&id=" + id);
+                final Future<BackendResponse> bResponseFuture = queueGet("/mock.json?type=B&numItems=25&itemSize=30&delay=150&id=" + id);
 
                 /* When response A received perform C & D */
                 // spawned in another thread so we don't block the ability to B/E to proceed in parallel
@@ -96,24 +96,20 @@ public class TestCaseAServlet extends HttpServlet {
 
                     @Override
                     public BackendResponse[] call() throws Exception {
-                        String aValue = aResponse.get();
-                        BackendResponse aResponse = BackendResponse.fromJson(jsonFactory, aValue);
-                        final Future<String> cResponse = queueGet(
+                        BackendResponse aResponse = aResponseFuture.get();
+                        final Future<BackendResponse> cResponse = queueGet(
                                 "/mock.json?type=C&numItems=1&itemSize=5000&delay=80&id=" + aResponse.getResponseKey());
-                        final Future<String> dResponse = queueGet(
+                        final Future<BackendResponse> dResponse = queueGet(
                                 "/mock.json?type=D&numItems=1&itemSize=1000&delay=1&id=" + aResponse.getResponseKey());
-                        return new BackendResponse[] { aResponse, BackendResponse.fromJson(jsonFactory, cResponse.get()),
-                                BackendResponse.fromJson(jsonFactory, dResponse.get()) };
+                        return new BackendResponse[] { aResponse, cResponse.get(), dResponse.get() };
                     }
 
                 });
 
                 /* When response B is received perform E */
-                String bValue = bResponse.get();
-                BackendResponse b = BackendResponse.fromJson(jsonFactory, bValue);
-                String eValue = get("/mock.json?type=E&numItems=100&itemSize=30&delay=4&id=" + b.getResponseKey());
+                BackendResponse b = bResponseFuture.get();
 
-                BackendResponse e = BackendResponse.fromJson(jsonFactory, eValue);
+                BackendResponse e = get("/mock.json?type=E&numItems=100&itemSize=30&delay=4&id=" + b.getResponseKey());
 
                 /*
                  * Parse JSON so we can extract data and combine data into a single response.
@@ -143,11 +139,11 @@ public class TestCaseAServlet extends HttpServlet {
         }
     }
 
-    public Future<String> queueGet(final String url) {
-        final Future<String> f = executor.submit(new Callable<String>() {
+    public Future<BackendResponse> queueGet(final String url) {
+        final Future<BackendResponse> f = executor.submit(new Callable<BackendResponse>() {
 
             @Override
-            public String call() throws Exception {
+            public BackendResponse call() throws Exception {
                 return get(url);
             }
 
@@ -155,7 +151,7 @@ public class TestCaseAServlet extends HttpServlet {
         return f;
     }
 
-    public String get(String url) {
+    public BackendResponse get(String url) {
         String uri = backendMockUriPrefix + url;
 
         HttpGet httpGet = new HttpGet(uri);
@@ -168,13 +164,11 @@ public class TestCaseAServlet extends HttpServlet {
 
             HttpEntity entity = response.getEntity();
 
-            // get response data
-            String data = EntityUtils.toString(entity);
-
+            BackendResponse backendResponse = BackendResponse.fromJson(jsonFactory, entity.getContent());
             // ensure it is fully consumed
             EntityUtils.consume(entity);
 
-            return data;
+            return backendResponse;
         } catch (Exception e) {
             throw new RuntimeException("Failure retrieving: " + uri, e);
         } finally {
