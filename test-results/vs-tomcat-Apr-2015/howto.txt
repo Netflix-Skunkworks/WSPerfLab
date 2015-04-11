@@ -1,0 +1,284 @@
+Benchmarking Tomcat vs rxNetty
+==============================
+
+These are notes from a recent analysis of Tomcat vs rxNetty performance, where
+the aim was to fully understand performance differences for the wsperflab
+"Hello Netflix" benchmark.
+
+Approach
+--------
+
+To study performance, I used two approaches:
+
+1. Staircase load
+
+Automated execution of the wrk benchmark tool, stepping clients from a low to
+high value. Based on the server and observed device utilization, I choose to
+run wrk with 4 threads (to use all 4 CPUs), and step the client count from 50 to
+1100. This pushed both targets (rxNetty, Tomcat) and the server from idle CPUs,
+to almost fully utilized CPUs (90%), and then into saturation (most noticeable
+by the explosion in maximum request latency). It's important to achieve this
+full range for study.
+
+Given the clients counts, observed CPU utilization, and saturation, I could then
+do approach (2).
+
+2. Sustained load and analysis
+
+Client counts were picked for both rxNetty and Tomcat for the following two
+scenarios, and the load was run for hours (days) to allow prolonged study:
+
+2.1. Fairly busy (CPUs ~70% utilized), but with CPU time bounding the workload
+rather than queueing. For both rxNetty and Tomcat, this occurred around 400
+clients. This level of load allows the CPU time to be studied, especially using
+CPU flame graphs, and perf_events for CPU Performance Monitoring Counters
+(PMCs). Heavier load includes queueing and lock contention; lighter load
+(especially <20% CPUs) may not be representative as the caches may be too cool,
+and, lower CPU counts make it more difficult to do sample based profiling
+(fewer on-CPU samples for the same given time interval).
+
+2.2. Saturation and queueing. This is present for both rxNetty and Tomcat at
+around 800 clients; rxNetty especially at 1000+ clients. This level of load
+allows the queueing effects to be studied, including lock contention.
+
+Server setup
+------------
+
+The server of study is a physical PC, so that PMCs can be used.
+
+The CPU speed step governor must be disabled, otherwise CPUs will be clocked
+by the kernel to between 1.6 GHz and 3.0 GHz. One way to do this is to select
+the performance governor:
+
+cd /sys/devices/system/cpu
+for c in 0 1 2 3; do echo performance > cpu$c/cpufreq/scaling_governor; done
+
+There is also turbo boost, which is different, but its effects can be studied
+and accounted for from perf and CPU cycles vs CPU reference cycles. Trying
+to do this WITH speed step enabled was getting too onerous. Disable speed step.
+(If you want, disable turbo boost as well: it's a BIOS setting.)
+
+Check for perturbations: crontab tasks etc, and kill them. Always keep
+iostat running to see if the metrics make sense (heavy CPU time, and should be
+no or little disk I/O), and watch out for hitting swap.
+
+Various helper shell scripts are in /usr/local/bin to do things like start
+and stop the servers (tomcat-start, tomcat-stop, etc):
+
+# ls /usr/local/bin
+benchreport.awk  perf_script      rxnetty-stop    wrk
+benchrun         pids             tomcat-cputime  wsbackend-cputime
+javamap          rxnetty-cputime  tomcat-io       wsbackend-io
+jmaps            rxnetty-io       tomcat-pid      wsbackend-pid
+l2trace          rxnetty-pid      tomcat-start    wsbackend-start
+map.sh           rxnetty-start    tomcat-stop     wsbackend-stop
+
+Others from this list are described later.
+
+Benchmark client
+----------------
+
+wrk is used, as it is multi-threaded and provides various statistics. An example
+invocation:
+
+wrk -t 4 -c 400 -d 60 'http://localhost:8888/testA?id=1'
+
+This runs with 4 threads (-t 4), with 400 simulated concurrent clients (-c 400),
+and for 60 seconds (-d 60).
+
+At least 5 minutes of heavy load (-c 400) is applied to the servers after
+starting them, to ensure they are "warm" (JIT compiled) before measuring them
+using benchmark runs or staircase tests.
+
+Active benchmarking (analysis of everything during the benchmark) is performed
+to ensure that the client and servers are doing what they are supposed to.
+
+Staircase load
+--------------
+
+To automate the staircase load test, a shell script, /usr/local/bin/benchrun,
+steps over the client range and executes wrk, while gathering numerous metrics
+(see the Metrics section later). The benchrun script can be tuned via the
+variables defined at the top:
+
+target=tomcat
+minclients=50
+maxclients=1100
+stepclients=50
+benchduration=60
+threads=4
+
+The output of benchrun can be directed to a file. I usually run it from screen,
+and with "| tee -a", to both watch and capture the output.
+
+The output can be converted into CSV by an awk script, which scraps the various
+metrics. This CSV output is then imported into Google spreadsheet. The script
+is benchreport.awk, which is also in /usr/local/bin.
+
+The full sequence is:
+
+1. vi /usr/local/bin/benchrun		# change run parameters
+2. benchrun | tee -a out.bench01
+3. benchreport.awk < out.bench01 > out.bench01.csv
+
+Example output of benchreport.awk:
+
+clients duration_s req/sec avg_ms stdev_ms max_ms CPU_avg_pct context-switches cs_per_req migrations migr_per_req cycles refcycles instructions IPC SCPI LLC_loads LLC_loads_per_req tusr_ms tusr_ms_per_req tsys_ms tsys_ms_per_req ttot_ms ttot_ms_per_req busr_ms bsys_ms btot_ms tr_b tw_b t_b t_b_per_req tr_c tw_c t_c t_c_per_req br_b bw_b br_c bw_c lo_rxpck/s lo_rxpck_per_req lo_txpck/s lo_txpck_per_req
+50 60 304.08 157.50 1.55 176.08 10.66 1291790 70.80 256752 14.07 90919892301 91065483982 46706895453 0.51 1.47 838235253 2756627.38 11750 0.64 4030 0.22 15780 0.86 7590 3740 11330 524363 0 524363 28.74 18392 0 18392 1.01 20033166 199479401 243386 334860 8919.82 29.33 8919.82 29.33
+100 60 633.28 157.66 2.15 175.91 21.66 2653286 69.83 511130 13.45 178998206844 178037147291 96428286722 0.54 1.40 1695470565 2677284.24 23630 0.62 8070 0.21 31700 0.83 15630 7340 22970 1074870 0 1074870 28.29 38193 0 38193 1.01 41734910 415537058 510710 701234 18629.10 29.42 18629.10 29.42
+150 60 934.79 158.04 4.64 272.11 31.88 3853336 68.70 734780 13.10 256895040810 254093659596 143434405603 0.56 1.34 2456979561 2628375.96 34050 0.61 11980 0.21 46030 0.82 22510 10180 32690 1587131 0 1587131 28.30 56319 0 56319 1.00 61600111 613383610 747349 1028578 27587.10 29.51 27587.10 29.51
+[...]
+
+benchreport.awk does various per-request calculations and includes them as
+columns. Eg, migr (migrations) and migr_per_req. These could be done by Google
+spreadsheet, however, it's easier on the import cycle to have as much processed
+as possible before importing the CSV.
+
+Both benchrun and benchreport.awk are written as ad hoc, throw-away scripts.
+
+Metrics
+-------
+
+Numerous metrics were collected from the following sources, automated by the
+benchrun script.
+
+- wrk
+- perf stat -e task-clock,cs,cpu-migrations,page-faults,cycles,stalled-cycles-frontend,stalled-cycles-backend,instructions,ref-cycles,branches,branch-misses -d
+- sar -n DEV,EDEV,IP,EIP,TCP,ETCP,SOCK -dqru -P ALL $benchduration 1
+- /proc/$pid/stat (via some helper commands: rxnetty-cputime, tomcat-cputime, wsbackend-cputime)
+- time (of wrk)
+
+All of these metrics have been studied to understand the behavior of the
+benchmark. Additional custom analysis, using ftrace- and perf_events-based
+tracing, was also performed.
+
+The cputime helper commands printed the total CPU time consumed by the process
+and its children, and was gathered before and after a benchmark run. With the
+request rate (and duration, therefore, total number of requests), this allows
+the CPU time (in milliseconds) per request to be calculated:
+
+	CPU_per_req = ( CPU_after - CPU_before ) / number_of_requests
+
+THIS HAS BEEN KEY TO QUANTIFYING AND UNDERSTANDING CPU CONSUMPTION DIFFERENCES.
+Not just CPU_per_req, but also splitting this into user and kernel time, which
+is provided in thet output of the cputime commands, eg:
+
+# wsbackend-cputime 
+backend cputimes(usr,sys,tot): 773218 380219 1153437
+
+These times are in 1/100ths of a second.
+
+CPU Time
+--------
+
+CPU per request can be understand from the following two sources:
+
+- CPU flame graphs
+- Instructions per cycle (IPC)
+
+CPU Flame graphs
+----------------
+
+The CPU flame graphs showed the breakdown of all CPU time and paths, and were
+generated using the following commands (initially):
+
+perf record -F 99 -a -g -- sleep 30; jmaps
+perf script -f comm,pid,tid,cpu,time,event,ip,sym,dso,trace > out.stacks
+cat out.stacks | ./stackcollapse-perf.pl --pid | ./flamegraph-wsperflab.pl --color=java --hash > out.svg
+
+The jmaps command is a helper in /usr/local/bin that dumps all java symbol
+tables into /tmp, using perf-map-agent, for perf to consume.
+
+The custom "perf script" invocation is important to collect the PID and TID in
+the output, so that flame graphs by-PID can be generated.
+
+The stackcollapse-perf.pl command is run with --pid, which only works with
+the previous perf script output.
+
+A custom flamegraph-wsperflab.pl command is used, that has extra color
+highlighting for different frames (the code that handles --color=java).
+
+You can use "--hash" with flamegraph.pl to use consistent colors, which helps
+temper the color range when so many different hues are used.
+
+It was found to be very helpful to have separate user and kernel flame graphs.
+
+User CPU flame graphs:
+
+cat out.stacks | ./stackcollapse-perf.pl --pid | grep -v system_call | ./flamegraph-wsperflab.pl --color=java --hash > user.svg
+
+Kernel CPU flame graphs:
+
+cat out.stacks | ./stackcollapse-perf.pl --pid | grep system_call | sed 's/;.*system_call/;system_call/' | ./flamegraph-wsperflab.pl --color=java --hash > kernel.svg
+
+Now the delta between Tomcat and rxNetty's CPU time per request, for both user
+and kernel, can be studied and identified from the flame graphs. The differences
+I had were:
+
+- rxNetty vs Tomcat, user: 0.41 ms vs 0.63 ms
+- rxNetty vs Tomcat, kernel: 0.13 ms vs 0.20 ms
+
+It's important when adding the numbers to take IPC into account.
+
+Instructions per cycle
+----------------------
+
+This is emitted by the "perf stat" listed earlier. Example output:
+
+[...]
+   594,794,948,042 cycles                    #    2.478 GHz                     [100.00%]
+   440,126,795,393 stalled-cycles-frontend   #   74.00% frontend cycles idle    [100.00%]
+   369,859,929,237 stalled-cycles-backend    #   62.18% backend  cycles idle    [100.00%]
+   353,332,061,311 instructions              #    0.59  insns per cycle        
+                                             #    1.25  stalled cycles per insn [100.00%]
+   578,244,706,395 ref-cycles                # 2409.466 M/sec                   [100.00%]
+[...]
+
+Note the "insns per cycle" of 0.59.
+
+Also note that ref-cycles is less than cycles. The cycles metric includes turbo
+boost, which skews IPC (in this case, by 2.8%). A more accurate measure of CPU
+efficiency would be IPRC: instructions per ref-cycle. This can be calculated
+from the benchreport.awk CSV columns if needed.
+
+Blocked Time
+------------
+
+Blocked time (off-CPU time) was studied using the following:
+
+- Standard resource tools
+- Context switch flame graphs
+- Chain graphs
+
+Standard resource tools included iostat and vmstat to ensure that off-CPU time
+wasn't disk I/O or memory swapping by accident.
+
+Context Switch Flame Graphs
+---------------------------
+
+These explain why threads are leaving CPU.
+
+They were gathered by measuring context-switches in perf. Eg:
+
+perf record -e cs -a -g -- sleep 10; jmaps
+
+Then creating a flamegraph as earlier.
+
+Chain Graphs
+------------
+
+These show off-CPU time along with the wakeup stacks, and are the counterpart
+to CPU flame graphs. They can explain all reasons for blocked time: disk I/O,
+locks, etc.
+
+There is no great solution to chain graphs yet, but I'm working on it. The
+chain graph in the results was generated using:
+
+perf record -m 2048 -e sched:sched_switch -e sched:sched_wakeup -a -g sleep 2; jmaps
+
+Plus a modified version of stackcollapse-perf.pl, which associates together
+the wakeup stacks and the switch events.
+
+Note that this run only has a "sleep 2", since this generates 130 Mbytes of
+perf.data, which is about 1 Gbyte of text output to process. The overheads of
+this are obscene, and I'm working on a better way.
