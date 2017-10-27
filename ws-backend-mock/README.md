@@ -68,5 +68,5 @@ Example Response:
 To run from command line:
 
 ```
-../gradlew jettyRun
+../gradlew start
 ```
